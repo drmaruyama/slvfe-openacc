@@ -1,4 +1,4 @@
-version 0.3.4 (XX/XX/2015)
+version 0.3.4 (12/24/2015)
 * Energy Histogram Computation:
     * The ermod program terminates when the cell is not cuboidal
 * Solvation Free Energy:
