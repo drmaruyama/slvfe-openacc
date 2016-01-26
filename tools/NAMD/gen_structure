@@ -4,6 +4,7 @@ import os.path
 import sys
 import re
 import pickle
+import math
 from optparse import OptionParser
 
 parser = OptionParser()
@@ -379,11 +380,56 @@ def get_topology_info():
 
 (atoms, solvent, slupos) = get_topology_info()
 
+use_ljtable = False
+atomtypes_used = []
 if len(fixtable) > 0:
     log("NBFIX entries are found")
-    error("NBFIX is not supported in current version of ERmod; please contact developer team")
 
-    # FIXME TODO: make LJTable here
+    # convert to sigma (angstrom) and eps (kcal / mol)
+    for t in atoms:
+        at = t[5]
+        if at not in atomtypes_used:
+            atomtypes_used.append(at)
+    log("Used atoms: " + repr(atomtypes_used))
+    found_any = False
+    for (a1, a2) in fixtable:
+        if (a1 in atomtypes_used or
+            a2 in atomtypes_used):
+            found_any = True
+            break
+    use_ljtable = found_any
+
+if use_ljtable:
+    log("Generating LJ table")
+    ntypes = len(atomtypes_used)
+    sigtable = [[None] * ntypes for i in range(ntypes)]
+    epstable = [[None] * ntypes for i in range(ntypes)]
+    sgm_from_rmin2 = 2.0 ** (5.0 / 6.0)
+    
+    for i in range(ntypes):
+        (eps_i, rmin_i) = atomtable[atomtypes_used[i]]
+        sigma_i = sgm_from_rmin2 * rmin_i
+        for j in range(ntypes):
+            (eps_j, rmin_j) = atomtable[atomtypes_used[j]]
+            sigma_j = sgm_from_rmin2 * rmin_j
+            if eps_i == 0.0 or eps_j == 0.0 or rmin_i == 0.0 or rmin_j == 0.0:
+                sigtable[i][j] = 0.0
+                epstable[i][j] = 0.0
+            else:
+                # arithmetic sigma & geometric eps
+                sigtable[i][j] = 0.5 * (sigma_i + sigma_j)
+                epstable[i][j] = math.sqrt(eps_i * eps_j)
+    for (atom1, atom2) in fixtable:
+        (eps, rmin) = fixtable[(atom1, atom2)]
+        try:
+            i = atomtypes_used.index(atom1)
+            j = atomtypes_used.index(atom2)
+        except ValueError:
+            # one of pairs not used
+            continue
+        sig = sgm_from_rmin2 * rmin
+        sigtable[i][j] = sgm
+        epstable[i][j] = eps
 
 def gen(mode):
     if not os.path.exists(mode):
@@ -417,7 +463,9 @@ def gen(mode):
             (_aid, _seg, _resi, resname, _atomname, atomtype, charge, mass) = atoms[rb + j]
             (eps, rmin) = atomtable[atomtype]
             atom = atomtype_of_mass(float(mass))
-            # FIXME TODO: output LJTable version here
+            if use_ljtable:
+                eps = atomtypes_used.index(atomtype) + 1
+                rmin = 0.
             print >> ofh, ("%d %s %.5f %.5f %.5f" % 
                            (j + 1, atom, float(charge), eps, rmin))
         safe_close(ofh)
@@ -426,10 +474,29 @@ def gen(mode):
     if mode == "soln":
         carryover["sltspec"] = slupos + 1
 
+    if use_ljtable:
+        carryover["ljformat"] = 5 # read from LJTable
+    else:
+        carryover["ljformat"] = 1
+
     # write carryover
     ofh = file(mode + "/.extraparam", "wt")
     pickle.dump(carryover, ofh)
     safe_close(ofh)
+
+    if use_ljtable:
+        ofh = file(mode + "/LJTable", "wt")
+        ntypes = len(atomtypes_used)
+        print >> ofh, ntypes
+        for i in range(ntypes):
+            for j in range(ntypes):
+                print >> ofh, "%+.6e" % sigtable[i][j], 
+            print >> ofh
+        for i in range(ntypes):
+            for j in range(ntypes):
+                print >> ofh, "%+.6e" % epstable[i][j],
+            print >> ofh
+        safe_close(ofh)
 
 gen("soln")
 gen("refs")

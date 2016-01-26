@@ -1,3 +1,6 @@
+version 0.3.5 (x / y /2016)
+* gen_structure for NAMD now accepts NBFIX keyword.
+
 version 0.3.4 (12/24/2015)
 * Energy Histogram Computation:
     * The ermod program terminates when the cell is not cuboidal

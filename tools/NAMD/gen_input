@@ -161,7 +161,19 @@ def parse_log():
         "lowlj": switchlj,
         "cltype": coulombtype
     }
-    
+
+    carryover = {}
+    try: 
+        ifh = file(".extraparam", "rt")
+        carryover = pickle.load(ifh)
+        ifh.close()
+        for k in carryover:
+            if k != "sltspec": # sltspec is referenced only in soln
+                params[k] = carryover[k]
+
+    except OSError:
+        pass
+
     ofh = open("parameters_er", "wt")
     print >> ofh, """&ene_param
   slttype = %(calctype)d,
@@ -169,22 +181,15 @@ def parse_log():
   boxshp = %(boxshape)d,
   inptemp = %(temp)f,
   elecut = %(cut)f,
-  ljformat = 1,
+  ljformat = %(ljformat)d,
   ljswitch = %(ljswitch)d,
   upljcut = %(cut)f,
   lwljcut = %(lowlj)f,
   cltype = %(cltype)d,""" % params
 
     if mode == 1: # for solution system
-        try: 
-            ifh = file(".extraparam", "rt")
-            carryover = pickle.load(ifh)
-            ifh.close()
-            if "sltspec" in carryover:
-                params["sltspec"] = carryover["sltspec"]
-
-        except OSError:
-            pass
+        if "sltspec" in carryover:
+            params["sltspec"] = carryover["sltspec"]
 
         if "sltspec" in params:
             print >> ofh, """\
