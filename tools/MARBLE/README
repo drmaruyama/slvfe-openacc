@@ -1,5 +1,5 @@
 The general workflow of using ERmod with MARBLE is parallel to
-that described in the ERmod wiki page for NAMD, gromacs, and AMBER.
+that described in the ERmod wiki page for the other MD packages.
 
 The gen_structure and gen_input scripts are available
 in tools/MARBLE directory within the ERmod package distributed.
