@@ -12,7 +12,7 @@ The gen_structure script runs as:
    (path to ERmod-MARBLE directory)/gen_structure --mdat solution.mdat
 
 where solution.mdat is the topology file for the solution MD with MARBLE.
-User specfifies his own topology file with the appropriate path.
+User specifies his own topology file with the appropriate path.
 He is then asked the identification number of the solute
 and the number of solute molecules contained within the solution system.
 If the solution system has more than one solute molecules,
@@ -28,7 +28,7 @@ After moving to the soln directory, execute the gen_input script as:
 
 where solution-run.dcd and solution-run.log
 are the trajectory and log files from the solution MD with MARBLE.
-User specfifies his own files with the appropriate paths.
+User specifies his own files with the appropriate paths.
 He can then run the ermod program to have the energy distribution functions.
 
 

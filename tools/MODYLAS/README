@@ -13,10 +13,10 @@ Their usages can be found respectively with
 
 The gen_structure script runs as:
 
-   (path to ERmod-MODYLAS directory)/gen_structure --psf solution.mdff
+   (path to ERmod-MODYLAS directory)/gen_structure --mdff solution.mdff
 
 where solution.mdff is the force-field file for the solution MD with MODYLAS.
-User specfifies his own force-field file with the appropriate path.
+User specifies his own force-field file with the appropriate path.
 He is then asked the identification number of the solute.
 After executing the gen_structure script,
 user has two directories of soln and refs.
@@ -25,22 +25,22 @@ user has two directories of soln and refs.
 ermod run in soln:
 After moving to the soln directory, execute the gen_input script as:
 
-   (path to ERmod-MODYLAS directory)/gen_input --dcd solution-run.dcd --stdout solution-run.stdout
+   (path to ERmod-MODYLAS directory)/gen_input --traj solution-run.dcd --stdout solution-run.stdout
 
 where solution-run.dcd and solution-run.stdout
 are the trajectory and log files from the solution MD with MODYLAS.
-User specfifies his own files with the appropriate paths.
+User specifies his own files with the appropriate paths.
 He can then run the ermod program to have the energy distribution functions.
 
 
 ermod run in refs:
 After moving to the refs directory, execute the gen_input script as:
 
-   (path to ERmod-MODYLAS directory)/gen_input --dcd solvent-run.dcd --stdout solvent-run.stdout --flexible solute-run.dcd
+   (path to ERmod-MODYLAS directory)/gen_input --traj solvent-run.dcd --stdout solvent-run.stdout --flexible solute-run.dcd
 
 when the solute is flexible or as:
 
-   (path to ERmod-MODYLAS directory)/gen_input --dcd solvent-run.dcd --stdout solvent-run.stdout --rigid solute.mdxyz
+   (path to ERmod-MODYLAS directory)/gen_input --traj solvent-run.dcd --stdout solvent-run.stdout --rigid solute.mdxyz
 
 when the solute is rigid,
 where solvent-run.dcd and solvent-run.stdout
@@ -53,6 +53,10 @@ depending on whether his solute is flexible or rigid.
 
 
 ERmod does not support FMM yet.
-When the MODYLAS MD is run with FMM, gen_input delivers a warning of
+When an MODYLAS trajectory generated using FMM is provided,
+ERmod computes the energy distribution functions by employing PME.
+In such cases, gen_input needs an additional option of
+      --mdxyz (initial coordinate of MD in mdxyz format)
+It will then deliver a warning of
 　　　PME would be used in ermod instead of FMM
-and assigns the corresponding parameters in PME.
+and assign the PME parameters which are in close correspondence to the original ones in FMM.
