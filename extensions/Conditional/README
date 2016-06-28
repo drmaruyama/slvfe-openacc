@@ -1,0 +1,91 @@
+The engproc.F90 file contained in this directory
+is to be used by replacing the original engproc.F90 distributed
+and computes the conditional distribution functions.
+
+The program is still under development, and should not be used
+unless user is very familiar with the ERmod program sets.
+
+All the additions to the original engproc.F90 program are commented by
+    ! extension for computing the conditional distributions
+or are closed by
+    ! start of the extension for computing the conditional distributions
+and
+    ! end of the extension for computing the conditional distributions
+
+To activate the computations of the conditional distribution functions,
+the parameters_er file needs to be supplemented with directives of
+
+&conditional
+   do_conditional = 1,
+   order_species = ...,
+   order_min = ...,
+   order_max = ...,
+   order_binwidth = ...,
+
+See the relevant parts of engproc.F90 for the meaning of order_species.
+If order_species = 0, the user-defined order parameter
+needs to be calculated in the calc_orderparam subroutine.
+The scheme of particle insertion may be necessary to be devised, in addition.
+
+The minimum and maximum values of the order parameter
+are order_min and order_max, respectively,
+and in numerical treatment, the order parameter is binned with order_binwidth.
+Within the program, the number of bins for order parameter is order_size.
+
+The outputs for the conditional calculations are as follows
+(see the engstore subroutine for details):
+
+  filename:
+    output format of the file
+    name and size within the engproc.F90 program
+
+soln:
+  nmcdsl.XX (XX = 01, ... engdiv within parameters_er):
+    probability for the value of order parameter
+    cndnorm(0:order_size+1)
+  ecndsl.XX (XX = 01, ... engdiv within parameters_er):
+    energy coordinate, solvent species, distribution
+    edcnd(ermax, 0:order_size+1)
+  avcnd.tt:
+    block (corresponding to XX for nmcdsl), average energy
+    avuvcnd(engdiv, numslv, 0:order_size+1)
+refs:
+  nmcdrf.XX (XX = 01, ... engdiv within parameters_er):
+    probability for the value of order parameter
+    cndnorm(0:order_size+1)
+  ecndrf.XX (XX = 01, ... engdiv within parameters_er):
+    energy coordinate, solvent species, distribution
+    edcnd(ermax, 0:order_size+1)
+  crcdrf.XX (XX = 01, ... engdiv within parameters_er):
+    distribution 
+    crcnd(ermax, ermax, 0:order_size+1)
+
+The conditional free energies may be computed with the following schemes.
+1)  Prepare directories of CondYY, where YY = 0, ... order_size+1.
+2)  Within each CondYY, prepare the soln and refs directories.
+3)  Take the first ermax lines of ecndsl.XX to Cond00/soln
+    and set the filenames to engsln.XX.
+    Take the first engdiv lines of avcnd.tt to Cond00/soln
+    and set the filename to aveuv.tt
+4)  Skip one lines of ecndsl.XX and avcnd.tt.
+    Take the next ermax lines of ecndsl.XX to Cond01/soln
+    and set the filenames to engsln.XX.
+    Take the next engdiv lines of avcnd.tt to Cond01/soln
+    and set the filename to aveuv.tt
+5)  Do 4) for YY = 02, ... order_size+1.
+6)  Take the first ermax lines of ecndrf.XX to Cond00/refs
+    and set the filenames to engref.XX.
+    Take the first ermax*ermax lines of crcdrf.XX to Cond00/refs
+    and set the filenames to corref.XX.
+7)  Skip one lines of ecndrf.XX and corref.XX.
+    Take the next ermax lines of ecndrf.XX to Cond01/refs
+    and set the filenames to engref.XX.
+    Take the next ermax*ermax lines of crcdrf.XX to Cond01/refs
+    and set the filenames to corref.XX.
+8)  Do 7) for YY = 02, ... order_size+1.
+9)  See the 0th lines of nmcdsl.XX and nmcdrf.XX.
+10) If either of the values at any XX is zero, go to 11).
+    If both the values for nmcdsl.XX and nmcdrf.XX are not zero at all the XX,
+    go to Cond00 and execute slvfe.
+11) See the 1st lines of nmcdsl.XX and nmcdrf.XX and do 10).
+12) Do 11) for YY = 02, ... order_size+1.

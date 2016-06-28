@@ -58,5 +58,5 @@ ERmod computes the energy distribution functions by employing PME.
 In such cases, gen_input needs an additional option of
       --mdxyz (initial coordinate of MD in mdxyz format)
 It will then deliver a warning of
-　　　PME would be used in ermod instead of FMM
+      PME will be used in ermod instead of FMM
 and assign the PME parameters which are in close correspondence to the original ones in FMM.

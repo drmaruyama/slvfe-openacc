@@ -1,0 +1,293 @@
+--- engproc.F90	2016-06-08 10:47:37.608737316 +0900
++++ extensions/Conditional/engproc.F90	2016-06-28 11:14:07.477769104 +0900
+@@ -30,6 +30,16 @@
+   logical, allocatable :: flceng_stored(:)
+   real, allocatable :: flceng(:, :)
+ 
++  ! start of the extension for computing the conditional distributions
++  integer :: do_conditional
++  integer :: order_species = 0       ! default = not the solute-solvent energy
++  real :: order_min, order_max, order_binwidth, order_param
++  integer :: order_size, order_prmid
++  real, dimension(:,:),   allocatable :: edcnd, sluvcnd
++  real, dimension(:,:,:), allocatable :: crcnd, avuvcnd
++  real, dimension(:),     allocatable :: cndnorm
++  ! end of the extension for computing the conditional distributions
++
+ contains
+   !
+   !  procedure for constructing energy distribution functions
+@@ -42,6 +52,7 @@
+          voffset, &
+          aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
+          ene_confname, &
++         NO, &       ! extension for computing the conditional distributions
+          io_flcuv, SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, YES
+     use mpiproc, only: halt_with_error, warning, myrank
+     implicit none
+@@ -68,6 +79,10 @@
+     logical :: check_ok
+     namelist /hist/ ecdmin, ecfmns, ecdcen, eccore, ecdmax, &
+                     eclbin, ecfbin, ec0bin, finfac, pecore, peread
++    ! start of the extension for computing the conditional distributions
++    namelist /conditional/ do_conditional, &
++                           order_species, order_min, order_max, order_binwidth
++    ! end of the extension for computing the conditional distributions
+     !
+     allocate( tplst(nummol) )
+     numslt = 0
+@@ -257,6 +272,37 @@
+     enddo
+     voffset = -infty
+ 
++    ! start of the extension for computing the conditional distributions
++    do_conditional = NO                  ! default = don't do it
++    open(unit = paramfile_io, file = ene_confname, action = "read", iostat = param_err)
++    if(param_err == 0) then
++       read(paramfile_io, nml = conditional)
++       close(paramfile_io)
++    endif
++    if(do_conditional == YES) then
++       if( (order_species <= 0) .or. (order_species > numslv) ) then
++          order_species = 0
++       else
++          if(order_species == solute_moltype) stop " The solute cannot be the solvent species whose energy with solute is set to the order parameter"
++          i = count( mask = (moltype(1:nummol) == order_species) )
++          if(i /= 1) stop " When the interaction energy of a solvent species with solute is the order parameter, the number of that species needs to be 1"
++       endif
++       order_size = nint( (order_max - order_min ) / order_binwidth )
++       order_max = order_min + real(order_size) * order_binwidth
++       allocate( edcnd(ermax, 0:order_size+1) )
++       if(corrcal == YES) then
++          factor = real(ermax) * sqrt( real(order_size+2) )
++          if(nint(factor) > too_large_ermax) call warning('emax')
++          allocate( crcnd(ermax, ermax, 0:order_size+1) )
++       endif
++       if(slttype == SLT_SOLN) then
++          allocate( avuvcnd(engdiv, numslv, 0:order_size+1) )
++          allocate( sluvcnd(numslv, 0:order_size+1) )
++       endif
++       allocate( cndnorm(0:order_size+1) )
++    endif
++    ! end of the extension for computing the conditional distributions
++
+     call engclear
+ 
+     ! Output for energy fluctuation
+@@ -284,6 +330,14 @@
+     avslf = 0.0
+     engnorm = 0.0
+     engsmpl = 0.0
++    ! start of the extension for computing the conditional distributions
++    if(do_conditional == YES) then
++       edcnd(:,:) = 0.0
++       if(corrcal == YES) crcnd(:,:,:) = 0.0
++       if(slttype == SLT_SOLN) sluvcnd(:,:) = 0.0
++       cndnorm(:) = 0.0
++    endif
++    ! end of the extension for computing the conditional distributions
+     return
+   end subroutine engclear
+ 
+@@ -552,6 +606,139 @@
+     if(selfcal == YES) eself(1:esmax) = eself(1:esmax) / engnorm
+     avslf = avslf / engnorm
+ 
++    ! start of the extension for computing the conditional distributions
++    if(do_conditional == YES) then
++#ifdef MPI
++       if(wgtslf == YES) then
++          cndnorm(:) = cndnorm(:) * voffset_scale
++          edcnd(:,:) = edcnd(:,:) * voffset_scale
++          if(corrcal == YES) crcnd(:,:,:) = crcnd(:,:,:) * voffset_scale
++          if(slttype == SLT_SOLN) sluvcnd(:,:) = sluvcnd(:,:) * voffset_scale
++       endif
++       if(plmode == 2) then
++          do order_prmid = 0, order_size + 1
++             call mpi_reduce(cndnorm(order_prmid), factor, 1, &
++                  mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
++             cndnorm(order_prmid) = factor
++
++             allocate( sve1(ermax) )
++             sve1(1:ermax) = edcnd(1:ermax, order_prmid)
++             call mpi_reduce(sve1(:), edcnd(:, order_prmid), ermax, &
++                  mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
++             deallocate( sve1 )
++
++             if(corrcal == YES) then
++                allocate( sve3(ermax, ermax) )
++                sve3(:, :) = crcnd(:, :, order_prmid)
++                call mpi_reduce(sve3(:, :), crcnd(:, :, order_prmid), &
++                                (ermax * ermax), &
++                     mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
++                deallocate( sve3 )
++             endif
++
++             if(slttype == SLT_SOLN) then
++                call mympi_reduce_real(sluvcnd(:, order_prmid), numslv, mpi_sum, 0)
++             endif
++          enddo
++       endif
++#endif
++       cndnorm(:) = cndnorm(:) / engnorm
++       edcnd(:, :) = edcnd(:, :) / engnorm
++       if(corrcal == YES) crcnd(:, :, :) = crcnd(:, :, :) / engnorm
++       if(slttype == SLT_SOLN) sluvcnd(:, :) = sluvcnd(:, :) / engnorm
++
++       if(myrank == 0) then
++          division = stnum / (maxcnf / skpcnf / engdiv)
++          do order_prmid = 0, order_size + 1
++             factor = cndnorm(order_prmid)
++             if(factor > tiny) then
++                avuvcnd(division, :, order_prmid) = sluvcnd(:, order_prmid) / factor
++             else
++                avuvcnd(division, :, order_prmid) = 0.0
++             endif
++          enddo
++          if(engdiv == 1) then
++             suffeng = '.tt'
++          else
++             j = division / 10
++             k = mod(division, 10)
++             suffeng = '.' // numbers(j+1:j+1) // numbers(k+1:k+1)
++          endif
++
++          select case(slttype)
++          case(SLT_SOLN)
++             engfile = 'nmcdsl' // suffeng
++          case(SLT_REFS_RIGID, SLT_REFS_FLEX)
++             engfile = 'nmcdrf' // suffeng
++          end select
++          open(unit = eng_io, file = engfile, form = "FORMATTED", action = 'write')
++          do order_prmid = 0, order_size + 1
++             order_param = order_min + (real(order_prmid) - 0.5) * order_size
++             write(eng_io, '(f15.7,g25.17)') order_param, cndnorm(order_prmid)
++          enddo
++          endfile(eng_io)
++          close(eng_io)
++
++          select case(slttype)
++          case(SLT_SOLN)
++             engfile = 'ecndsl' // suffeng
++          case(SLT_REFS_RIGID, SLT_REFS_FLEX)
++             engfile = 'ecndrf' // suffeng
++          end select
++          open(unit = eng_io, file = engfile, form = "FORMATTED", action = 'write')
++          do order_prmid = 0, order_size + 1
++             factor = cndnorm(order_prmid)
++             if(factor > tiny) then
++                edcnd(:, order_prmid) = edcnd(:, order_prmid) / factor
++             else
++                edcnd(:, order_prmid) = 0.0
++             endif
++             if(order_prmid > 0) write(eng_io, *)
++             do iduv = 1, ermax
++                call repval('intn', iduv, factor, pti)
++                write(eng_io, '(g15.7,i5,g25.15)') factor, pti, edcnd(iduv, order_prmid)
++             enddo
++          enddo
++          endfile(eng_io)
++          close(eng_io)
++
++          if(corrcal == YES) then
++             select case(slttype)
++             case(SLT_SOLN)
++                engfile = 'crcdsl' // suffeng
++             case(SLT_REFS_RIGID, SLT_REFS_FLEX)
++                engfile = 'crcdrf' // suffeng
++             end select
++             open(unit = cor_io, file = engfile, form = "UNFORMATTED", action = 'write')
++             do order_prmid = 0, order_size + 1
++                factor = cndnorm(order_prmid)
++                if(factor > tiny) then
++                   crcnd(:, :, order_prmid) = crcnd(:, :, order_prmid) / factor
++                else
++                   crcnd(:, :, order_prmid) = 0.0
++                endif
++                if(order_prmid > 0) write(cor_io)
++                write(cor_io) crcnd(:, :, order_prmid)
++             enddo
++          endif
++          endfile(cor_io)
++          close(cor_io)
++
++          if((slttype == SLT_SOLN) .and. (stnum == maxcnf)) then
++             open(unit = ave_io, file = 'avcnd.tt', action = 'write')
++             do order_prmid = 0, order_size + 1
++                if(order_prmid > 0) write(ave_io, *)
++                do k = 1, engdiv
++                   write(ave_io, 751) k, avuvcnd(k, 1:numslv, order_prmid)
++                enddo
++             enddo
++             endfile(ave_io)
++             close(ave_io)
++          endif
++       endif
++    endif
++    ! end of the extension for computing the conditional distributions
++
+     if(myrank /= 0) return                                            ! MPI
+     !
+     division = stnum / (maxcnf / skpcnf / engdiv)
+@@ -757,6 +944,9 @@
+ 
+   subroutine update_histogram(stat_weight_solute, uvengy)
+     use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
++    ! start of the extension for computing the conditional distributions
++                       numslv, moltype, &
++    ! end of the extension for computing the conditional distributions
+                        volume, temp, uvspec, &
+                        slnuv, avslf, minuv, maxuv, &
+                        edens, ecorr, eself, &
+@@ -852,9 +1042,51 @@
+        enddo
+     endif
+ 
++    ! start of the extension for computing the conditional distributions
++    if(do_conditional == YES) then
++       if( (1 <= order_species) .and. (order_species <= numslv) ) then
++          order_param = sum( uvengy(:), mask = (moltype(:) == order_species) )
++       else
++          call calc_orderparam
++       endif
++       if(order_param < order_min) then
++          order_prmid = 0
++       elseif(order_param >= order_max) then
++          order_prmid = order_size + 1
++       else
++          order_prmid = int( (order_param - order_min) / order_binwidth ) + 1
++       endif
++       cndnorm(order_prmid) = cndnorm(order_prmid) + engnmfc
++       if(slttype == SLT_SOLN) then
++          sluvcnd(:, order_prmid) = sluvcnd(:, order_prmid) + flceng(:, cntdst) * engnmfc
++       endif
++       do iduv = 1, ermax
++          k = insdst(iduv)
++          if(k == 0) cycle
++          edcnd(iduv, order_prmid) = edcnd(iduv, order_prmid) + engnmfc * real(k)
++       enddo
++       if(corrcal == YES) then
++          do iduv = 1, ermax
++             k = insdst(iduv)
++             if(k == 0) cycle
++             do iduvp = 1, ermax
++                q = insdst(iduvp)
++                if(q == 0) cycle
++                crcnd(iduvp,iduv, order_prmid) = crcnd(iduvp,iduv, order_prmid) + engnmfc * real(k) * real(q)
++             enddo
++          enddo
++       endif
++    endif
++    ! end of the extension for computing the conditional distributions
++
+     deallocate( insdst, engdst )
+   end subroutine update_histogram
+ 
++  ! start of the extension for computing the conditional distributions
++  subroutine calc_orderparam     ! user-defined setting of order parameter
++    implicit none
++  end subroutine calc_orderparam
++  ! end of the extension for computing the conditional distributions
+   !
+   subroutine residual_ene(i, j, pairep)
+     use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
