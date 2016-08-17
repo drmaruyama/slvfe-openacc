@@ -1733,5 +1733,4 @@ program sfemain
      end do
   end do
   call wrtresl
-  stop
 end program sfemain
