@@ -1,5 +1,5 @@
---- engproc.F90	2015-11-19 16:16:31.627120697 +0900
-+++ extensions/Intermediate/engproc.F90	2015-11-20 09:08:54.356747204 +0900
+--- engproc.F90	2016-08-07 16:34:01.202740453 +0900
++++ extensions/Intermediate/engproc.F90	2016-08-07 16:36:12.971739089 +0900
 @@ -30,6 +30,15 @@
    logical, allocatable :: flceng_stored(:)
    real, allocatable :: flceng(:, :)
@@ -19,13 +19,13 @@
 @@ -42,6 +51,7 @@
           voffset, &
           aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
-          ene_confname, &
+          ene_confname, io_paramfile, &
 +         NO, &       ! extension for the method with the intermediate state
           io_flcuv, SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, YES
      use mpiproc, only: halt_with_error, warning, myrank
      implicit none
-@@ -66,6 +76,14 @@
-     integer, parameter :: paramfile_io = 191
+@@ -65,6 +75,14 @@
+     !
      integer :: param_err
      logical :: check_ok
 +    ! start of the extension for the method with the intermediate state
@@ -46,10 +46,10 @@
 +    ! start of the extension for the method with the intermediate state
 +    do_intermediate = NO                 ! default = don't do it
 +    if(slttype == SLT_SOLN) then
-+       open(unit = paramfile_io, file = ene_confname, action = "read", iostat = param_err)
++       open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
 +       if(param_err == 0) then
-+          read(paramfile_io, nml = intermediate)
-+          close(paramfile_io)
++          read(io_paramfile, nml = intermediate)
++          close(io_paramfile)
 +       endif
 +       if(do_intermediate == YES) then
 +          allocate( zerodns_crd(ermax), edintm(ermax) )

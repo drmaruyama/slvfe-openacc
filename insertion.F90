@@ -235,16 +235,15 @@ contains
 
   contains
     subroutine shift_solute_com(insml, com)
-      use engmain, only: numsite, mol_begin_index, mol_end_index, sitepos
+      use engmain, only: mol_begin_index, mol_end_index, sitepos
       implicit none
       integer, intent(in) :: insml
       real, intent(in) :: com(3)
-      integer :: insb, inse, i, n
-      n = numsite(insml)
+      integer :: insb, inse, m
       insb = mol_begin_index(insml)
       inse = mol_end_index(insml)
-      do i = 1, 3
-         sitepos(i, insb:inse) = sitepos(i, insb:inse) + com(i)
+      do m = 1, 3
+         sitepos(m, insb:inse) = sitepos(m, insb:inse) + com(m)
       end do
     end subroutine shift_solute_com
 

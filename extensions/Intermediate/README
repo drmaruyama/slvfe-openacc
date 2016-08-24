@@ -62,7 +62,7 @@ in accordance with user's output name convention for the reference solvent.
 
 When the modified ermod executable is used for the solution system
 at do_intermediate = 1,
-there are addition outputs of Prob_Result, avint.tt, and engint.XX.
+there are additional outputs of Prob_Result, avint.tt, and engint.XX.
 The other outputs are also produced from the run with the original ermod
 and are identical between the modified and original ermod executables.
 

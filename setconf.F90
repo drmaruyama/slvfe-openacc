@@ -20,21 +20,15 @@
 !
 ! renaming outside parameters and parameters to avoid conflict
 module OUTname
+  use engmain, only: trjfile, inffile, io_MDinfo
   use trajectory, only: handle
 !
   implicit none
-  integer, parameter :: iotrj = 99                     ! trajectory file IO
-  character(len=*), parameter :: trjfile = 'HISTORY'   ! trajectory filename
-  integer, parameter :: mdinf = 89                     ! MD info file IO
-  character(len=*), parameter :: inffile = 'MDinfo'    ! MD info filename
-
   integer OUTens, OUTbxs, OUTcmb, OUTclt, OUTspo
   real OUTtemp, OUTelc, OUTlwl, OUTupl, OUTscr
   integer OUTew1, OUTew2, OUTew3, OUTms1, OUTms2, OUTms3
-
   integer OUTnrun, OUTntype
   integer, dimension(:), allocatable :: OUTnmol, OUTsite
-  logical :: use_mdlib
 
   type(handle) :: history_trajectory
   type(handle) :: solute_trajectory
@@ -67,15 +61,15 @@ contains
   end subroutine finiconf
  
   ! Initialization - read MDinfo
-  ! when ermod is built into MD program, read topologies from mother MD program
+  ! when ermod is built into MD program, read topologies from parent MD program
   subroutine OUT_MDinfo
     implicit none
-    open(unit = mdinf, file = inffile, status = 'old')
-    read(mdinf,*) OUTnrun, OUTntype
+    open(unit = io_MDinfo, file = inffile, status = 'old')
+    read(io_MDinfo, *) OUTnrun, OUTntype
     allocate( OUTnmol(OUTntype), OUTsite(OUTntype) )
-    read(mdinf,*) OUTnmol(1:OUTntype)
-    read(mdinf,*) OUTsite(1:OUTntype)
-    close(mdinf)
+    read(io_MDinfo, *) OUTnmol(1:OUTntype)
+    read(io_MDinfo, *) OUTsite(1:OUTntype)
+    close(io_MDinfo)
     return
   end subroutine OUT_MDinfo
 
@@ -182,7 +176,6 @@ contains
     implicit none
     real, parameter :: tiny = 1.0e-20
     real :: real_seed
-    logical :: check_refins
     character(len=3) :: scrtype
 
     intprm=1                                     ! trajectory reading
@@ -210,7 +203,6 @@ contains
     
     sltpick = 0 ; refpick = 0 ; inscnd = 0 ; inscfg = 0    ! deprecated
 
-    insorigin = INSORG_ORIGIN
     insposition = INSPOS_RANDOM
     insorient = INSROT_RANDOM
     insstructure = INSSTR_NOREJECT
@@ -252,7 +244,14 @@ contains
     ljformat = LJFMT_EPS_Rminh
     ljswitch = LJSWT_POT_CHM
 
-    maxins = 1000
+    select case(slttype)
+    case(SLT_SOLN)
+       maxins = 1                  ! not used in calculation of solution
+    case(SLT_REFS_RIGID, SLT_REFS_FLEX)
+       maxins = 1000               ! default number of particle insertions
+    case default
+       stop "Unknown slttype"
+    end select
 
     ! Unphysical initialization of lwreg and upreg
     ! The program will terminate if lwreg or upreg stays unphysical when used
@@ -275,13 +274,13 @@ contains
 
     select case(inscnd)                                    ! deprecated
     case(0)    ! random
-       insorigin = INSORG_ORIGIN ; insposition = INSPOS_RANDOM
+       insposition = INSPOS_RANDOM
     case(1)    ! spherical
-       insorigin = INSORG_AGGCEN ; insposition = INSPOS_SPHERE
+       insposition = INSPOS_SPHERE
     case(2)    ! slab (symmetric bilayer)
-       insorigin = INSORG_AGGCEN ; insposition = INSPOS_SLAB_SYMMETRIC
+       insposition = INSPOS_SLAB_SYMMETRIC
     case(3)    ! reference
-       insorigin = INSORG_REFSTR ; insposition = INSPOS_RMSD
+       insposition = INSPOS_RMSD
     case default
        stop "Unknown inscnd"
     end select
@@ -352,15 +351,18 @@ contains
        stop "Unknown ljswitch"
     end select
 
-    ! check slttype parameter
+    ! check maxins parameter
     select case(slttype)
     case(SLT_SOLN)
-    case(SLT_REFS_RIGID, SLT_REFS_FLEX)
+       maxins = 1                  ! not used in calculation of solution
+    case(SLT_REFS_RIGID)
        if(maxins <  1) call halt_with_error('set_ins')
-       ! maxins > 1 insertion makes no sense if coordinate is used as is read
+       ! maxins > 1 makes no sense if coordinate is used as is for rigid solute
        if((insposition == INSPOS_NOCHANGE) .and. &
           (insorient == INSROT_NOCHANGE) .and.   &
           (maxins /= 1)) call halt_with_error('set_ins')
+    case(SLT_REFS_FLEX)
+       if(maxins <  1) call halt_with_error('set_ins')
     case default
        stop "Unknown slttype"
     end select
@@ -376,56 +378,49 @@ contains
        if(slttype /= SLT_REFS_FLEX) call halt_with_error('set_ins')
     endif
 
-    ! check insorigin parameter
-    check_refins = .true.
-    select case(insorigin)
-    case(INSORG_ORIGIN)
-    case(INSORG_NOCHANGE)
-       if(insposition /= INSPOS_NOCHANGE) check_refins = .false.
-    case(INSORG_AGGCEN)
-       if((insposition /= INSPOS_SPHERE) .and. &
-          (insposition /= INSPOS_SLAB_GENERIC) .and. &
-          (insposition /= INSPOS_SLAB_SYMMETRIC)) check_refins = .false.
-    case(INSORG_REFSTR)
-       if((insposition /= INSPOS_RMSD) .and. &
-          (insposition /= INSPOS_GAUSS)) call halt_with_error('set_ins')
-    case default
-       stop "Unknown insorigin"
-    end select
-    if((slttype == SLT_REFS_RIGID) .or. (slttype == SLT_REFS_FLEX)) then
-       if(.not. check_refins) call halt_with_error('set_ins')
-    endif
-
-    ! check insposition parameter
-    check_refins = .true.
+    ! set insorigin parameter and check insposition parameter
     select case(insposition)
     case(INSPOS_RANDOM)                               ! random
-       if(insorigin /= INSORG_ORIGIN) check_refins = .false.
+       insorigin = INSORG_ORIGIN
     case(INSPOS_NOCHANGE)                             ! fixed configuration
-       if(insorigin /= INSORG_NOCHANGE) check_refins = .false.
+       insorigin = INSORG_NOCHANGE
     case(INSPOS_SPHERE)                               ! sphere geometry
-       if(insorigin /=INSORG_AGGCEN) check_refins = .false.
+       insorigin =INSORG_AGGCEN
        ! check lwreg and upreg parameters
        if((lwreg < 0.0) .or. (upreg < 0.0) .or. &
           (lwreg > upreg)) call halt_with_error('set_reg')
     case(INSPOS_SLAB_GENERIC, INSPOS_SLAB_SYMMETRIC)  ! slab configuration
-       if(insorigin /=INSORG_AGGCEN) check_refins = .false.
+       insorigin =INSORG_AGGCEN
        ! check lwreg and upreg parameters
        if(lwreg > upreg) call halt_with_error('set_reg')
        if(insposition == INSPOS_SLAB_SYMMETRIC) then  ! symmetric bilayer
           if((lwreg < 0.0) .or. (upreg < 0.0)) call halt_with_error('set_reg')
        endif
     case(INSPOS_RMSD, INSPOS_GAUSS)                   ! comparison to reference
-       if(insorigin /= INSORG_REFSTR) call halt_with_error('set_ins')
+       insorigin = INSORG_REFSTR
        ! check lwreg and upreg parameters
        if((lwreg < 0.0) .or. (upreg < 0.0) .or. &
           (lwreg > upreg)) call halt_with_error('set_reg')
     case default
        stop "Unknown insposition"
     end select
-    if((slttype == SLT_REFS_RIGID) .or. (slttype == SLT_REFS_FLEX)) then
-       if(.not. check_refins) call halt_with_error('set_ins')
-    endif
+
+    ! check insorigin parameter
+    select case(insorigin)
+    case(INSORG_ORIGIN)
+       if(insposition /= INSPOS_RANDOM) call halt_with_error('set_bug')
+    case(INSORG_NOCHANGE)
+       if(insposition /= INSPOS_NOCHANGE) call halt_with_error('set_bug')
+    case(INSORG_AGGCEN)
+       if((insposition /= INSPOS_SPHERE) .and. &
+          (insposition /= INSPOS_SLAB_GENERIC) .and. &
+          (insposition /= INSPOS_SLAB_SYMMETRIC)) call halt_with_error('set_bug')
+    case(INSORG_REFSTR)
+       if((insposition /= INSPOS_RMSD) .and. &
+          (insposition /= INSPOS_GAUSS)) call halt_with_error('set_bug')
+    case default
+       stop "Unknown insorigin"
+    end select
 
     ! check insorient parameter
     select case(insorient)
@@ -455,10 +450,8 @@ contains
   subroutine check_param
   ! check the consistency between parameters read in the iniparam subroutine
   !                           and those read in the OUT_MDinfo subroutine
-    use engmain, only: numtype, slttype, hostspec, refspec, &
-         insorigin, insposition, &
+    use engmain, only: numtype, slttype, hostspec, refspec, insposition, &
          SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, &
-         INSORG_AGGCEN, INSORG_REFSTR, &
          INSPOS_SPHERE, INSPOS_SLAB_GENERIC, INSPOS_SLAB_SYMMETRIC, &
          INSPOS_RMSD, INSPOS_GAUSS
     use mpiproc, only: halt_with_error
@@ -476,11 +469,9 @@ contains
     ! when restrained relative to aggregate
     ! hostspec is either 0 (undefined)
     !             or between 1 and (numtype for soln, numtype - 1 for refs)
-    ! with the insorigin and insposition specified here,
-    !      at least one of hostspec needs to be non-zero
+    ! with the insposition specified here, at least one of hostspec is non-zero
     ! Number of non-zero entries of hostspec <= number of species in the system
-    if((insorigin == INSORG_AGGCEN) .or. &
-       (insposition == INSPOS_SPHERE) .or. &
+    if((insposition == INSPOS_SPHERE) .or. &
        (insposition == INSPOS_SLAB_GENERIC) .or. &
        (insposition == INSPOS_SLAB_SYMMETRIC)) then
        if(count( mask = (hostspec(:) < 0) ) > 0) call halt_with_error('set_ins')
@@ -494,12 +485,9 @@ contains
     ! when restrained against reference
     ! refspec is either 0 (undefined)
     !            or between 1 and (numtype for soln, numtype - 1 for refs)
-    ! with the insorigin and insposition specified here,
-    !      at least one of refspec needs to be non-zero
+    ! with the insposition specified here, at least one of refspec is non-zero
     ! Number of non-zero entries of refspec <= number of species in the system
-    if((insorigin == INSORG_REFSTR) .or. &
-       (insposition == INSPOS_RMSD) .or. &
-       (insposition == INSPOS_GAUSS)) then
+    if((insposition == INSPOS_RMSD) .or. (insposition == INSPOS_GAUSS)) then
        if(count( mask = (refspec(:) < 0) ) > 0) call halt_with_error('set_ins')
        if(count( mask = (refspec(:) >= 1) ) == 0) call halt_with_error('set_ins')
        if(any(refspec(:) > phys_numtype)) call halt_with_error('set_ins')
@@ -517,7 +505,7 @@ contains
     character(len=3), intent(in) :: scrtype
     real, intent(in) :: ewtoler, elecut
     real :: ewasml, ewalrg, scrfac, factor
-    real, parameter :: error=1.0e-20
+    real, parameter :: error = 1.0e-20
     factor = error + 1.0 ; ewasml = 0.0 ; ewalrg = 1.0e3
     do while(factor > error)
        scrfac = (ewasml + ewalrg) / 2.0
@@ -573,8 +561,8 @@ contains
     character(len=*), parameter :: sltfile = 'SltInfo'
     character(len=*), parameter :: prmfile = 'MolPrm'
     character(len=*), parameter :: ljtablefile = 'LJTable'
-    integer, parameter :: molio = 71                 ! IO for molfile
-    integer, parameter :: ljtableio = 70             ! IO for LJ table
+    integer, parameter :: mol_io = 79                ! IO for molfile
+    integer, parameter :: ljtable_io = 70            ! IO for LJ table
 
     call OUTinitial                ! initialization of OUTname module
     call iniparam                  ! initialization of parameters
@@ -609,14 +597,14 @@ contains
        ! Test particle information will be defined outside
        ptcnt(numtype) = 1          ! Test particle can only be one molecule
 
-       open(unit = molio, file = sltfile, status = 'old')
+       open(unit = mol_io, file = sltfile, status = 'old')
        ! here only counts no. of lines
        stmax = 0
        do
-          read(molio, *, end = 99) m
+          read(mol_io, *, end = 99) m
           stmax = stmax + 1
        end do
-99     close(molio)
+99     close(mol_io)
        ptsite(numtype) = stmax
        pttype(numtype) = slttype   ! Test particle is the last (for insertion)
        solute_index = numtype
@@ -716,12 +704,12 @@ contains
 
        ! This part is a bit complicated due to backward compatibility.
        ! for ljtype /= 5, read the table and make table by program
-       open(unit = molio, file = molfile, status = 'old')
+       open(unit = mol_io, file = molfile, status = 'old')
        do sid = 1, stmax
           if(uvtype == SLT_REFS_RIGID) then
-             read(molio,*) m, atmtype, xst(1:3), psite(1:3,sid)
+             read(mol_io,*) m, atmtype, xst(1:3), psite(1:3,sid)
           else
-             read(molio,*) m, atmtype, xst(1:3)
+             read(mol_io,*) m, atmtype, xst(1:3)
           endif
           call getmass(sitemass_temp(sid), atmtype)
 
@@ -743,7 +731,7 @@ contains
           ljene_temp(sid) = xst(2)
           ljlen_temp(sid) = xst(3)
        end do
-       close(molio)
+       close(mol_io)
 
        if(ljformat == LJFMT_TABLE) then
           ! use numbers directly
@@ -790,18 +778,18 @@ contains
     ! Fill LJ table
     if(ljformat == LJFMT_TABLE) then
        ! From table (directly)
-       open(unit = ljtableio, file = ljtablefile, status = 'old', action = 'read')
-       read(ljtableio, *) ljtype_max
+       open(unit = ljtable_io, file = ljtablefile, status = 'old', action = 'read')
+       read(ljtable_io, *) ljtype_max
        allocate( ljlensq_mat(ljtype_max, ljtype_max), &
                  ljene_mat(ljtype_max, ljtype_max) )
        do i = 1, ljtype_max
-          read (ljtableio, *) ljlensq_mat(i, 1:ljtype_max)
+          read (ljtable_io, *) ljlensq_mat(i, 1:ljtype_max)
           ljlensq_mat(i, 1:ljtype_max) = ljlensq_mat(i, 1:ljtype_max) ** 2
        end do
        do i = 1, ljtype_max
-          read (ljtableio, *) ljene_mat(i, 1:ljtype_max)
+          read (ljtable_io, *) ljene_mat(i, 1:ljtype_max)
        end do
-       close(ljtableio)
+       close(ljtable_io)
     else
        ! From LJ data
        allocate( ljlensq_mat(ljtype_max, ljtype_max), &
@@ -851,7 +839,7 @@ contains
     real, dimension(:,:), allocatable :: OUTpos, OUTcell, readpos
     real :: readcell(3, 3)
     real :: weight, readweight
-    integer i, OUTatm, iproc, nread
+    integer :: i, OUTatm, iproc, nread
 
     logical, save :: first_time = .true.
     integer, allocatable, save :: permutation(:)
@@ -984,15 +972,11 @@ contains
     
     read(weight_io, *, iostat = ioerr) dummy, weight
     if(ioerr /= 0) then 
-       rewind(weight_io)
-       read(weight_io, *, iostat = ioerr) dummy, weight
-       if(ioerr /= 0) then
-          write(stdout, *) " The weight file (", weight_file, ") is ill-formed"
-          call mpi_setup('stop')
-          stop
-       endif
+       write(stdout, *) " The weight file (", weight_file, ") is ill formed or its length does not match with that of HISTORY"
+       call mpi_setup('stop')
+       stop
     endif
-    
+
   end subroutine read_weight
 
 
@@ -1006,6 +990,7 @@ contains
     real, parameter :: massP = 30.973761        ! atomic weight (phosphorus)
     real, parameter :: massHe = 4.0026          ! atomic weight (helium)
     real, parameter :: massB = 10.811           ! atomic weight (boron)
+    real, parameter :: massSi = 28.0855         ! atomic weight (silicon)
     real, parameter :: massLi = 6.941           ! atomic weight (lithium)
     real, parameter :: massNa = 22.989770       ! atomic weight (sodium)
     real, parameter :: massK = 39.0983          ! atomic weight (potassium)
@@ -1037,6 +1022,7 @@ contains
     if(eltp1 == 'I') stmass = massI
     eltp2 = atmtype(1:2)
     if(eltp2 == 'He') stmass = massHe
+    if(eltp2 == 'Si') stmass = massSi
     if(eltp2 == 'Li') stmass = massLi
     if(eltp2 == 'Na') stmass = massNa
     if(eltp2 == 'Cl') stmass = massCl

@@ -879,7 +879,7 @@ contains
        sitepos_normal(1:3, i) = sitepos_normal(1:3, i) - &
             cell_normal(1:3, 2) * floor(dot_product(invcell(1:3, 2), sitepos_normal(1:3, i)))
        sitepos_normal(1, i) = sitepos_normal(1, i) - &
-            cell_normal(1, 1) * floor(invcell(1, 1) * sitepos_normal(1, 1))
+            cell_normal(1, 1) * floor(invcell(1, 1) * sitepos_normal(1, i))
     end do
 
   end subroutine normalize_periodic

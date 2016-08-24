@@ -1,11 +1,11 @@
 The engproc.F90 file contained in this directory
-is to be used by replacing the original engproc.F90 distributed
-and computes the conditional distribution functions.
+is to be used by replacing the original engproc.F90 file distributed.
+It computes the distribution functions conditioned by an order parameter.
 
 The program is still under development, and should not be used
 unless user is very familiar with the ERmod program sets.
 
-All the additions to the original engproc.F90 program are commented by
+All the additions to the original engproc.F90 file are commented by
     ! extension for computing the conditional distributions
 or are closed by
     ! start of the extension for computing the conditional distributions
@@ -21,6 +21,7 @@ the parameters_er file needs to be supplemented with directives of
    order_min = ...,
    order_max = ...,
    order_binwidth = ...,
+/
 
 See the relevant parts of engproc.F90 for the meaning of order_species.
 If order_species = 0, the user-defined order parameter
@@ -49,6 +50,7 @@ soln:
   avcnd.tt:
     block (corresponding to XX for nmcdsl), average energy
     avuvcnd(engdiv, numslv, 0:order_size+1)
+
 refs:
   nmcdrf.XX (XX = 01, ... engdiv within parameters_er):
     probability for the value of order parameter
@@ -87,5 +89,5 @@ The conditional free energies may be computed with the following schemes.
 10) If either of the values at any XX is zero, go to 11).
     If both the values for nmcdsl.XX and nmcdrf.XX are not zero at all the XX,
     go to Cond00 and execute slvfe.
-11) See the 1st lines of nmcdsl.XX and nmcdrf.XX and do 10).
+11) See the next lines of nmcdsl.XX and nmcdrf.XX and do 10).
 12) Do 11) for YY = 02, ... order_size+1.

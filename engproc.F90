@@ -41,12 +41,12 @@ contains
          uvcrd, edens, ecorr, escrd, eself, &
          voffset, &
          aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
-         ene_confname, &
+         ene_confname, io_paramfile, &
          io_flcuv, SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, YES
     use mpiproc, only: halt_with_error, warning, myrank
     implicit none
     character(*), parameter :: ecdfile = 'EcdInfo'
-    integer, parameter :: ecdio = 51       ! IO for ecdfile
+    integer, parameter :: ecd_io = 95      ! IO for ecdfile
     real :: ecdmin, ecfmns, ecmns0, ecdcen, ecpls0, ecfpls, eccore, ecdmax
     real :: eclbin, ecfbin, ec0bin, finfac, ectmvl
     integer :: pecore, peread
@@ -63,7 +63,6 @@ contains
     integer, dimension(:), allocatable :: tplst
     real, dimension(:,:), allocatable  :: ercrd
     !
-    integer, parameter :: paramfile_io = 191
     integer :: param_err
     logical :: check_ok
     namelist /hist/ ecdmin, ecfmns, ecdcen, eccore, ecdmax, &
@@ -116,31 +115,32 @@ contains
       ! after the solute, slide the value of molecule type
       where(sluvid(:) == PT_SOLVENT .and. moltype(:) > solute_moltype) uvspec(:) = uvspec(:) - 1
     endif
+    if(numslv /= maxval(uvspec(:))) call halt_with_error('eng_bug')
     !
     allocate( uvmax(numslv), uvsoft(numslv), ercrd(large, 0:numslv) )
     !
     peread = 0
     ermax = 0
     do pti = 0, numslv
-       open(unit = paramfile_io, file = ene_confname, action = "read", iostat = param_err)
+       open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
        if (param_err == 0) then
-          read(paramfile_io, nml = hist)
-          close(paramfile_io)
+          read(io_paramfile, nml = hist)
+          close(io_paramfile)
        else
           stop "parameter file does not exist"
        end if
        if(peread == 1) then   ! read coordinate parameters from separate file
-          open(unit = ecdio, file = ecdfile, action = 'read', status = 'old')
-          read(ecdio,*)                ! comment line
+          open(unit = ecd_io, file = ecdfile, action = 'read', status = 'old')
+          read(ecd_io,*)               ! comment line
           do i = 1, large
-             read(ecdio, *, end=3109) q
+             read(ecd_io, *, end=3109) q
              if(q == pti) then
-                backspace(ecdio)
+                backspace(ecd_io)
                 if(pti == 0) then      ! solute self-energy
-                   read(ecdio,*) iduv, ecpmrd(1:8)
+                   read(ecd_io,*) iduv, ecpmrd(1:8)
                    pecore = 0            ! no core region for self-energy
                 else                   ! solute-solvent interaction energy
-                   read(ecdio,*) iduv, ecpmrd(1:9), pecore
+                   read(ecd_io,*) iduv, ecpmrd(1:9), pecore
                    ecdmax = ecpmrd(9)
                    if(pecore <= 1) call halt_with_error('eng_pcr')
                 endif
@@ -158,7 +158,7 @@ contains
              endif
           enddo
 3109      continue
-          close(ecdio)
+          close(ecd_io)
        end if
        ectmvl = finfac * ecfbin
        ecdmin = ecdmin - ectmvl
@@ -462,8 +462,8 @@ contains
     integer :: stnum, pti, j, k, iduv, division
     character(len=9) :: engfile
     character(len=3) :: suffeng
-    integer, parameter :: eng_io = 71, cor_io = 72, slf_io = 73
-    integer, parameter :: ave_io = 74, wgt_io = 75, uvr_io = 76
+    integer, parameter :: eng_io = 51, cor_io = 52, slf_io = 53
+    integer, parameter :: ave_io = 54, wgt_io = 55, uvr_io = 56
     real :: voffset_local, voffset_scale
     real :: factor
     real, dimension(:), allocatable :: sve1, sve2

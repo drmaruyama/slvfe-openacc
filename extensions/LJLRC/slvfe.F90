@@ -992,8 +992,7 @@ contains
 
   subroutine chmpot(prmcnt, cntrun)
     !
-    use sysvars, only: uvread, slfslt, normalize, showdst, wrtzrsft, &
-                       ljlrc, &
+    use sysvars, only: uvread, slfslt, ljlrc, normalize, showdst, wrtzrsft, &
                        slfeng, chmpt, aveuv, svgrp, svinf, &
                        pickgr, &
                        minthres_soln, minthres_refs, &

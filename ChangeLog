@@ -2,6 +2,10 @@ version 0.3.5 (x / y /2016)
 * Energy Histogram Computation:
     * gen_structure for NAMD now accepts NBFIX keyword
     * MODYLAS inputs are now supported in gen_structure and gen_input
+* Solvation Free Energy:
+    * Dispersion correction on Lennard-Jones interaction in the slvfe
+    calculation is calculted with a key of ljlrc, and the extensions/LJLRC
+    directory is removed.
 
 version 0.3.4 (12/24/2015)
 * Energy Histogram Computation:

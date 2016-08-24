@@ -63,9 +63,9 @@
 !             This parameter is effective as an input only when insorigin = 3
 !
 !   insorigin : translational origin of the solute position
-!               0 (default) : mass weighted center is moved to (0, 0, 0)
+!               The value of insorigin is set internally from insposition
+!               0 : mass weighted center is moved to (0, 0, 0)
 !               1 : no COM change from the value in the file to be read
-!                   (error unless insposition = 1)
 !               2 : mass weighted center is moved to aggregate center
 !                   (species forming the aggregate is defined by hostspec)
 !               3 : fit to reference structure.
@@ -73,11 +73,9 @@
 !                   RefInfo contains the structure of the host species
 !                   (species forming the reference host is defined by refspec)
 !                   and the solute structure, in order.
-!                   (error unless insposition = 5 or 6)
 !   insposition : position for the solute
 !               0 (default) : fully random position (within perodic bondary)
 !               1 : no position change from the value in the file to be read
-!                   (error unless insorigin = 1)
 !               2 : spherically random position,
 !                   with radius specified from lwreg to upreg.
 !               3 : slab random position (generic case)
@@ -97,12 +95,14 @@
 !                   the reference position of solute insertion
 !                   and the solute is placed relative to that reference
 !                   with condition of lwreg < RMSD < upreg
-!                   (error unless insorigin = 3)
 !               6 : (experimental) Gaussian random position.
 !                   Position is given by displacing the reference coordinate,
 !                   or coordinate fit to reference (insorigin = 3), with upreg.
 !                   Solute weight is automatically adjusted
-!                   (error unless insorigin = 3)
+!               insorigin is set to 0 when insposition = 0
+!                                to 1 when insposition = 1
+!                                to 2 when insposition = 2, 3 or 4
+!                                to 3 when insposition = 5 or 6
 !   insorient : orientation for the solute
 !               0 (default) : random orientation
 !               1 : no orientation change from the value in the file to be read
@@ -261,9 +261,14 @@ module engmain
   real :: block_threshold
   logical :: force_calculation
 
-  ! IO units
-  integer, parameter :: stdout = 6                      ! standard output
-  integer, parameter :: io_flcuv = 91                   ! IO unit for flcuv
+  ! IO units and files
+  character(len=*), parameter :: trjfile = 'HISTORY'    ! trajectory filename
+  character(len=*), parameter :: inffile = 'MDinfo'     ! MD info filename
+  integer, parameter :: io_MDinfo = 93                  ! MD info file IO
+  character(len=*), parameter :: ene_confname = 'parameters_er'
+  integer, parameter :: io_paramfile = 91
+  integer, parameter :: io_flcuv = 99      ! IO for flcuv.tt and progress.tt
+  integer, parameter :: stdout = 6         ! standard output
 
   integer, dimension(:), allocatable :: moltype, numsite, sluvid
   real, dimension(:,:),  allocatable :: bfcoord
@@ -326,8 +331,6 @@ module engmain
   integer, parameter :: INSROT_RANDOM = 0, INSROT_NOCHANGE= 1
   integer, parameter :: INSSTR_NOREJECT = 0, INSSTR_RMSD = 1
 
-  character(len=*), parameter :: ene_confname = "parameters_er"
-
   namelist /ene_param/ iseed, &
        skpcnf, corrcal, selfcal, &
        slttype, wgtslf, wgtins, wgtsys, boxshp, estype, &
@@ -345,15 +348,14 @@ module engmain
 contains 
   subroutine init_params()
     implicit none
-    integer, parameter :: unit = 191
-    integer :: err
+    integer :: param_err
     
-    err = 0
-    open(unit = unit, file = ene_confname, action = "read", iostat = err)
+    param_err = 0
+    open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
     
-    if(err == 0) then
-       read(unit, nml = ene_param)
-       close(unit)
+    if(param_err == 0) then
+       read(io_paramfile, nml = ene_param)
+       close(io_paramfile)
     else
        stop "parameter file does not exist"
     end if

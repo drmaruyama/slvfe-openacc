@@ -1,5 +1,5 @@
---- slvfe.F90	2015-11-19 15:19:42.723872870 +0900
-+++ extensions/LJLRC/slvfe.F90	2015-11-19 15:19:40.472747151 +0900
+--- slvfe.F90	2016-06-28 11:47:12.640737427 +0900
++++ extensions/LJLRC/slvfe.F90	2016-08-04 13:56:38.140988859 +0900
 @@ -21,7 +21,7 @@
    implicit none
  
@@ -429,11 +429,12 @@
  module sfecalc
    use sysvars, only: zerosft, wgtfnform, slncor, &
                       numslv, ermax, nummol, kT, itrmax, zero, error, &
-@@ -589,10 +993,12 @@
+@@ -588,11 +992,12 @@
+ 
    subroutine chmpot(prmcnt, cntrun)
      !
-     use sysvars, only: uvread, slfslt, normalize, showdst, wrtzrsft, &
-+                       ljlrc, &
+-    use sysvars, only: uvread, slfslt, normalize, showdst, wrtzrsft, &
++    use sysvars, only: uvread, slfslt, ljlrc, normalize, showdst, wrtzrsft, &
                         slfeng, chmpt, aveuv, svgrp, svinf, &
                         pickgr, &
                         minthres_soln, minthres_refs, &
@@ -442,7 +443,7 @@
      !
      implicit none
      integer, intent(in) :: prmcnt, cntrun
-@@ -709,6 +1115,7 @@
+@@ -709,6 +1114,7 @@
               aveuv(pti) = sum( uvcrd * edist, mask = (uvspec == pti) )
            end do
         endif

@@ -1,5 +1,5 @@
---- engproc.F90	2016-06-28 11:29:08.028737442 +0900
-+++ extensions/Conditional/engproc.F90	2016-06-28 11:29:08.030737626 +0900
+--- engproc.F90	2016-08-04 18:07:45.447739140 +0900
++++ extensions/Conditional/engproc.F90	2016-08-06 09:58:04.546766320 +0900
 @@ -30,6 +30,16 @@
    logical, allocatable :: flceng_stored(:)
    real, allocatable :: flceng(:, :)
@@ -36,7 +36,7 @@
      !
      allocate( tplst(nummol) )
      numslt = 0
-@@ -257,6 +272,37 @@
+@@ -258,6 +273,37 @@
      enddo
      voffset = -infty
  
@@ -74,7 +74,7 @@
      call engclear
  
      ! Output for energy fluctuation
-@@ -284,6 +330,14 @@
+@@ -285,6 +331,14 @@
      avslf = 0.0
      engnorm = 0.0
      engsmpl = 0.0
@@ -89,7 +89,7 @@
      return
    end subroutine engclear
  
-@@ -552,6 +606,139 @@
+@@ -553,6 +607,139 @@
      if(selfcal == YES) eself(1:esmax) = eself(1:esmax) / engnorm
      avslf = avslf / engnorm
  
@@ -229,7 +229,7 @@
      if(myrank /= 0) return                                            ! MPI
      !
      division = stnum / (maxcnf / skpcnf / engdiv)
-@@ -757,6 +944,9 @@
+@@ -758,6 +945,9 @@
  
    subroutine update_histogram(stat_weight_solute, uvengy)
      use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
@@ -239,7 +239,7 @@
                         volume, temp, uvspec, &
                         slnuv, avslf, minuv, maxuv, &
                         edens, ecorr, eself, &
-@@ -852,9 +1042,51 @@
+@@ -853,9 +1043,51 @@
         enddo
      endif
  
