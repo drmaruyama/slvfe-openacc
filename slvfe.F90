@@ -17,145 +17,6 @@
 ! along with this program; if not, write to the Free Software
 ! Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
-module sysvars
-  implicit none
-
-  character(len=5) :: clcond = 'merge'
-  character(len=3) :: uvread = 'yes',    slfslt = 'yes'
-  character(len=3) :: infchk = 'not',    cumuint = 'not'
-  character(len=4) :: zerosft = 'orig',  wgtfnform = 'harm'
-  character(len=3) :: refmerge = 'yes',  extsln = 'lin'
-  character(len=3) :: wgtf2smpl = 'yes', slncor = 'not'
-  character(len=3) :: normalize = 'yes', showdst= 'not'
-  character(len=3) :: wrtzrsft = 'not',  readwgtfl = 'yes'
-
-  real :: inptemp = 300.0                                     ! Kelvin
-  real, parameter :: zero = 0.0
-  real :: error = 1.0e-8, tiny = 1.0e-8
-  integer :: pickgr = 3, msemin = 1, msemax = 5
-  real :: mesherr = 0.10                                      ! kcal/mol
-  integer :: maxmesh = 30000, large = 500000, itrmax = 100
-  integer :: extthres_soln = 1, extthres_refs = 1
-  integer :: minthres_soln = 0, minthres_refs = 0
-  
-  character(len=1024) :: solndirec = 'soln'
-  character(len=1024) :: refsdirec = 'refs'
-  character(len=1024) :: wgtslnfl  = 'weight_soln'
-  character(len=1024) :: wgtreffl  = 'weight_refs'
-  character(len=1024) :: slndnspf  = 'engsln'
-  character(len=1024) :: slncorpf  = 'corsln'
-  character(len=1024) :: refdnspf  = 'engref'
-  character(len=1024) :: refcorpf  = 'corref'
-  character(len=1024) :: aveuvfile = 'aveuv.tt'
-  character(len=1024) :: cumuintfl = 'cumsfe'
-  character(len=10), parameter :: numbers='0123456789'
-  
-  integer :: numsln, numref, numdiv, numprm
-  integer :: maxsln, maxref, numrun, prmmax
-  integer :: numslv, ermax
-  real :: temp, kT, slfeng
-
-  real, dimension(:),     allocatable :: nummol
-  integer, dimension(:),  allocatable :: rduvmax, rduvcore
-  real, dimension(:),     allocatable :: rdcrd, rddst, rddns
-  real, dimension(:,:),   allocatable :: rdslc, rdcor
-  integer, dimension(:),  allocatable :: rdspec
-  real, dimension(:,:,:), allocatable :: chmpt
-  real, dimension(:),     allocatable :: aveuv
-  real, dimension(:,:),   allocatable :: uvene, blkuv
-  integer, dimension(:),  allocatable :: svgrp, svinf
-  real, dimension(:),     allocatable :: wgtsln, wgtref
-  
-  namelist /fevars/ clcond, numprm, numsln, numref, numdiv, &
-       uvread, slfslt, infchk, zerosft, wgtfnform, &
-       refmerge, extsln, extthres_soln, extthres_refs, &
-       minthres_soln, minthres_refs, &
-       wgtf2smpl, slncor, normalize, showdst, wrtzrsft, readwgtfl, &
-       inptemp, pickgr, msemin, msemax, mesherr, &
-       maxmesh, large, itrmax, error, tiny, &
-       solndirec, refsdirec, wgtslnfl, wgtreffl, &
-       slndnspf, slncorpf, refdnspf, refcorpf, &
-       aveuvfile, cumuint, cumuintfl
-
-contains
-
-  subroutine init_sysvars
-    implicit none
-    character(len=*), parameter :: parmfname = 'parameters_fe'
-    character(len=10), parameter :: numbers='0123456789'
-    character(len=3) :: file_suf
-    character(len=1024) :: opnfile
-    integer, parameter :: iounit = 191, sufmax = 99
-    integer :: ioerr, count_suf, i, j, srcnt, count_soln, count_refs
-    logical :: file_exist
-    
-    open(unit = iounit, file = parmfname, action = 'read', status = 'old', iostat = ioerr)
-    if(ioerr /= 0) goto 99
-    read(iounit, nml = fevars)
-    close(iounit)
-99  continue
-
-    if(clcond == 'merge') then
-       do srcnt = 1, 2
-          do count_suf = 1, sufmax
-             i = count_suf / 10
-             j = mod(count_suf, 10)
-             file_suf = '.' // numbers(i+1:i+1) // numbers(j+1:j+1)
-             select case(srcnt)
-             case(1)
-                opnfile = trim(solndirec) // '/' // trim(slndnspf) // file_suf
-             case(2)
-                opnfile = trim(refsdirec) // '/' // trim(refdnspf) // file_suf
-             end select
-             inquire(file = opnfile, exist = file_exist)
-             if( file_exist ) then
-                if(srcnt == 1) count_soln = count_suf
-                if(srcnt == 2) count_refs = count_suf
-             else
-                exit
-             endif
-          enddo
-       enddo
-
-       open(unit = iounit, file = parmfname, action = 'read', status = 'old', iostat = ioerr)
-       if(ioerr /= 0) goto 91
-       read(iounit, nml = fevars)
-       close(iounit)
-91     continue
-
-       if((numsln <= 0) .or. (numsln > count_soln)) numsln = count_soln
-       if((numref <= 0) .or. (numref > count_refs)) numref = count_refs
-
-       if((numdiv <= 0) .or. (numdiv >= numsln)) numdiv = numsln
-       if(mod(numsln, numdiv) /= 0) then
-          do i = numdiv + 1, numsln      ! find the larger and closest divisor
-             if(mod(numsln, i) == 0) exit
-          enddo
-          numdiv = i
-       endif
-       if(refmerge == 'not') then        ! see subroutine datread for refmerge
-          if(numdiv > numref) stop " With refmerge = 'not', numdiv needs to be not larger than numref"
-          if(mod(numref, numdiv) /= 0) then
-             write(6, "(A,i2,A,i2,A)") " Note: only ", numdiv * (numref / numdiv), &
-   &" files out of ", numref, " engref and corref files prepared"
-             numref = numdiv * (numref / numdiv)
-          endif
-       endif
-
-       if(cumuint == 'yes') numdiv = 1
-    endif
-
-    if(numprm <= 0) then                 ! default setting
-       if(infchk == 'yes') then
-          numprm = 11
-       else
-          numprm = 10
-       endif
-    endif
-
-  end subroutine init_sysvars
-end module sysvars
-
 module sysread
   use sysvars, only: clcond, uvread, slfslt, slncor, &
        maxsln, maxref, numrun, &
@@ -176,7 +37,8 @@ contains
          rduvmax, rduvcore, &
          chmpt, svgrp, svinf
     implicit none
-    integer :: group, inft, prmcnt, iduv, i, k, pti
+    logical :: file_exist
+    integer :: group, inft, prmcnt, iduv, i, k, pti, ioerr
     real :: factor, crdnow, crdprev, crddif_now, crddif_prev
     character(len=1024) :: opnfile
 
@@ -324,11 +186,19 @@ contains
           read(5, *) aveuv(1:numslv)
        case('merge')
           opnfile = trim(solndirec) // '/' // trim(aveuvfile)
-          open(unit = 82, file = opnfile, status = 'old')
-          do i = 1, maxsln
-             read(82, *) k, uvene(1:numslv, i)
-          end do
-          close(82)
+          inquire(file = opnfile, exist = file_exist)
+          if( file_exist ) then
+             open(unit = 82, file = opnfile, status = 'old')
+             do i = 1, maxsln
+                read(82, *) k, uvene(1:numslv, i)
+             end do
+             close(82)
+          else
+             uvread = 'not'
+             write(6, '(A,A,A)') " Warning: Although the uvread parameter " // &
+                  "was set to 'yes', it is changed into 'not' " // &
+                  "since the ", trim(opnfile), " file was not found"
+          endif
        end select
     endif
 
@@ -369,9 +239,19 @@ contains
           endif
           slfeng = 0.0
           opnfile = trim(refsdirec) // '/' // trim(wgtreffl)
+          inquire(file = opnfile, exist = file_exist)
+          if( .not. file_exist ) stop " weight_refs is absent although slfslt is set to yes"
           open(unit = 81, file = opnfile, status = 'old')
           do i = 1, maxref
-             read(81,*) k, factor, factor
+             read(81, * , iostat = ioerr) k, factor, factor
+             if(ioerr /= 0) then
+                slfslt = 'not'
+                write(6, '(A)') " Warning: Although the sltslf parameter " // &
+                     "was set to 'yes', it is changed into 'not'. Maybe " // &
+                     "the MD was done without periodic boundary condition " // &
+                     "and/or with Coulombic interaction in its bare form."
+                exit
+             endif
              slfeng = slfeng + wgtref(i) * factor
           end do
           close(81)
@@ -523,7 +403,8 @@ contains
 
     return
   end subroutine datread
-end module
+end module sysread
+
 
 module sfecalc
   use sysvars, only: zerosft, wgtfnform, slncor, &
@@ -587,12 +468,12 @@ contains
   end subroutine syevr_wrap
 
   subroutine chmpot(prmcnt, cntrun)
-    !
-    use sysvars, only: uvread, slfslt, normalize, showdst, wrtzrsft, &
+    use sysvars, only: uvread, slfslt, ljlrc, normalize, showdst, wrtzrsft, &
                        slfeng, chmpt, aveuv, svgrp, svinf, &
                        pickgr, &
                        minthres_soln, minthres_refs, &
                        cumuint, cumuintfl
+    use uvcorrect, only: ljcorrect
     !
     implicit none
     integer, intent(in) :: prmcnt, cntrun
@@ -709,6 +590,7 @@ contains
              aveuv(pti) = sum( uvcrd * edist, mask = (uvspec == pti) )
           end do
        endif
+       if(ljlrc == 'yes') call ljcorrect(cntrun)   ! LJ long-range correction
     endif
     !
     if((cumuint == 'yes') .and. (group == pickgr) .and. (inft == 0)) then
@@ -918,7 +800,6 @@ contains
     return
   end subroutine getslncv
   !
-  !
   subroutine getinscv
     !
     implicit none
@@ -1038,7 +919,6 @@ contains
     return
   end subroutine getinscv
   !
-  !
   real function wgtmxco(pti)
     implicit none
     integer, intent(in) :: pti
@@ -1047,7 +927,6 @@ contains
     wgtmxco = 1.0 / numpt
     return
   end function wgtmxco
-  !
   !
   real function cvfcen(pti, cnt, systype, wgttype, engtype)
     implicit none
@@ -1088,7 +967,6 @@ contains
     return
   end function cvfcen
   !
-  !
   subroutine getwght(weight, pti, cnt, systype, wgttype, engtype)
     implicit none
     real, intent(out) :: weight(gemax)
@@ -1125,7 +1003,6 @@ contains
        stop
     endif
   end subroutine getwght
-  !
   !
   integer function zeroec(pti, cnt)
     implicit none
@@ -1249,7 +1126,6 @@ contains
     return
   end function pyhnc
   !
-  !
   subroutine distnorm
     implicit none
     integer :: iduv, iduvp, pti, cnt, itrcnt
@@ -1327,7 +1203,6 @@ contains
     return
   end subroutine distnorm
   !
-  !
   subroutine distshow
     implicit none
     integer :: iduv, pti, cnt, ecmin, ecmax, k, ilist(gemax)
@@ -1393,11 +1268,8 @@ contains
 
     return
   end subroutine distshow
-  !
 end module sfecalc
-!
-!
-!
+ 
 module opwrite
   use sysvars, only: clcond, uvread, slfslt, infchk, &
        prmmax, numrun, numslv, zero, &
@@ -1498,10 +1370,8 @@ contains
     !
     return
   end subroutine wrtresl
-  !
-  !
+   
   subroutine wrtmerge
-    !
     use sysvars, only: large
     implicit none
     integer :: prmcnt, cntrun, group, inft, pti, i, j, k, m
@@ -1648,7 +1518,6 @@ contains
     return
   end subroutine wrtmerge
 
-
   subroutine wrtcumu(wrtdata)
     use sysvars, only: large, zero
     implicit none
@@ -1714,8 +1583,8 @@ contains
 
     return
   end subroutine wrtcumu
-  !
 end module opwrite
+
 
 program sfemain
   use sysvars, only: numrun, prmmax, init_sysvars

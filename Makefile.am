@@ -68,6 +68,10 @@ ermod-trajectory.$(OBJEXT): trajectory.F90 ermod-utility.$(OBJEXT)
 ermod-utility.$(OBJEXT): utility.F90 ermod-engmain.$(OBJEXT)
 ermod-mpiproc.$(OBJEXT): mpiproc.F90 ermod-engmain.$(OBJEXT)
 
-slvfe_SOURCES = slvfe.F90
+# slvfe part
+slvfe_SOURCES = slvfe.F90 sfemain.F90 sfecorrect.F90
 slvfe_LDADD = $(LAPACK_LIBS) $(BLAS_LIBS)
 slvfe_LINK = $(FC_CANONICAL) $(FCFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+slvfe.$(OBJEXT): slvfe.F90 sfemain.$(OBJEXT) sfecorrect.$(OBJEXT)
+sfemain.$(OBJEXT): sfemain.F90
+sfecorrect.$(OBJEXT): sfecorrect.F90 sfemain.$(OBJEXT)
