@@ -1,5 +1,5 @@
---- engproc.F90	2016-08-07 16:34:01.202740453 +0900
-+++ extensions/Intermediate/engproc.F90	2016-08-07 16:36:12.971739089 +0900
+--- engproc.F90	2016-09-01 12:21:21.989739524 +0900
++++ extensions/Intermediate/engproc.F90	2016-09-01 12:22:47.119739223 +0900
 @@ -30,6 +30,15 @@
    logical, allocatable :: flceng_stored(:)
    real, allocatable :: flceng(:, :)
@@ -16,15 +16,7 @@
  contains
    !
    !  procedure for constructing energy distribution functions
-@@ -42,6 +51,7 @@
-          voffset, &
-          aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
-          ene_confname, io_paramfile, &
-+         NO, &       ! extension for the method with the intermediate state
-          io_flcuv, SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, YES
-     use mpiproc, only: halt_with_error, warning, myrank
-     implicit none
-@@ -65,6 +75,14 @@
+@@ -65,6 +74,14 @@
      !
      integer :: param_err
      logical :: check_ok
@@ -39,7 +31,7 @@
      namelist /hist/ ecdmin, ecfmns, ecdcen, eccore, ecdmax, &
                      eclbin, ecfbin, ec0bin, finfac, pecore, peread
      !
-@@ -257,6 +275,48 @@
+@@ -257,6 +274,48 @@
      enddo
      voffset = -infty
  
@@ -88,7 +80,7 @@
      call engclear
  
      ! Output for energy fluctuation
-@@ -284,6 +344,13 @@
+@@ -284,6 +343,13 @@
      avslf = 0.0
      engnorm = 0.0
      engsmpl = 0.0
@@ -102,7 +94,7 @@
      return
    end subroutine engclear
  
-@@ -468,6 +535,7 @@
+@@ -468,6 +534,7 @@
      real :: factor
      real, dimension(:), allocatable :: sve1, sve2
      real, dimension(:, :), allocatable :: sve3
@@ -110,7 +102,7 @@
      call mpi_rank_size_info                                          ! MPI
      !
  
-@@ -552,6 +620,79 @@
+@@ -552,6 +619,79 @@
      if(selfcal == YES) eself(1:esmax) = eself(1:esmax) / engnorm
      avslf = avslf / engnorm
  
@@ -190,7 +182,7 @@
      if(myrank /= 0) return                                            ! MPI
      !
      division = stnum / (maxcnf / skpcnf / engdiv)
-@@ -852,6 +993,22 @@
+@@ -852,6 +992,22 @@
         enddo
      endif
  

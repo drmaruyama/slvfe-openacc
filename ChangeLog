@@ -6,6 +6,8 @@ version 0.3.5 (x / y /2016)
     * Dispersion correction on Lennard-Jones interaction in the slvfe
     calculation is calculted with a key of ljlrc, and the extensions/LJLRC
     directory is removed.
+    * A script is prepared for assessing the convergence with respect to
+    the reference-solvent run.
 
 version 0.3.4 (12/24/2015)
 * Energy Histogram Computation:

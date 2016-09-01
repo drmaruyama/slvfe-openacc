@@ -41,8 +41,8 @@ contains
          uvcrd, edens, ecorr, escrd, eself, &
          voffset, &
          aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
-         ene_confname, io_paramfile, &
-         io_flcuv, SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, YES
+         ene_confname, io_paramfile, io_flcuv, &
+         SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, NO, YES
     use mpiproc, only: halt_with_error, warning, myrank
     implicit none
     character(*), parameter :: ecdfile = 'EcdInfo'
@@ -119,7 +119,7 @@ contains
     !
     allocate( uvmax(numslv), uvsoft(numslv), ercrd(large, 0:numslv) )
     !
-    peread = 0
+    peread = NO
     ermax = 0
     do pti = 0, numslv
        open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
@@ -129,7 +129,7 @@ contains
        else
           stop "parameter file does not exist"
        end if
-       if(peread == 1) then   ! read coordinate parameters from separate file
+       if(peread == YES) then ! read coordinate parameters from separate file
           open(unit = ecd_io, file = ecdfile, action = 'read', status = 'old')
           read(ecd_io,*)               ! comment line
           do i = 1, large

@@ -24,7 +24,7 @@ module ptinsrt
   !  single-solute trajectrory file used only when slttype = SLT_REFS_FLEX
   character(len=*), parameter :: slttrj = 'SltConf'  ! solute filename
   character(len=*), parameter :: sltwgt = 'SltWght'  ! solute weight filename
-  integer, parameter :: sltwgt_io = 31               ! solute weight ID
+  integer, parameter :: sltwgt_io = 31               ! solute weight IO
   !
   !  insertion against reference structure
   !    insorigin = INSORG_REFSTR: solvent species as superposition reference
