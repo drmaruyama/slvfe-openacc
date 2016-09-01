@@ -42,11 +42,10 @@ contains
          voffset, &
          aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
          ene_confname, io_paramfile, io_flcuv, &
+         ecd_file, ecd_io, &
          SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, NO, YES
     use mpiproc, only: halt_with_error, warning, myrank
     implicit none
-    character(*), parameter :: ecdfile = 'EcdInfo'
-    integer, parameter :: ecd_io = 95      ! IO for ecdfile
     real :: ecdmin, ecfmns, ecmns0, ecdcen, ecpls0, ecfpls, eccore, ecdmax
     real :: eclbin, ecfbin, ec0bin, finfac, ectmvl
     integer :: pecore, peread
@@ -129,8 +128,9 @@ contains
        else
           stop "parameter file does not exist"
        end if
+
        if(peread == YES) then ! read coordinate parameters from separate file
-          open(unit = ecd_io, file = ecdfile, action = 'read', status = 'old')
+          open(unit = ecd_io, file = ecd_file, action = 'read', status = 'old')
           read(ecd_io,*)               ! comment line
           do i = 1, large
              read(ecd_io, *, end=3109) q
@@ -160,6 +160,7 @@ contains
 3109      continue
           close(ecd_io)
        end if
+
        ectmvl = finfac * ecfbin
        ecdmin = ecdmin - ectmvl
        ecfmns = ecfmns - ectmvl

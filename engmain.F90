@@ -250,7 +250,7 @@ module engmain
   real, parameter :: cal_per_joule = 4.1840   ! thermochemical cal / J
 !
   integer :: numtype, nummol, numatm, maxcnf, engdiv, skpcnf, corrcal, selfcal
-  integer :: slttype, wgtslf, wgtins, wgtsys, boxshp, estype
+  integer :: slttype, wgtslf, wgtsys, wgtins, boxshp, estype
   integer, parameter :: max_for_spec = 100    ! maximum number of species
   integer :: sltspec, hostspec(max_for_spec), refspec(max_for_spec)
   integer :: insorigin, insposition, insorient, insstructure
@@ -261,14 +261,52 @@ module engmain
   real :: block_threshold
   logical :: force_calculation
 
+
   ! IO units and files
-  character(len=*), parameter :: trjfile = 'HISTORY'    ! trajectory filename
-  character(len=*), parameter :: inffile = 'MDinfo'     ! MD info filename
-  integer, parameter :: io_MDinfo = 93                  ! MD info file IO
+  ! system trajectory and setups
+  character(len=*), parameter :: trjfile = 'HISTORY'      ! trajectory filename
+  character(len=*), parameter :: inffile = 'MDinfo'       ! MD info filename
+  integer, parameter :: io_MDinfo = 93                    ! MD info file IO
   character(len=*), parameter :: ene_confname = 'parameters_er'
   integer, parameter :: io_paramfile = 91
   integer, parameter :: io_flcuv = 99      ! IO for flcuv.tt and progress.tt
   integer, parameter :: stdout = 6         ! standard output
+
+  ! interaction parameters, see setconf.F90
+  character(len=*), parameter :: solute_file = 'SltInfo'  ! solute species
+  character(len=*), parameter :: solvent_file = 'MolPrm'  ! solvent species
+  character(len=*), parameter :: ljtable_file = 'LJTable' ! table for LJ
+  integer, parameter :: mol_io = 79        ! IO for SltInfo and MolPrmX
+  integer, parameter :: ljtable_io = 70    ! IO for LJ table
+
+  ! single-solute trajectory
+  !      used only when slttype = SLT_REFS_FLEX, see insertion.F90
+  character(len=*), parameter :: slttrj = 'SltConf'  ! solute trajectory
+
+  ! configuration-dependent weight for system used when wgtsys = YES
+  character(len=*), parameter :: syswgt_file = "SysWght"  ! filename
+  integer, parameter :: syswgt_io = 33                    ! file IO
+  ! configuration-dependent weight for single solute used when wgtins = YES
+  !      effective only when slttype = SLT_REFS_FLEX, see insertion.F90
+  character(len=*), parameter :: sltwgt_file = 'SltWght'  ! filename
+  integer, parameter :: sltwgt_io = 31                    ! file IO
+
+  ! reference structure, see insertion.F90
+  !   insorigin = INSORG_REFSTR: solvent species as superposition reference
+  !      refspec : solvent species used as the reference
+  !   insstructure = INSSTR_RMSD: solute itself as superposition reference
+  character(*), parameter :: refstr_file = 'RefInfo'      ! structure filename
+  integer, parameter :: refstr_io = 71                    ! structure file IO
+
+  ! used-defined energy coordinate
+  !      effective only when peread_standard = YES, see engproc.F90
+  character(*), parameter :: ecd_file = 'EcdInfo'         ! filename
+  integer, parameter :: ecd_io = 95                       ! file IO
+
+  ! permutation of atom index, see setconf.F90
+  character(len=*), parameter :: perm_file = "PermIndex"  ! filename
+  integer, parameter :: perm_io = 75                      ! file IO
+
 
   integer, dimension(:), allocatable :: moltype, numsite, sluvid
   real, dimension(:,:),  allocatable :: bfcoord

@@ -18,22 +18,17 @@
 ! Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 module ptinsrt
-  !  test particle insertion of the solute
+  ! test particle insertion of the solute
   implicit none
   real, save :: unrn
-  !  single-solute trajectrory file used only when slttype = SLT_REFS_FLEX
-  character(len=*), parameter :: slttrj = 'SltConf'  ! solute filename
-  character(len=*), parameter :: sltwgt = 'SltWght'  ! solute weight filename
-  integer, parameter :: sltwgt_io = 31               ! solute weight IO
   !
-  !  insertion against reference structure
-  !    insorigin = INSORG_REFSTR: solvent species as superposition reference
-  !       refspec: solvent species used as the reference
-  !    insstructure = INSSTR_RMSD: solute itself as superposition reference
-  !  file for reference structure
-  character(*), parameter :: refstr_file='RefInfo'
-  integer, parameter :: refstr_io=71
-  !  variables for reference structure
+  ! insertion against reference structure
+  !   insorigin = INSORG_REFSTR: solvent species as superposition reference
+  !      refspec: solvent species used as the reference
+  !   insstructure = INSSTR_RMSD: solute itself as superposition reference
+  !   refstr_file : filename for storing the reference structure
+  !   refstr_io : IO for refstr_file
+  ! variables for reference structure
   integer                            :: refhost_natom,   refslt_natom
   integer, dimension(:), allocatable :: refhost_specatm, refslt_specatm
   real, dimension(:,:), allocatable  :: refhost_crd,     refslt_crd
@@ -382,7 +377,8 @@ contains
 
   subroutine getsolute(caltype, insml, stat_weight)
     use trajectory, only: open_trajectory, close_trajectory
-    use engmain, only: slttype, wgtins, numsite, bfcoord, stdout, &
+    use engmain, only: slttype, numsite, bfcoord, stdout, slttrj, &
+                       wgtins, sltwgt_file, sltwgt_io, &
                        insstructure, lwstr, upstr, &
                        SLT_REFS_FLEX, INSSTR_NOREJECT, INSSTR_RMSD, YES
     use OUTname, only: OUTconfig, solute_trajectory
@@ -411,7 +407,7 @@ contains
           endif
           if(myrank /= 0) return
           call open_trajectory(solute_trajectory, slttrj)
-          if(read_weight) open(unit = sltwgt_io, file = sltwgt, status = 'old')
+          if(read_weight) open(unit = sltwgt_io, file = sltwgt_file, status = 'old')
           return
        case('last')
           if(myrank /= 0) return
@@ -446,7 +442,7 @@ contains
                       rewind(sltwgt_io)
                       read(sltwgt_io, *, iostat = ioerr) dumint, weight
                       if(ioerr /= 0) then
-                         write(stdout,*) " The weight file (", sltwgt, ") is ill-formed"
+                         write(stdout,*) " The weight file (", sltwgt_file, ") is ill-formed"
                          call mpi_setup('stop')
                          stop
                       endif
@@ -625,7 +621,8 @@ contains
 !
 ! loading the reference structure
   subroutine load_refstructure
-    use engmain, only: nummol, moltype, numsite, sltlist, refspec, mol_begin_index
+    use engmain, only: nummol, moltype, numsite, sltlist, mol_begin_index, &
+                       refspec, refstr_file, refstr_io
     use mpiproc, only: halt_with_error
     implicit none
     integer :: sltmol, atom_count, i, sid, stat

@@ -127,10 +127,6 @@ end module
 !
 module setconf
   implicit none
-  character(len=*), parameter :: weight_file = "SysWght"
-  integer, parameter :: weight_io = 33
-  character(len=*), parameter :: perm_file = "PermIndex"
-  integer, parameter :: perm_io = 75
 contains
 !
 !  setting molecular simulation parameters
@@ -531,6 +527,7 @@ contains
          ljene_mat, ljlensq_mat, ljtype, ljtype_max, cmbrule, &
          specatm, sitepos, &
          mol_begin_index, mol_end_index, belong_to, mol_charge, &
+         solute_file, solvent_file, mol_io, ljtable_file, ljtable_io, &
          LJFMT_EPS_cal_SGM_nm, LJFMT_EPS_Rminh, LJFMT_EPS_J_SGM_A, &
          LJFMT_A_C, LJFMT_C12_C6, LJFMT_TABLE, &
          LJCMB_ARITH, LJCMB_GEOM, &
@@ -558,11 +555,6 @@ contains
     real, dimension(:,:), allocatable :: psite
     character(len=5) :: atmtype
     character(len=80) :: molfile
-    character(len=*), parameter :: sltfile = 'SltInfo'
-    character(len=*), parameter :: prmfile = 'MolPrm'
-    character(len=*), parameter :: ljtablefile = 'LJTable'
-    integer, parameter :: mol_io = 79                ! IO for molfile
-    integer, parameter :: ljtable_io = 70            ! IO for LJ table
 
     call OUTinitial                ! initialization of OUTname module
     call iniparam                  ! initialization of parameters
@@ -597,7 +589,7 @@ contains
        ! Test particle information will be defined outside
        ptcnt(numtype) = 1          ! Test particle can only be one molecule
 
-       open(unit = mol_io, file = sltfile, status = 'old')
+       open(unit = mol_io, file = solute_file, status = 'old')
        ! here only counts no. of lines
        stmax = 0
        do
@@ -695,10 +687,10 @@ contains
        uvtype = pttype(pti)
        if(uvtype == PT_SOLVENT) then            ! solvent
           cur_solvent = cur_solvent + 1
-          molfile = prmfile//trim(adjustl(itoa(cur_solvent)))
+          molfile = solvent_file//trim(adjustl(itoa(cur_solvent)))
        else
           if(ptcnt(pti) > 1) cur_solvent = cur_solvent + 1
-          molfile = sltfile            ! solute / test particle
+          molfile = solute_file                 ! solute / test particle
        endif
        stmax = ptsite(pti)
 
@@ -778,7 +770,7 @@ contains
     ! Fill LJ table
     if(ljformat == LJFMT_TABLE) then
        ! From table (directly)
-       open(unit = ljtable_io, file = ljtablefile, status = 'old', action = 'read')
+       open(unit = ljtable_io, file = ljtable_file, status = 'old', action = 'read')
        read(ljtable_io, *) ljtype_max
        allocate( ljlensq_mat(ljtype_max, ljtype_max), &
                  ljene_mat(ljtype_max, ljtype_max) )
@@ -829,7 +821,9 @@ contains
 ! returns number of frames read (EXCLUDING skipped frames)
   subroutine getconf_parallel(maxread, actual_read)
     use engmain, only: skpcnf, boxshp, numsite, sluvid, stdout, &
-                       sitepos, cell, stat_weight_system, PT_SOLVENT, PT_SOLUTE
+                       sitepos, cell, stat_weight_system, &
+                       perm_file, perm_io, &
+                       PT_SOLVENT, PT_SOLUTE
     use OUTname, only: OUTconfig                     ! from outside
     use mpiproc
     implicit none
@@ -953,7 +947,7 @@ contains
   end subroutine getconf_parallel
 
   subroutine read_weight(weight)
-    use engmain, only: wgtsys, stdout, YES
+    use engmain, only: wgtsys, syswgt_file, syswgt_io, stdout, YES
     use mpiproc, only: mpi_setup
     implicit none
     real, intent(out) :: weight
@@ -966,13 +960,13 @@ contains
     endif
 
     if(.not. file_opened) then
-       open(unit = weight_io, file = weight_file, action = 'read')
+       open(unit = syswgt_io, file = syswgt_file, action = 'read')
        file_opened = .true.
     endif
     
-    read(weight_io, *, iostat = ioerr) dummy, weight
+    read(syswgt_io, *, iostat = ioerr) dummy, weight
     if(ioerr /= 0) then 
-       write(stdout, *) " The weight file (", weight_file, ") is ill formed or its length does not match with that of HISTORY"
+       write(stdout, *) " The weight file (", syswgt_file, ") is ill formed or its length does not match with that of HISTORY"
        call mpi_setup('stop')
        stop
     endif
