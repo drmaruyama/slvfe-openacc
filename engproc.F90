@@ -42,30 +42,32 @@ contains
          voffset, &
          aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
          ene_confname, io_paramfile, io_flcuv, &
-         ecd_file, ecd_io, &
+         ecdinfo_file, ecdinfo_io, ecdmesh_file, ecdmesh_io, &
          SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, NO, YES
     use mpiproc, only: halt_with_error, warning, myrank
     implicit none
     real :: ecdmin, ecfmns, ecmns0, ecdcen, ecpls0, ecfpls, eccore, ecdmax
     real :: eclbin, ecfbin, ec0bin, finfac, ectmvl
-    integer :: pecore, peread
+    integer :: pecore
     ! pemax :  number of discretization of the solute-solvent energy
     ! pesoft : number of discretization in the soft interaction region
     !    they are constructed from other parameters (pemax = pesoft + pecore)
     integer pemax, pesoft
+    integer :: ecprread, meshread, peread
     !
     real, parameter :: infty = 1.0e50      ! essentially equal to infinity
     integer, parameter :: rglmax = 5, large = 10000, too_large_ermax = 15000
     real :: factor, incre, cdrgvl(0:rglmax+1), ecpmrd(large)
     integer :: solute_moltype
-    integer :: iduv, i, q, pti, regn, minrg, maxrg, uprgcd(0:rglmax+1)
+    integer :: iduv, i, q, pti, regn, minrg, maxrg, uprgcd(0:rglmax+1), dummy
     integer, dimension(:), allocatable :: tplst
     real, dimension(:,:), allocatable  :: ercrd
     !
     integer :: param_err
-    logical :: check_ok
+    logical :: check_ok, start_line
     namelist /hist/ ecdmin, ecfmns, ecdcen, eccore, ecdmax, &
-                    eclbin, ecfbin, ec0bin, finfac, pecore, peread
+                    eclbin, ecfbin, ec0bin, finfac, pecore, &
+                    ecprread, meshread, peread
     !
     allocate( tplst(nummol) )
     numslt = 0
@@ -118,29 +120,33 @@ contains
     !
     allocate( uvmax(numslv), uvsoft(numslv), ercrd(large, 0:numslv) )
     !
-    peread = NO
+    ecprread = NO
+    meshread = NO
     ermax = 0
     do pti = 0, numslv
        open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
-       if (param_err == 0) then
+       if(param_err == 0) then
           read(io_paramfile, nml = hist)
           close(io_paramfile)
        else
-          stop "parameter file does not exist"
+          call halt_with_error('eng_per')
        end if
+       if(peread == YES) ecprread = YES   ! deprecated
 
-       if(peread == YES) then ! read coordinate parameters from separate file
-          open(unit = ecd_io, file = ecd_file, action = 'read', status = 'old')
-          read(ecd_io,*)               ! comment line
+       ! read coordinate parameters from EcdInfo
+       if(ecprread == YES) then
+          open(unit = ecdinfo_io, file = ecdinfo_file, action = 'read', iostat = param_err)
+          if(param_err /= 0) call halt_with_error('eng_eci')
+          read(ecdinfo_io, *)             ! comment line
           do i = 1, large
-             read(ecd_io, *, end=3109) q
+             read(ecdinfo_io, *, end = 3109) q
              if(q == pti) then
-                backspace(ecd_io)
-                if(pti == 0) then      ! solute self-energy
-                   read(ecd_io,*) iduv, ecpmrd(1:8)
-                   pecore = 0            ! no core region for self-energy
-                else                   ! solute-solvent interaction energy
-                   read(ecd_io,*) iduv, ecpmrd(1:9), pecore
+                backspace(ecdinfo_io)
+                if(pti == 0) then         ! solute self-energy
+                   read(ecdinfo_io, *) iduv, ecpmrd(1:8)
+                   pecore = 0               ! no core region for self-energy
+                else                      ! solute-solvent interaction energy
+                   read(ecdinfo_io, *) iduv, ecpmrd(1:9), pecore
                    ecdmax = ecpmrd(9)
                    if(pecore <= 1) call halt_with_error('eng_pcr')
                 endif
@@ -158,7 +164,7 @@ contains
              endif
           enddo
 3109      continue
-          close(ecd_io)
+          close(ecdinfo_io)
        end if
 
        ectmvl = finfac * ecfbin
@@ -190,20 +196,20 @@ contains
 
        pesoft = uprgcd(rglmax) - uprgcd(0)
        pemax = pesoft + pecore
-       uprgcd(rglmax+1) = pemax
-       ercrd(uprgcd(0:(rglmax+1)), pti) = cdrgvl(0:(rglmax+1))
+       uprgcd(rglmax + 1) = pemax
+       ercrd(uprgcd(0:(rglmax + 1)), pti) = cdrgvl(0:(rglmax + 1))
 
        if(pemax > large) call halt_with_error('eng_siz')
 
-       if(pecore == 0) i = rglmax        ! no core region
-       if(pecore >  0) i = rglmax + 1    ! explicit treatment of core region
+       if(pecore == 0) i = rglmax         ! no core region
+       if(pecore >  0) i = rglmax + 1     ! explicit treatment of core region
        do regn = 1, i
           minrg = uprgcd(regn - 1)
           maxrg = uprgcd(regn)
           if(regn <= rglmax) then
              incre = ercrd(maxrg, pti) - ercrd(minrg, pti)
           endif
-          if(regn == (rglmax + 1)) then  ! effective only when pecore > 0
+          if(regn == (rglmax + 1)) then   ! effective only when pecore > 0
              incre = log(ercrd(maxrg, pti) / ercrd(minrg, pti))
           endif
           factor = incre / real(maxrg - minrg)
@@ -218,9 +224,44 @@ contains
           enddo
        enddo
 
-       if(pti == 0) then              ! solute self-energy
+       ! read coordinate meshes from EcdMesh
+       if(meshread == YES) then
+          open(unit = ecdmesh_io, file = ecdmesh_file, action = 'read', iostat = param_err)
+          if(param_err /= 0) call halt_with_error('eng_ecm')
+          start_line = .true.
+          do i = 1, large
+             read(ecdmesh_io, *, end = 3209) q
+             if(q == pti) then
+                backspace(ecdmesh_io)
+                if( start_line ) then     ! 0-th line of the q-th species
+                   start_line = .false.
+                   iduv = 0
+                   if(pti == 0) then      ! solute self-energy
+                      read(ecdmesh_io, *) dummy, pemax
+                      pecore = 0            ! no core region for self-energy
+                   else                   ! solute-solvent interaction energy
+                      read(ecdmesh_io, *) dummy, pecore, pemax
+                   endif
+                   pesoft = pemax - pecore
+                else
+                   iduv = iduv + 1        ! iduv-th line of the q-th species
+                   read(ecdmesh_io, *) dummy, dummy, ercrd(iduv, pti)
+                endif
+             endif
+          enddo
+3209      continue
+          close(ecdmesh_io)
+          check_ok = .true.
+          if(iduv /= pemax) check_ok = .false.
+          do iduv = 1, pemax - 1
+             if(ercrd(iduv, pti) >= ercrd(iduv + 1, pti)) check_ok = .false.
+          enddo
+          if(.not. check_ok) call halt_with_error('eng_emf')
+       endif
+
+       if(pti == 0) then                  ! solute self-energy
           esmax = pesoft
-       else                           ! solute-solvent interaction energy
+       else                               ! solute-solvent interaction energy
           uvmax(pti) = pemax
           uvsoft(pti) = pesoft
           ermax = ermax + pemax

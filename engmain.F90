@@ -222,9 +222,13 @@
 !     and are used for each of the solute and solvent species
 !     ecmns0, ecpls0, and ecfpls are internally set within enginit
 !     and cannot be changed in the parameter files
-!   peread : determines whether the parameters are read from a separate file
+!   ecprread : whether the energy parameters are read from a separate file
 !       0 : parameters are read from parameters_er (default)
 !       1 : parameters are read separately from a file EcdInfo
+!   meshread : whether the energy meshes are taken from a separate file
+!       0 : meshes are determined from the parameters in parameters_er (default)
+!       1 : energy coordinate meshes are read from a file EcdMesh
+!   peread : (deprecated) same as ecprread
 !   pecore : number of discretization in the core interaction region
 !   ecdmin : minimum value of the solute-solvent energy
 !   ecfmns : smaller side of the finely dicretized solute-solvent energy
@@ -299,9 +303,11 @@ module engmain
   integer, parameter :: refstr_io = 71                    ! structure file IO
 
   ! used-defined energy coordinate
-  !      effective only when peread_standard = YES, see engproc.F90
-  character(*), parameter :: ecd_file = 'EcdInfo'         ! filename
-  integer, parameter :: ecd_io = 95                       ! file IO
+  !      effective only when ecprread = YES or meshread = YES, see engproc.F90
+  character(*), parameter :: ecdinfo_file = 'EcdInfo'     ! filename
+  integer, parameter :: ecdinfo_io = 95                   ! file IO
+  character(*), parameter :: ecdmesh_file = 'EcdMesh'     ! filename
+  integer, parameter :: ecdmesh_io = 95                   ! file IO
 
   ! permutation of atom index, see setconf.F90
   character(len=*), parameter :: perm_file = "PermIndex"  ! filename
@@ -395,7 +401,7 @@ contains
        read(io_paramfile, nml = ene_param)
        close(io_paramfile)
     else
-       stop "parameter file does not exist"
+       stop "parameters_er file does not exist"
     end if
 
   end subroutine init_params
