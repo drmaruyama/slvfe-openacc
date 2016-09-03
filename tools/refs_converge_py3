@@ -8,7 +8,6 @@
 """
 
 import argparse
-from glob import glob
 import os
 import os.path
 import re
@@ -35,17 +34,17 @@ args = parser.parse_args()
 def DictFromList(List):  # PAIRWISE LIST ---> DICTIONARY
     return dict(zip(List[:-1:2], List[1::2]))
 
-def makeDict(file):  # file ---> PAIRWISE LIST --->DICTIONARY 
-    dic = {}
+def makeDict(file):  # file ---> PAIRWISE LIST --->DICTIONARY
+    dic_file = {}
     cmtpattern = re.compile('!(.*)')  # COMMENT PATTERN '...!...'
     with open(file, mode='rt') as f:
-        linelist = [cmtpattern.sub('', line) for line in f 
+        linelist = [cmtpattern.sub('', line) for line in f
                     if '=' in line]  # IGNORE COMMENT
         for line in linelist:
-                    key_val = re.split(r'=|,', line)  # GENERATE key_val LIST
-                    key_val = list(map(lambda i:i.strip(), key_val))  # RESHAPE key_val
-                    dic.update(DictFromList(key_val))  # UPDATE DICTIONARIES FOR EACH LINE
-    return(dic)    
+                    key_val = re.split(r'=|,', line)
+                    key_val = list(map(lambda i:i.strip(), key_val))  # CLEAN key_val
+                    dic_file.update(DictFromList(key_val))
+    return(dic_file)
 
 def get_prm(dic, *, key=None, default=None):
     if key in dic.keys():
@@ -55,7 +54,7 @@ def get_prm(dic, *, key=None, default=None):
     return value
 
 def change_prm(dic, *, file=None, key=None, new_prm=None):
-    dic[key] = new_prm            
+    dic[key] = new_prm
     with open(file, 'w+') as f:
         f.write('&fevars\n')
         for key, value in dic.items():
@@ -73,7 +72,6 @@ slvfe_dir = os.getcwd()
 # READ PARAMETERS_FE AND GET VALUE OF 'refsdirec' KEY
 dic_fe = makeDict('parameters_fe')
 refsdir = get_prm(dic_fe, key='refsdirec', default='refs')
-refsdir = refsdir.strip('\'').strip('\"')  # REMOVE UNNECESSARY QUATATIONs
 # CD TO REFS DIRECTORY
 try:
     os.chdir(refsdir)
@@ -84,7 +82,6 @@ except FileNotFoundError:
 # READ parameters_er AND GET engdiv
 dic_er = makeDict('parameters_er')
 er_engdiv = int(get_prm(dic_er, key='engdiv', default=5))
-# IF args.numref IS INVALID, SET args.numref TO er_engdiv
 if args.numref is None or args.numref > er_engdiv:
     args.numref = er_engdiv
 
@@ -99,14 +96,22 @@ change_prm(dic_chmesh, file='parameters_fe', key='mesherr', new_prm=-1)
 result_file = 'result_summary'
 resf = open(result_file, 'w+')
 resf.write('block\tsolvationFE 95%Error\tMeshError\n')
+
 # CHANGE numref in parameters_fe AND EXECUTE SLVFE PROGRAM SEQUENTIALLY
 for value in range(1, args.numref+1):  # CHANGE NUMREF FROM 1 TO args.numref
     dic_chnum = makeDict('parameters_fe')
     change_prm(dic_chnum, file='parameters_fe', key='numref', new_prm=value)
+
     output_file = 'slvfe_%02d' % value
     slvf = open(output_file, mode='w+')
     proc = Popen(['slvfe'], stdout=slvf)  # SLVFE >> output_file
     proc.communicate()  # WAIT FOR FILE OUTPUT
+    if proc.returncode != 0:
+        os.remove('parameters_fe')
+        shutil.move('parameters_fe.bak', 'parameters_fe')
+        os.remove(output_file)
+        sys.exit('slvfe Failed.')
+
     # READ slvfe_XX AND WRITE block, solvationFE, and Errors TO result_summary
     slvf.seek(0)
     linelist = slvf.readlines()  # READ slvfe_XX
@@ -114,6 +119,7 @@ for value in range(1, args.numref+1):  # CHANGE NUMREF FROM 1 TO args.numref
     solvationFE_95pError = linelist[-3][3:26].strip()
     MeshError = linelist[-1].split(' ')[8]
     resf.write('%2d\t%s\t%s\n' % (block, solvationFE_95pError, MeshError))
+
     # REMOVE slvfe_XX if '-s' option is not specified
     if not args.save:
         os.remove(output_file)
@@ -121,7 +127,7 @@ for value in range(1, args.numref+1):  # CHANGE NUMREF FROM 1 TO args.numref
         slvf.close()
 
 # OUTPUT result_summary TO stdout
-resf.truncate()  # TRUNCATE result_summary
+resf.truncate()
 resf.seek(0)
 lines = resf.readlines()
 print(''.join(lines))
