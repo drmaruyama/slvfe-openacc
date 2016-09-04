@@ -18,10 +18,9 @@
 ! Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 module uvcorrect
-  character(len=*), parameter :: volmfname = 'volumedata'
-  real :: volm
-
   ! All the definitions are copied from engmain.F90
+  ! implicit none is not declared since some variables in namelist are listed
+  !          for comparibility with variable declarations in engmain.F90
   character(len=*), parameter :: ermodfname = 'parameters_er'
   integer :: ljformat, ljswitch, cmbrule
   real :: lwljcut, upljcut
@@ -92,13 +91,12 @@ contains
   end subroutine ljcorrect
 
   subroutine set_keyparam
-    use sysvars, only: refsdirec
+    use sysvars, only: avevolume, refsdirec
     implicit none
     character(len=80) :: keyfile
     integer, parameter :: iounit = 555
     real, parameter :: volm_min = 3.0e3
     integer :: stat
-    logical :: found
     ljformat = LJFMT_EPS_Rminh                    ! default setting
     ljswitch = LJSWT_POT_CHM                      ! default setting
     cmbrule = LJCMB_ARITH                         ! default setting
@@ -113,20 +111,15 @@ contains
     endif
     close(iounit)
 
-    inquire(file = volmfname, exist = found)
-    if(found) then
-       open(unit = iounit, file = volmfname, status='old')
-       read(iounit, *) volm
-       close(iounit)
-    else
+    if(avevolume <= 0.0) then   ! no input of avevolume from parameters_fe
        write(6, '(A)') "  What is the average volume of reference solvent? (in Angstrom^3)"
-       read(5, *) volm
+       read(5, *) avevolume
     endif
-    if(volm < volm_min) then
+    if(avevolume < volm_min) then
        write(6, '(A)') "  Warning: your input volume seems too small"
        write(6, '(A, f8.1)') "           This warning appears when your input is less than ",volm_min
        write(6, '(A)') "  Re-type the volume in Angstrom^3 (NOT in nm^3)"
-       read(5, *) volm
+       read(5, *) avevolume
     endif
   end subroutine set_keyparam
 
@@ -278,13 +271,13 @@ contains
   end subroutine get_ljtable
 
   subroutine calc_ljlrc(pti, correction)
-    use sysvars, only: nummol
+    use sysvars, only: avevolume, nummol
     implicit none
     integer, intent(in) :: pti
     real, intent(out) :: correction
     real :: dens, ljeps, ljsgm2
     integer :: ui, vi
-    dens = nummol(pti) / volm
+    dens = nummol(pti) / avevolume
     correction = 0.0
     do ui = 1, ptsite(0)           ! sum over solute sites
        do vi = 1, ptsite(pti)      ! sum over solvent sites

@@ -33,7 +33,7 @@ contains
          slndnspf, aveuvfile, &
          numprm, prmmax, numsln, numref, numdiv, &
          inptemp, temp, kT, &
-         maxmesh, tiny, large, &
+         too_large_ermax, tiny, large, &
          rduvmax, rduvcore, &
          chmpt, svgrp, svinf
     implicit none
@@ -132,7 +132,7 @@ contains
     close(71)
     !
     if(sum( rduvmax(1:numslv) ) /= ermax) stop ' The file format is incorrect'
-    if(ermax > maxmesh) stop ' The number of meshes is too large'
+    if(ermax > too_large_ermax) stop ' The number of energy bins is too large'
     !
     select case(clcond)
     case('basic')
@@ -474,7 +474,6 @@ contains
                        minthres_soln, minthres_refs, &
                        cumuint, cumuintfl
     use uvcorrect, only: ljcorrect
-    !
     implicit none
     integer, intent(in) :: prmcnt, cntrun
     integer :: group, inft
@@ -801,7 +800,6 @@ contains
   end subroutine getslncv
   !
   subroutine getinscv
-    !
     implicit none
     integer :: iduv, iduvp, pti, cnt, wrksz, k
     real :: factor, ampl, lcsln, lcref
@@ -1281,7 +1279,6 @@ module opwrite
 contains
   !
   subroutine wrtresl
-    !
     implicit none
     integer :: prmcnt, pti, k, group, inft
     real :: factor, valcp

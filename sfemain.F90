@@ -29,14 +29,17 @@ module sysvars
   character(len=3) :: normalize = 'yes', showdst= 'not'
   character(len=3) :: wrtzrsft = 'not',  readwgtfl = 'yes'
 
-  real :: inptemp = 300.0                                     ! Kelvin
-  real, parameter :: zero = 0.0
-  real :: error = 1.0e-8, tiny = 1.0e-8
-  integer :: pickgr = 3, msemin = 1, msemax = 5
-  real :: mesherr = 0.10                                      ! kcal/mol
-  integer :: maxmesh = 30000, large = 500000, itrmax = 100
+  real :: inptemp = 300.0                    ! temperature in Kelvin
+  integer :: pickgr = 3
+  integer :: msemin = 1, msemax = 5
+  real :: mesherr = 0.10                     ! allowed mesh error in kcal/mol
+  real :: avevolume = 0.0                    ! average volume of system
   integer :: extthres_soln = 1, extthres_refs = 1
   integer :: minthres_soln = 0, minthres_refs = 0
+  real, parameter :: zero = 0.0
+  real :: error = 1.0e-8, tiny = 1.0e-8
+  integer :: too_large_ermax = 30000
+  integer :: large = 500000, itrmax = 100
   
   character(len=1024) :: solndirec = 'soln'
   character(len=1024) :: refsdirec = 'refs'
@@ -67,15 +70,16 @@ module sysvars
   real, dimension(:),     allocatable :: wgtsln, wgtref
   
   namelist /fevars/ clcond, numprm, numsln, numref, numdiv, &
-       uvread, slfslt, ljlrc, infchk, zerosft, wgtfnform, &
+       uvread, slfslt, infchk, zerosft, wgtfnform, &
        refmerge, extsln, extthres_soln, extthres_refs, &
        minthres_soln, minthres_refs, &
        wgtf2smpl, slncor, normalize, showdst, wrtzrsft, readwgtfl, &
        inptemp, pickgr, msemin, msemax, mesherr, &
-       maxmesh, large, itrmax, error, tiny, &
+       ljlrc, avevolume, &
        solndirec, refsdirec, wgtslnfl, wgtreffl, &
        slndnspf, slncorpf, refdnspf, refcorpf, &
-       aveuvfile, cumuint, cumuintfl
+       aveuvfile, cumuint, cumuintfl, &
+       too_large_ermax, large, itrmax, error, tiny
 
 contains
 
