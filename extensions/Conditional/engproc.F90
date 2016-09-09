@@ -30,16 +30,6 @@ module engproc
   logical, allocatable :: flceng_stored(:)
   real, allocatable :: flceng(:, :)
 
-  ! start of the extension for computing the conditional distributions
-  integer :: do_conditional
-  integer :: order_species = 0       ! default = not the solute-solvent energy
-  real :: order_min, order_max, order_binwidth, order_param
-  integer :: order_size, order_prmid
-  real, dimension(:,:),   allocatable :: edcnd, sluvcnd
-  real, dimension(:,:,:), allocatable :: crcnd, avuvcnd
-  real, dimension(:),     allocatable :: cndnorm
-  ! end of the extension for computing the conditional distributions
-
 contains
   !
   !  procedure for constructing energy distribution functions
@@ -51,34 +41,42 @@ contains
          uvcrd, edens, ecorr, escrd, eself, &
          voffset, &
          aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
-         ene_confname, &
-         NO, &       ! extension for computing the conditional distributions
-         io_flcuv, SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, YES
+         ene_confname, io_paramfile, io_flcuv, &
+         ecdinfo_file, ecdinfo_io, ecdmesh_file, ecdmesh_io, &
+    ! start of the extension for computing the conditional distributions
+         maxins, stdout, &
+         do_conditional, &
+         OrderCrd_file, OrderCrd_io, OrderPrm_file, OrderPrm_io, &
+         OrderPrm_read, OrderPrm_Values, OrderPrm_ArraySize, &
+         order_species, order_size, &
+         order_min, order_max, order_binwidth, &
+         order_crd, edcnd, sluvcnd, crcnd, avuvcnd, cndnorm, &
+    ! end of the extension for computing the conditional distributions
+         SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, NO, YES
     use mpiproc, only: halt_with_error, warning, myrank
     implicit none
-    character(*), parameter :: ecdfile = 'EcdInfo'
-    integer, parameter :: ecdio = 51       ! IO for ecdfile
     real :: ecdmin, ecfmns, ecmns0, ecdcen, ecpls0, ecfpls, eccore, ecdmax
     real :: eclbin, ecfbin, ec0bin, finfac, ectmvl
-    integer :: pecore, peread
+    integer :: pecore
     ! pemax :  number of discretization of the solute-solvent energy
     ! pesoft : number of discretization in the soft interaction region
     !    they are constructed from other parameters (pemax = pesoft + pecore)
     integer pemax, pesoft
+    integer :: ecprread, meshread, peread
     !
     real, parameter :: infty = 1.0e50      ! essentially equal to infinity
     integer, parameter :: rglmax = 5, large = 10000, too_large_ermax = 15000
     real :: factor, incre, cdrgvl(0:rglmax+1), ecpmrd(large)
     integer :: solute_moltype
-    integer :: iduv, i, q, pti, regn, minrg, maxrg, uprgcd(0:rglmax+1)
+    integer :: iduv, i, q, pti, regn, minrg, maxrg, uprgcd(0:rglmax+1), dummy
     integer, dimension(:), allocatable :: tplst
     real, dimension(:,:), allocatable  :: ercrd
     !
-    integer, parameter :: paramfile_io = 191
     integer :: param_err
-    logical :: check_ok
+    logical :: check_ok, start_line
     namelist /hist/ ecdmin, ecfmns, ecdcen, eccore, ecdmax, &
-                    eclbin, ecfbin, ec0bin, finfac, pecore, peread
+                    eclbin, ecfbin, ec0bin, finfac, pecore, &
+                    ecprread, meshread, peread
     ! start of the extension for computing the conditional distributions
     namelist /conditional/ do_conditional, &
                            order_species, order_min, order_max, order_binwidth
@@ -131,31 +129,37 @@ contains
       ! after the solute, slide the value of molecule type
       where(sluvid(:) == PT_SOLVENT .and. moltype(:) > solute_moltype) uvspec(:) = uvspec(:) - 1
     endif
+    if(numslv /= maxval(uvspec(:))) call halt_with_error('eng_bug')
     !
     allocate( uvmax(numslv), uvsoft(numslv), ercrd(large, 0:numslv) )
     !
-    peread = 0
+    ecprread = NO
+    meshread = NO
     ermax = 0
     do pti = 0, numslv
-       open(unit = paramfile_io, file = ene_confname, action = "read", iostat = param_err)
-       if (param_err == 0) then
-          read(paramfile_io, nml = hist)
-          close(paramfile_io)
+       open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
+       if(param_err == 0) then
+          read(io_paramfile, nml = hist)
+          close(io_paramfile)
        else
-          stop "parameter file does not exist"
+          call halt_with_error('eng_per')
        end if
-       if(peread == 1) then   ! read coordinate parameters from separate file
-          open(unit = ecdio, file = ecdfile, action = 'read', status = 'old')
-          read(ecdio,*)                ! comment line
+       if(peread == YES) ecprread = YES   ! deprecated
+
+       ! read coordinate parameters from EcdInfo
+       if(ecprread == YES) then
+          open(unit = ecdinfo_io, file = ecdinfo_file, action = 'read', iostat = param_err)
+          if(param_err /= 0) call halt_with_error('eng_eci')
+          read(ecdinfo_io, *)             ! comment line
           do i = 1, large
-             read(ecdio, *, end=3109) q
+             read(ecdinfo_io, *, end = 3109) q
              if(q == pti) then
-                backspace(ecdio)
-                if(pti == 0) then      ! solute self-energy
-                   read(ecdio,*) iduv, ecpmrd(1:8)
-                   pecore = 0            ! no core region for self-energy
-                else                   ! solute-solvent interaction energy
-                   read(ecdio,*) iduv, ecpmrd(1:9), pecore
+                backspace(ecdinfo_io)
+                if(pti == 0) then         ! solute self-energy
+                   read(ecdinfo_io, *) iduv, ecpmrd(1:8)
+                   pecore = 0               ! no core region for self-energy
+                else                      ! solute-solvent interaction energy
+                   read(ecdinfo_io, *) iduv, ecpmrd(1:9), pecore
                    ecdmax = ecpmrd(9)
                    if(pecore <= 1) call halt_with_error('eng_pcr')
                 endif
@@ -173,8 +177,9 @@ contains
              endif
           enddo
 3109      continue
-          close(ecdio)
+          close(ecdinfo_io)
        end if
+
        ectmvl = finfac * ecfbin
        ecdmin = ecdmin - ectmvl
        ecfmns = ecfmns - ectmvl
@@ -204,20 +209,20 @@ contains
 
        pesoft = uprgcd(rglmax) - uprgcd(0)
        pemax = pesoft + pecore
-       uprgcd(rglmax+1) = pemax
-       ercrd(uprgcd(0:(rglmax+1)), pti) = cdrgvl(0:(rglmax+1))
+       uprgcd(rglmax + 1) = pemax
+       ercrd(uprgcd(0:(rglmax + 1)), pti) = cdrgvl(0:(rglmax + 1))
 
        if(pemax > large) call halt_with_error('eng_siz')
 
-       if(pecore == 0) i = rglmax        ! no core region
-       if(pecore >  0) i = rglmax + 1    ! explicit treatment of core region
+       if(pecore == 0) i = rglmax         ! no core region
+       if(pecore >  0) i = rglmax + 1     ! explicit treatment of core region
        do regn = 1, i
           minrg = uprgcd(regn - 1)
           maxrg = uprgcd(regn)
           if(regn <= rglmax) then
              incre = ercrd(maxrg, pti) - ercrd(minrg, pti)
           endif
-          if(regn == (rglmax + 1)) then  ! effective only when pecore > 0
+          if(regn == (rglmax + 1)) then   ! effective only when pecore > 0
              incre = log(ercrd(maxrg, pti) / ercrd(minrg, pti))
           endif
           factor = incre / real(maxrg - minrg)
@@ -232,9 +237,45 @@ contains
           enddo
        enddo
 
-       if(pti == 0) then              ! solute self-energy
+       ! read coordinate meshes from EcdMesh
+       if(meshread == YES) then
+          open(unit = ecdmesh_io, file = ecdmesh_file, action = 'read', iostat = param_err)
+          if(param_err /= 0) call halt_with_error('eng_ecm')
+          start_line = .true.
+          do i = 1, large
+             read(ecdmesh_io, *, end = 3209) q
+             if(q == pti) then
+                backspace(ecdmesh_io)
+                if( start_line ) then     ! 0-th line of the q-th species
+                   start_line = .false.
+                   iduv = 0
+                   if(pti == 0) then      ! solute self-energy
+                      read(ecdmesh_io, *) dummy, pemax
+                      pecore = 0            ! no core region for self-energy
+                   else                   ! solute-solvent interaction energy
+                      read(ecdmesh_io, *) dummy, pemax, pecore
+                   endif
+                   pesoft = pemax - pecore
+                else
+                   iduv = iduv + 1        ! iduv-th line of the q-th species
+                   read(ecdmesh_io, *) dummy, dummy, ercrd(iduv, pti)
+                endif
+             endif
+          enddo
+3209      continue
+          close(ecdmesh_io)
+          check_ok = .true.
+          if(iduv /= pemax) check_ok = .false.
+          if(pemax <= pecore) check_ok = .false.
+          do iduv = 1, pemax - 1
+             if(ercrd(iduv, pti) >= ercrd(iduv + 1, pti)) check_ok = .false.
+          enddo
+          if(.not. check_ok) call halt_with_error('eng_emf')
+       endif
+
+       if(pti == 0) then                  ! solute self-energy
           esmax = pesoft
-       else                           ! solute-solvent interaction energy
+       else                               ! solute-solvent interaction energy
           uvmax(pti) = pemax
           uvsoft(pti) = pesoft
           ermax = ermax + pemax
@@ -274,12 +315,18 @@ contains
 
     ! start of the extension for computing the conditional distributions
     do_conditional = NO                  ! default = don't do it
-    open(unit = paramfile_io, file = ene_confname, action = "read", iostat = param_err)
+    open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
     if(param_err == 0) then
-       read(paramfile_io, nml = conditional)
-       close(paramfile_io)
+       read(io_paramfile, nml = conditional)
+       close(io_paramfile)
     endif
     if(do_conditional == YES) then
+       inquire(file = OrderPrm_file, exist = check_ok)
+       if( check_ok ) then
+          OrderPrm_read = YES
+          order_species = 0
+          if(myrank == 0) open(unit = OrderPrm_io, file = OrderPrm_file, action = "read")
+       endif
        if( (order_species <= 0) .or. (order_species > numslv) ) then
           order_species = 0
        else
@@ -288,18 +335,47 @@ contains
           if(i /= 1) stop " When the interaction energy of a solvent species with solute is the order parameter, the number of that species needs to be 1"
        endif
        order_size = nint( (order_max - order_min ) / order_binwidth )
-       order_max = order_min + real(order_size) * order_binwidth
-       allocate( edcnd(ermax, 0:order_size+1) )
+       allocate( order_crd(order_size), edcnd(ermax, order_size) )
        if(corrcal == YES) then
-          factor = real(ermax) * sqrt( real(order_size+2) )
+          factor = real(ermax) * sqrt( real(order_size) )
           if(nint(factor) > too_large_ermax) call warning('emax')
-          allocate( crcnd(ermax, ermax, 0:order_size+1) )
+          allocate( crcnd(ermax, ermax, order_size) )
        endif
        if(slttype == SLT_SOLN) then
-          allocate( avuvcnd(engdiv, numslv, 0:order_size+1) )
-          allocate( sluvcnd(numslv, 0:order_size+1) )
+          allocate( avuvcnd(engdiv, numslv, order_size) )
+          allocate( sluvcnd(numslv, order_size) )
        endif
-       allocate( cndnorm(0:order_size+1) )
+       allocate( cndnorm(order_size) )
+       ! setting the meshes for order parameter
+       inquire(file = OrderCrd_file, exist = check_ok)
+       if( check_ok ) then
+          open(unit = OrderCrd_io, file = OrderCrd_file, action = "read")
+          do i = 1, order_size
+             write(OrderCrd_io, *) q, order_crd(i)
+          enddo
+          close(OrderCrd_io)
+       else
+          do i = 1, order_size
+             order_crd(i) = order_min + real(i - 1) * order_binwidth
+          enddo
+       endif
+       check_ok = .true.
+       do i = 1, order_size - 1
+          if(order_crd(i) >= order_crd(i + 1)) check_ok = .false.
+       enddo
+       if(.not. check_ok) then
+          write(stdout, '(A)') '  Order parameter is incorrectly meshed'
+          call halt_with_error('eng_ecd')
+       endif
+       ! the following lines are taken from the engconst subroutine
+       ! OrderPrm_ArraySize is equal to maxdst in the engconst subroutine
+       select case(slttype)
+       case(SLT_SOLN)
+          OrderPrm_ArraySize = numslt
+       case(SLT_REFS_RIGID, SLT_REFS_FLEX)
+          OrderPrm_ArraySize = maxins
+       end select
+       allocate( OrderPrm_Values(OrderPrm_ArraySize) )
     endif
     ! end of the extension for computing the conditional distributions
 
@@ -321,6 +397,9 @@ contains
 
   subroutine engclear
     use engmain, only: corrcal, selfcal, slttype, SLT_SOLN, YES, &
+    ! start of the extension for computing the conditional distributions
+                       do_conditional, edcnd, sluvcnd, crcnd, cndnorm, &
+    ! end of the extension for computing the conditional distributions
                        edens, ecorr, eself, slnuv, avslf, engnorm, engsmpl
     implicit none
     edens(:) = 0.0
@@ -510,14 +589,22 @@ contains
          edens, ecorr, eself, &
          aveuv, slnuv, avediv, avslf, minuv, maxuv, &
          engnorm, engsmpl, voffset, voffset_initialized, &
+    ! start of the extension for computing the conditional distributions
+         do_conditional, &
+         order_size, order_crd, edcnd, sluvcnd, crcnd, avuvcnd, cndnorm, &
+    ! end of the extension for computing the conditional distributions
          SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, NO, YES
     use mpiproc                                                      ! MPI
     implicit none
+    ! start of the extension for computing the conditional distributions
+    integer :: order_prmid
+    real :: order_param
+    ! end of the extension for computing the conditional distributions
     integer :: stnum, pti, j, k, iduv, division
     character(len=9) :: engfile
     character(len=3) :: suffeng
-    integer, parameter :: eng_io = 71, cor_io = 72, slf_io = 73
-    integer, parameter :: ave_io = 74, wgt_io = 75, uvr_io = 76
+    integer, parameter :: eng_io = 51, cor_io = 52, slf_io = 53
+    integer, parameter :: ave_io = 54, wgt_io = 55, uvr_io = 56
     real :: voffset_local, voffset_scale
     real :: factor
     real, dimension(:), allocatable :: sve1, sve2
@@ -616,7 +703,7 @@ contains
           if(slttype == SLT_SOLN) sluvcnd(:,:) = sluvcnd(:,:) * voffset_scale
        endif
        if(plmode == 2) then
-          do order_prmid = 0, order_size + 1
+          do order_prmid = 1, order_size
              call mpi_reduce(cndnorm(order_prmid), factor, 1, &
                   mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
              cndnorm(order_prmid) = factor
@@ -649,7 +736,7 @@ contains
 
        if(myrank == 0) then
           division = stnum / (maxcnf / skpcnf / engdiv)
-          do order_prmid = 0, order_size + 1
+          do order_prmid = 1, order_size
              factor = cndnorm(order_prmid)
              if(factor > tiny) then
                 avuvcnd(division, :, order_prmid) = sluvcnd(:, order_prmid) / factor
@@ -672,8 +759,12 @@ contains
              engfile = 'nmcdrf' // suffeng
           end select
           open(unit = eng_io, file = engfile, form = "FORMATTED", action = 'write')
-          do order_prmid = 0, order_size + 1
-             order_param = order_min + (real(order_prmid) - 0.5) * order_size
+          do order_prmid = 1, order_size
+             if(order_prmid < order_size) then
+                order_param = (order_crd(order_prmid) + order_crd(order_prmid + 1) ) / 2.0
+             else
+                order_param = order_crd(order_size) + (order_crd(order_size) - order_crd(order_size - 1) ) / 2.0
+             endif
              write(eng_io, '(f15.7,g25.17)') order_param, cndnorm(order_prmid)
           enddo
           endfile(eng_io)
@@ -686,7 +777,7 @@ contains
              engfile = 'ecndrf' // suffeng
           end select
           open(unit = eng_io, file = engfile, form = "FORMATTED", action = 'write')
-          do order_prmid = 0, order_size + 1
+          do order_prmid = 1, order_size
              factor = cndnorm(order_prmid)
              if(factor > tiny) then
                 edcnd(:, order_prmid) = edcnd(:, order_prmid) / factor
@@ -710,7 +801,7 @@ contains
                 engfile = 'crcdrf' // suffeng
              end select
              open(unit = cor_io, file = engfile, form = "UNFORMATTED", action = 'write')
-             do order_prmid = 0, order_size + 1
+             do order_prmid = 1, order_size
                 factor = cndnorm(order_prmid)
                 if(factor > tiny) then
                    crcnd(:, :, order_prmid) = crcnd(:, :, order_prmid) / factor
@@ -726,7 +817,7 @@ contains
 
           if((slttype == SLT_SOLN) .and. (stnum == maxcnf)) then
              open(unit = ave_io, file = 'avcnd.tt', action = 'write')
-             do order_prmid = 0, order_size + 1
+             do order_prmid = 1, order_size
                 if(order_prmid > 0) write(ave_io, *)
                 do k = 1, engdiv
                    write(ave_io, 751) k, avuvcnd(k, 1:numslv, order_prmid)
@@ -945,7 +1036,10 @@ contains
   subroutine update_histogram(stat_weight_solute, uvengy)
     use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
     ! start of the extension for computing the conditional distributions
-                       numslv, moltype, &
+                       numslv, moltype, stdout, &
+                       do_conditional, OrderPrm_read, OrderPrm_Values, &
+                       order_species, order_size, &
+                       order_crd, edcnd, sluvcnd, crcnd, cndnorm, &
     ! end of the extension for computing the conditional distributions
                        volume, temp, uvspec, &
                        slnuv, avslf, minuv, maxuv, &
@@ -956,6 +1050,10 @@ contains
                        ES_NVT, ES_NPT, NO, YES
     use mpiproc
     implicit none
+    ! start of the extension for computing the conditional distributions
+    integer :: order_prmid
+    real :: order_param
+    ! end of the extension for computing the conditional distributions
     real, intent(in) :: uvengy(0:slvmax), stat_weight_solute
     integer, allocatable :: insdst(:), engdst(:)
     integer :: i, k, q, iduv, iduvp, pti
@@ -1047,15 +1145,20 @@ contains
        if( (1 <= order_species) .and. (order_species <= numslv) ) then
           order_param = sum( uvengy(:), mask = (moltype(:) == order_species) )
        else
-          call calc_orderparam
+          if(OrderPrm_read == YES) then
+             order_param = OrderPrm_Values(cntdst)
+          else
+             ! user-defined setting of order parameter
+          endif
        endif
-       if(order_param < order_min) then
-          order_prmid = 0
-       elseif(order_param >= order_max) then
-          order_prmid = order_size + 1
-       else
-          order_prmid = int( (order_param - order_min) / order_binwidth ) + 1
+       call binsearch(order_crd(1:order_size), order_size, order_param, order_prmid)
+       ! smaller than the minimum mesh of order parameter
+       if(order_prmid < 1) then
+          write(stdout, '(A,g12.4,A)') '  Value of order parameter is ', order_param, ' and is too small'
+          call halt_with_error('eng_bug')
        endif
+       ! larger than the maximum mesh of order parameter
+       if(order_prmid > order_size) call halt_with_error('eng_bug')
        cndnorm(order_prmid) = cndnorm(order_prmid) + engnmfc
        if(slttype == SLT_SOLN) then
           sluvcnd(:, order_prmid) = sluvcnd(:, order_prmid) + flceng(:, cntdst) * engnmfc
@@ -1082,11 +1185,6 @@ contains
     deallocate( insdst, engdst )
   end subroutine update_histogram
 
-  ! start of the extension for computing the conditional distributions
-  subroutine calc_orderparam     ! user-defined setting of order parameter
-    implicit none
-  end subroutine calc_orderparam
-  ! end of the extension for computing the conditional distributions
   !
   subroutine residual_ene(i, j, pairep)
     use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
