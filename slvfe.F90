@@ -24,13 +24,13 @@ module sysread
        rdcrd, rddst, rddns, rdslc, rdcor, rdspec, &
        aveuv, uvene, blkuv, wgtsln, wgtref
   implicit none
-  character(len=1024) :: engfile(4)
+  character(len=1024) :: engfile(5)
 contains
 
   subroutine defcond
-    use sysvars, only: infchk, readwgtfl, &
+    use sysvars, only: infchk, meshread, readwgtfl, &
          solndirec, refsdirec, wgtslnfl, wgtreffl, &
-         slndnspf, aveuvfile, &
+         slndnspf, aveuvfile, engmeshfile, &
          numprm, prmmax, numsln, numref, numdiv, &
          inptemp, temp, kT, &
          too_large_ermax, tiny, large, &
@@ -60,6 +60,10 @@ contains
        read(5, *) engfile(3)
        write(6, "(A)") " What is the energy correlation for insertion?"
        read(5, *) engfile(4)
+       if((infchk == 'yes') .and. (meshread == 'yes')) then   ! EngMesh file
+          write(6, "(A)") " Which file has the meshes for energy coordinates?"
+          read(5, *) engfile(5)
+       endif
        maxsln=1
        maxref=1
        numrun=1
@@ -130,6 +134,26 @@ contains
        crdprev = crdnow
     end do
     close(71)
+
+    if((infchk == 'yes') .and. (meshread == 'yes')) then      ! EngMesh file
+       if(clcond == 'merge') then
+          opnfile = trim(solndirec) // '/' // trim(engmeshfile)
+       else
+          opnfile = engfile(5)
+       endif
+       do pti = 1, numslv
+          open(unit = 72, file = opnfile, status = 'old')
+          do i = 1, large
+             read(72, *, end = 729) k
+             if(k == pti) then
+                backspace(72)
+                read(72, *, end = 729) k, k, rduvcore(pti)
+                exit
+             endif
+          enddo
+729       close(72)
+       enddo
+    endif
     !
     if(sum( rduvmax(1:numslv) ) /= ermax) stop ' The file format is incorrect'
     if(ermax > too_large_ermax) stop ' The number of energy bins is too large'
@@ -262,8 +286,8 @@ contains
   end subroutine
 
   subroutine datread(cntrun)
-    use sysvars, only: refmerge, tiny, &
-         solndirec, refsdirec, slndnspf, slncorpf, refdnspf, refcorpf, numbers
+    use sysvars, only: refmerge, tiny, numbers, &
+                 solndirec, refsdirec, slndnspf, slncorpf, refdnspf, refcorpf
     implicit none
     integer, intent(in) :: cntrun
     integer :: slnini, slnfin, refini, reffin, ecmin, ecmax
@@ -1599,4 +1623,5 @@ program sfemain
      end do
   end do
   call wrtresl
+! stop  ! commented out to suppress harmless IEEE errors on Cygwin and MacOS X
 end program sfemain

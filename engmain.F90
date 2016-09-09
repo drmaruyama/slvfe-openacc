@@ -223,10 +223,10 @@
 !     ecmns0, ecpls0, and ecfpls are internally set within enginit
 !     and cannot be changed in the parameter files
 !   ecprread : whether the energy parameters are read from a separate file
-!       0 : parameters are read from parameters_er (default)
+!       0 (default) : user-defined parameters are not read from outside
 !       1 : parameters are read separately from a file EcdInfo
 !   meshread : whether the energy meshes are taken from a separate file
-!       0 : meshes are determined from the parameters in parameters_er (default)
+!       0 (default) : user-defined meshes are not taken from outside
 !       1 : energy coordinate meshes are read from a file EcdMesh
 !   peread : (deprecated) same as ecprread
 !   pecore : number of discretization in the core interaction region
@@ -377,7 +377,7 @@ module engmain
 
   namelist /ene_param/ iseed, &
        skpcnf, corrcal, selfcal, &
-       slttype, wgtslf, wgtins, wgtsys, boxshp, estype, &
+       slttype, wgtslf, wgtsys, wgtins, boxshp, estype, &
        sltspec, hostspec, refspec, lwreg, upreg, lwstr, upstr, &
        insorigin, insposition, insorient, insstructure, &
        sltpick, refpick, inscnd, inscfg, &                  ! deprecated

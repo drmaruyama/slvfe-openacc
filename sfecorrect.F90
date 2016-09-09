@@ -18,12 +18,19 @@
 ! Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 module uvcorrect
-  ! All the definitions are copied from engmain.F90
-  ! implicit none is not declared since some variables in namelist are listed
-  !          for comparibility with variable declarations in engmain.F90
-  character(len=*), parameter :: ermodfname = 'parameters_er'
-  integer :: ljformat, ljswitch, cmbrule
-  real :: lwljcut, upljcut
+  implicit none
+  integer, dimension(:), allocatable :: ptsite
+
+  ! In the following, all the variables are copied from engmain.F90
+  !                   and their names are all the same as in engmain.F90
+  character(len=*), parameter :: ene_confname = 'parameters_er'
+
+  character(len=*), parameter :: solute_file = 'SltInfo'  ! solute species
+  character(len=*), parameter :: solvent_file = 'MolPrm'  ! solvent species
+  character(len=*), parameter :: ljtable_file = 'LJTable' ! table for LJ
+  integer, parameter :: mol_io = 79        ! IO for SltInfo and MolPrmX
+  integer, parameter :: ljtable_io = 70    ! IO for LJ table
+
   integer, parameter :: LJFMT_EPS_cal_SGM_nm = 0, LJFMT_EPS_Rminh = 1, &
                         LJFMT_EPS_J_SGM_A = 2, LJFMT_A_C = 3, &
                         LJFMT_C12_C6 = 4, LJFMT_TABLE = 5
@@ -31,23 +38,40 @@ module uvcorrect
                         LJSWT_FRC_CHM = 2, LJSWT_FRC_GMX = 3
   integer, parameter :: LJCMB_ARITH = 0, LJCMB_GEOM = 1
 
-  character(len=*), parameter :: sltfile = 'SltInfo'
-  character(len=*), parameter :: prmfile = 'MolPrm'
-  character(len=*), parameter :: ljtablefile = 'LJTable'
   integer                              :: ljtype_max
   integer, dimension(:,:), allocatable :: ljtype
   real, dimension(:,:),    allocatable :: ljlensq_mat, ljene_mat
-  integer, dimension(:),   allocatable :: ljsite
-  real, dimension(:),      allocatable :: ljcorr
-  integer, dimension(:), allocatable :: ptsite
 
+  ! Declarations of the variables listed in namelist
   ! Only ljformat, ljswitch, cmbrule, lwljcut, and upljcut used in this program
+  integer :: ljformat, ljswitch, cmbrule
+  real :: lwljcut, upljcut
+
+  ! The other variables are declared below since they appear in the namelist
+  !     and the namelist is copied from engmain.F90
+  integer :: iseed, skpcnf, corrcal, selfcal
+  integer :: slttype, wgtslf, wgtsys, wgtins, boxshp, estype
+  integer, parameter :: max_for_spec = 100    ! maximum number of species
+  integer :: sltspec, hostspec(max_for_spec), refspec(max_for_spec)
+  real :: lwreg, upreg, lwstr, upstr
+  integer :: insorigin, insposition, insorient, insstructure
+  integer :: sltpick, refpick, inscnd, inscfg
+  ! ljformat and ljswitch are declared above
+  real :: inptemp, temp
+  integer :: engdiv, maxins
+  ! cmbrule, lwljcut, upljcut are declared above
+  integer :: intprm, cltype, splodr, plmode
+  real :: elecut, screen, ewtoler
+  integer :: ew1max, ew2max, ew3max, ms1max, ms2max, ms3max
+  real :: block_threshold
+  logical :: force_calculation
+
   namelist /ene_param/ iseed, &
        skpcnf, corrcal, selfcal, &
-       slttype, sltpick, wgtslf, wgtins, wgtsys, &
-       estype,boxshp, &
-       insorigin, insposition, insorient, insstructure, inscnd, inscfg, &
-       hostspec, lwreg, upreg, lwstr, upstr, &
+       slttype, wgtslf, wgtsys, wgtins, boxshp, estype, &
+       sltspec, hostspec, refspec, lwreg, upreg, lwstr, upstr, &
+       insorigin, insposition, insorient, insstructure, &
+       sltpick, refpick, inscnd, inscfg, &                  ! deprecated
        ljformat, ljswitch, &
        inptemp, temp, &
        engdiv, maxins, &
@@ -60,6 +84,7 @@ contains
   subroutine ljcorrect(cntrun)
     use sysvars, only: uvread, clcond, numslv, aveuv, blkuv
     implicit none
+    real, dimension(:), allocatable, save :: ljcorr
     integer, intent(in) :: cntrun
     logical, save :: first_time = .true.
     integer :: pti
@@ -102,8 +127,8 @@ contains
     cmbrule = LJCMB_ARITH                         ! default setting
     upljcut = 12.0                                ! default setting
     lwljcut = upljcut - 2.0                       ! default setting
-    keyfile = trim(refsdirec)//'/'//ermodfname
-    open(unit = iounit, file = keyfile, action='read', status='old', iostat=stat)
+    keyfile = trim(refsdirec)//'/'//ene_confname
+    open(unit = iounit, file = keyfile, action = 'read', status = 'old', iostat = stat)
     if(stat == 0) then
        read(iounit, nml = ene_param)
     else
@@ -140,25 +165,23 @@ contains
     logical :: lj_is_new
     character(len=5) :: atmtype
     character(len=80) :: molfile
-    integer, parameter :: molio = 71                 ! IO for molfile
-    integer, parameter :: ljtableio = 70             ! IO for LJ table
     character(len=9) :: numbers = '123456789'
 
     allocate( ptsite(0:numslv) )
     do pti = 0, numslv
        if(pti == 0) then
-          molfile = sltfile                      ! solute
+          molfile = solute_file                          ! solute
        else
-          molfile = prmfile//numbers(pti:pti)    ! solvent
+          molfile = solvent_file//numbers(pti:pti)       ! solvent
        endif
        molfile = trim(refsdirec)//'/'//molfile
-       open(unit = molio, file = molfile, status='old')
+       open(unit = mol_io, file = molfile, status='old')
        stmax = 0
        do
-          read(molio, *, end = 99) m
+          read(mol_io, *, end = 99) m
           stmax = stmax + 1
        end do
-99     close(molio)
+99     close(mol_io)
        ptsite(pti) = stmax
     end do
 
@@ -174,15 +197,15 @@ contains
 
     do pti = 0, numslv
        if(pti == 0) then
-          molfile = sltfile                      ! solute
+          molfile = solute_file                          ! solute
        else
-          molfile = prmfile//numbers(pti:pti)    ! solvent
+          molfile = solvent_file//numbers(pti:pti)       ! solvent
        endif
        molfile = trim(refsdirec)//'/'//molfile
        stmax = ptsite(pti)
-       open(unit = molio, file = molfile, status = 'old')
+       open(unit = mol_io, file = molfile, status = 'old')
        do sid = 1, stmax
-          read(molio,*) m, atmtype, xst(1:3)
+          read(mol_io,*) m, atmtype, xst(1:3)
           if(ljformat == LJFMT_EPS_Rminh) xst(3) = sgmcnv * xst(3)
           if((ljformat == LJFMT_A_C) .or. (ljformat == LJFMT_C12_C6)) then
              if(xst(3) /= 0.0) then
@@ -200,7 +223,7 @@ contains
           ljene_temp(sid) = xst(2)
           ljlen_temp(sid) = xst(3)
        end do
-       close(molio)
+       close(mol_io)
 
       if(ljformat == LJFMT_TABLE) then
           ljtype_temp(1:stmax) = ljene_temp(1:stmax)
@@ -234,18 +257,18 @@ contains
     ! Fill LJ table
     if(ljformat == LJFMT_TABLE) then
        ! From table (directly)
-       open(unit = ljtableio, file = trim(refsdirec)//'/'//ljtablefile, status = 'old', action = 'read')
-       read(ljtableio, *) ljtype_max
+       open(unit = ljtable_io, file = trim(refsdirec)//'/'//ljtable_file, status = 'old', action = 'read')
+       read(ljtable_io, *) ljtype_max
        allocate( ljlensq_mat(ljtype_max, ljtype_max), &
                  ljene_mat(ljtype_max, ljtype_max) )
        do i = 1, ljtype_max
-          read (ljtableio, *) ljlensq_mat(i, 1:ljtype_max)
+          read (ljtable_io, *) ljlensq_mat(i, 1:ljtype_max)
           ljlensq_mat(i, 1:ljtype_max) = ljlensq_mat(i, 1:ljtype_max) ** 2
        end do
        do i = 1, ljtype_max
-          read (ljtableio, *) ljene_mat(i, 1:ljtype_max)
+          read (ljtable_io, *) ljene_mat(i, 1:ljtype_max)
        end do
-       close(ljtableio)
+       close(ljtable_io)
     else
        ! From LJ data
        allocate( ljlensq_mat(ljtype_max, ljtype_max), &

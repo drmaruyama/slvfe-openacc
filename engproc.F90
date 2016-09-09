@@ -240,7 +240,7 @@ contains
                       read(ecdmesh_io, *) dummy, pemax
                       pecore = 0            ! no core region for self-energy
                    else                   ! solute-solvent interaction energy
-                      read(ecdmesh_io, *) dummy, pecore, pemax
+                      read(ecdmesh_io, *) dummy, pemax, pecore
                    endif
                    pesoft = pemax - pecore
                 else
@@ -253,6 +253,7 @@ contains
           close(ecdmesh_io)
           check_ok = .true.
           if(iduv /= pemax) check_ok = .false.
+          if(pemax <= pecore) check_ok = .false.
           do iduv = 1, pemax - 1
              if(ercrd(iduv, pti) >= ercrd(iduv + 1, pti)) check_ok = .false.
           enddo

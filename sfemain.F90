@@ -22,7 +22,7 @@ module sysvars
 
   character(len=5) :: clcond = 'merge'
   character(len=3) :: uvread = 'yes',    slfslt = 'yes',   ljlrc = 'not'
-  character(len=3) :: infchk = 'not',    cumuint = 'not'
+  character(len=3) :: infchk = 'not',    meshread = 'not', cumuint = 'not'
   character(len=4) :: zerosft = 'orig',  wgtfnform = 'harm'
   character(len=3) :: refmerge = 'yes',  extsln = 'lin'
   character(len=3) :: wgtf2smpl = 'yes', slncor = 'not'
@@ -50,6 +50,7 @@ module sysvars
   character(len=1024) :: refdnspf  = 'engref'
   character(len=1024) :: refcorpf  = 'corref'
   character(len=1024) :: aveuvfile = 'aveuv.tt'
+  character(len=1024) :: engmeshfile = 'EngMesh'
   character(len=1024) :: cumuintfl = 'cumsfe'
   character(len=10), parameter :: numbers='0123456789'
   
@@ -70,7 +71,7 @@ module sysvars
   real, dimension(:),     allocatable :: wgtsln, wgtref
   
   namelist /fevars/ clcond, numprm, numsln, numref, numdiv, &
-       uvread, slfslt, infchk, zerosft, wgtfnform, &
+       uvread, slfslt, infchk, meshread, zerosft, wgtfnform, &
        refmerge, extsln, extthres_soln, extthres_refs, &
        minthres_soln, minthres_refs, &
        wgtf2smpl, slncor, normalize, showdst, wrtzrsft, readwgtfl, &
@@ -78,7 +79,7 @@ module sysvars
        ljlrc, avevolume, &
        solndirec, refsdirec, wgtslnfl, wgtreffl, &
        slndnspf, slncorpf, refdnspf, refcorpf, &
-       aveuvfile, cumuint, cumuintfl, &
+       aveuvfile, engmeshfile, cumuint, cumuintfl, &
        too_large_ermax, large, itrmax, error, tiny
 
 contains
@@ -86,7 +87,6 @@ contains
   subroutine init_sysvars
     implicit none
     character(len=*), parameter :: parmfname = 'parameters_fe'
-    character(len=10), parameter :: numbers='0123456789'
     character(len=3) :: file_suf
     character(len=1024) :: opnfile
     integer, parameter :: iounit = 191, sufmax = 99

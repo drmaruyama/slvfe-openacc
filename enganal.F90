@@ -104,5 +104,5 @@ program trjmain
 
   call finiconf
   call mpi_setup('stop')    ! MPI
-  stop
+! stop  ! commented out to suppress harmless IEEE errors on Cygwin and MacOS X
 end program trjmain
