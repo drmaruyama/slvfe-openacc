@@ -331,8 +331,8 @@ contains
           order_species = 0
        else
           if(order_species == solute_moltype) stop " The solute cannot be the solvent species whose energy with solute is set to the order parameter"
-          i = count( mask = (moltype(1:nummol) == order_species) )
-          if(i /= 1) stop " When the interaction energy of a solvent species with solute is the order parameter, the number of that species needs to be 1"
+!         i = count( mask = (moltype(1:nummol) == order_species) )
+!         if(i /= 1) stop " When the interaction energy of a solvent species with solute is the order parameter, the number of that species needs to be 1"
        endif
        order_size = nint( (order_max - order_min ) / order_binwidth )
        allocate( order_crd(order_size), edcnd(ermax, order_size) )

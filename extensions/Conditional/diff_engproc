@@ -1,5 +1,5 @@
---- engproc.F90	2016-09-09 13:35:12.734112220 +0900
-+++ extensions/Conditional/engproc.F90	2016-09-06 18:05:02.757740370 +0900
+--- engproc.F90	2016-09-20 13:28:44.952112273 +0900
++++ extensions/Conditional/engproc.F90	2016-09-23 09:25:22.053864036 +0900
 @@ -43,6 +43,15 @@
           aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
           ene_confname, io_paramfile, io_flcuv, &
@@ -49,8 +49,8 @@
 +          order_species = 0
 +       else
 +          if(order_species == solute_moltype) stop " The solute cannot be the solvent species whose energy with solute is set to the order parameter"
-+          i = count( mask = (moltype(1:nummol) == order_species) )
-+          if(i /= 1) stop " When the interaction energy of a solvent species with solute is the order parameter, the number of that species needs to be 1"
++!         i = count( mask = (moltype(1:nummol) == order_species) )
++!         if(i /= 1) stop " When the interaction energy of a solvent species with solute is the order parameter, the number of that species needs to be 1"
 +       endif
 +       order_size = nint( (order_max - order_min ) / order_binwidth )
 +       allocate( order_crd(order_size), edcnd(ermax, order_size) )

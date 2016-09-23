@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 # For python2
 """
-   CODED BY "Kazuo YAMADA" in August, 2016
+   CODED BY Kazuo YAMADA in August, 2016
 
    Requirement: Python2.4 or higher
 """
@@ -95,7 +95,7 @@ try:
     if retcode != 0:
         sys.exit('path is not set to the slvfe executable.')
 except OSError:
-        sys.exit('path is not set to the which executable.')
+        sys.exit('path is not set to the which command.')
 
 # GET ABSOLUTE PATH OF CURRENT DIRECTORY
 slvfe_dir = os.getcwd()

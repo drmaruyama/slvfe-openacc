@@ -20,10 +20,13 @@ the parameters_er file needs to be supplemented with directives of
    order_binwidth = ...,
 /
 
-See the relevant parts of engproc.F90 for the meaning of order_species.
 If order_species = 0, the user-defined order parameter
 needs to be calculated in the update_histogram subroutine.
 The scheme of particle insertion may be necessary to be devised, in addition.
+If order_species is equal to the index of one of the solvent species,
+the value of order parameter is the sum of the interaction energy between
+the solute and the order_species-th solvent species.
+See the relevant parts of engproc.F90 for the details about order_species.
 
 If user prepares a file OrderPrmTraj,
 he does not need to set a value to order_species
