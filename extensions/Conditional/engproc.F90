@@ -315,12 +315,17 @@ contains
 
     ! start of the extension for computing the conditional distributions
     do_conditional = NO                  ! default = don't do it
+    order_min = 0.0
+    order_max = 0.0
+    order_binwidth = 0.0
     open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
     if(param_err == 0) then
        read(io_paramfile, nml = conditional)
        close(io_paramfile)
     endif
+
     if(do_conditional == YES) then
+       ! trajectory of order parameter
        inquire(file = OrderPrm_file, exist = check_ok)
        if( check_ok ) then
           OrderPrm_read = YES
@@ -334,27 +339,39 @@ contains
 !         i = count( mask = (moltype(1:nummol) == order_species) )
 !         if(i /= 1) stop " When the interaction energy of a solvent species with solute is the order parameter, the number of that species needs to be 1"
        endif
-       order_size = nint( (order_max - order_min ) / order_binwidth )
-       allocate( order_crd(order_size), edcnd(ermax, order_size) )
-       if(corrcal == YES) then
-          factor = real(ermax) * sqrt( real(order_size) )
-          if(nint(factor) > too_large_ermax) call warning('emax')
-          allocate( crcnd(ermax, ermax, order_size) )
-       endif
-       if(slttype == SLT_SOLN) then
-          allocate( avuvcnd(engdiv, numslv, order_size) )
-          allocate( sluvcnd(numslv, order_size) )
-       endif
-       allocate( cndnorm(order_size) )
+
+       ! the following lines are taken from the engconst subroutine
+       ! OrderPrm_ArraySize is equal to maxdst in the engconst subroutine
+       select case(slttype)
+       case(SLT_SOLN)
+          OrderPrm_ArraySize = numslt
+       case(SLT_REFS_RIGID, SLT_REFS_FLEX)
+          OrderPrm_ArraySize = maxins
+       end select
+       allocate( OrderPrm_Values(OrderPrm_ArraySize) )
+
        ! setting the meshes for order parameter
        inquire(file = OrderCrd_file, exist = check_ok)
        if( check_ok ) then
           open(unit = OrderCrd_io, file = OrderCrd_file, action = "read")
+          order_size = 0
+          do
+             read(OrderCrd_io, *, end = 997) q
+             order_size = order_size + 1
+          enddo
+997       rewind(OrderCrd_io)
+          allocate( order_crd(order_size) )
           do i = 1, order_size
-             write(OrderCrd_io, *) q, order_crd(i)
+             read(OrderCrd_io, *) q, order_crd(i)
           enddo
           close(OrderCrd_io)
        else
+          if((order_max <= order_min) .or. (order_binwidth <= 0)) then
+             write(stdout, '(A)') ' order_min, order_max or order_binwidth is incorrectly set'
+             call halt_with_error('eng_ecd')
+          endif
+          order_size = nint( (order_max - order_min) / order_binwidth )
+          allocate( order_crd(order_size) )
           do i = 1, order_size
              order_crd(i) = order_min + real(i - 1) * order_binwidth
           enddo
@@ -367,15 +384,19 @@ contains
           write(stdout, '(A)') '  Order parameter is incorrectly meshed'
           call halt_with_error('eng_ecd')
        endif
-       ! the following lines are taken from the engconst subroutine
-       ! OrderPrm_ArraySize is equal to maxdst in the engconst subroutine
-       select case(slttype)
-       case(SLT_SOLN)
-          OrderPrm_ArraySize = numslt
-       case(SLT_REFS_RIGID, SLT_REFS_FLEX)
-          OrderPrm_ArraySize = maxins
-       end select
-       allocate( OrderPrm_Values(OrderPrm_ArraySize) )
+
+       ! allocation of distribution functions
+       allocate( edcnd(ermax, order_size) )
+       if(corrcal == YES) then
+          factor = real(ermax) * sqrt( real(order_size) )
+          if(nint(factor) > too_large_ermax) call warning('emax')
+          allocate( crcnd(ermax, ermax, order_size) )
+       endif
+       if(slttype == SLT_SOLN) then
+          allocate( avuvcnd(engdiv, numslv, order_size) )
+          allocate( sluvcnd(numslv, order_size) )
+       endif
+       allocate( cndnorm(order_size) )
     endif
     ! end of the extension for computing the conditional distributions
 

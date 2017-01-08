@@ -9,9 +9,15 @@ All the additions to the original program files are closed by
 and
     ! end of the extension for computing the conditional distributions
 
-To activate the computations of the conditional distribution functions,
-the parameters_er file needs to be supplemented with directives of
+To use the executable program of ermod,
+there needs another section of "&conditional" in parameters_er read as;
 
+&ene_param
+...
+/
+&hist
+...
+/
 &conditional
    do_conditional = 1,
    order_species = ...,
@@ -19,6 +25,13 @@ the parameters_er file needs to be supplemented with directives of
    order_max = ...,
    order_binwidth = ...,
 /
+
+The ermod executable with the modified programs in this directory
+requires the presence of the &conditional section in parameters_er.
+Still, when do_conditional is set to a value other than 1
+or when the line of "do_intermediate = X" is not present,
+the outputs from the modified ermod
+are identical to those from the original one.
 
 If order_species = 0, the user-defined order parameter
 needs to be calculated in the update_histogram subroutine.
@@ -90,7 +103,7 @@ refs:
     energy coordinate, solvent species, distribution
     edcnd(ermax, order_size)
   crcdrf.XX (XX = 01, ... engdiv within parameters_er):
-    distribution 
+    distribution; this data is unformatted
     crcnd(ermax, ermax, order_size)
 
 The conditional free energies may be computed with the following schemes.
@@ -108,12 +121,12 @@ The conditional free energies may be computed with the following schemes.
 5)  Do 4) for YY = 03, ... order_size.
 6)  Take the first ermax lines of ecndrf.XX to Cond01/refs
     and set the filenames to engref.XX.
-    Take the first ermax*ermax lines of crcdrf.XX to Cond01/refs
+    Take the first ermax*ermax data of crcdrf.XX to Cond01/refs
     and set the filenames to corref.XX.
 7)  Skip one lines of ecndrf.XX and corref.XX.
     Take the next ermax lines of ecndrf.XX to Cond02/refs
     and set the filenames to engref.XX.
-    Take the next ermax*ermax lines of crcdrf.XX to Cond02/refs
+    Take the next ermax*ermax data of crcdrf.XX to Cond02/refs
     and set the filenames to corref.XX.
 8)  Do 7) for YY = 03, ... order_size.
 9)  Copy refs/weight_refs to all of CondYY/refs

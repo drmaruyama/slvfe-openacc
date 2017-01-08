@@ -381,12 +381,12 @@ contains
     case(INSPOS_NOCHANGE)                             ! fixed configuration
        insorigin = INSORG_NOCHANGE
     case(INSPOS_SPHERE)                               ! sphere geometry
-       insorigin =INSORG_AGGCEN
+       insorigin = INSORG_AGGCEN
        ! check lwreg and upreg parameters
        if((lwreg < 0.0) .or. (upreg < 0.0) .or. &
           (lwreg > upreg)) call halt_with_error('set_reg')
     case(INSPOS_SLAB_GENERIC, INSPOS_SLAB_SYMMETRIC)  ! slab configuration
-       insorigin =INSORG_AGGCEN
+       insorigin = INSORG_AGGCEN
        ! check lwreg and upreg parameters
        if(lwreg > upreg) call halt_with_error('set_reg')
        if(insposition == INSPOS_SLAB_SYMMETRIC) then  ! symmetric bilayer
