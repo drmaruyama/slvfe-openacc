@@ -40,7 +40,7 @@ contains
     logical :: file_exist
     integer :: group, inft, prmcnt, iduv, i, k, pti, ioerr
     real :: factor, crdnow, crdprev, crddif_now, crddif_prev
-    character(len=1024) :: opnfile
+    character(len=1024) :: opnfile, lineread
 
     select case(clcond)
     case('basic', 'range', 'merge')
@@ -267,10 +267,11 @@ contains
           if( .not. file_exist ) stop " weight_refs is absent although slfslt is set to yes"
           open(unit = 81, file = opnfile, status = 'old')
           do i = 1, maxref
-             read(81, * , iostat = ioerr) k, factor, factor
+             read(81, '(a)') lineread
+             read(lineread, * , iostat = ioerr) k, factor, factor
              if(ioerr /= 0) then
                 slfslt = 'not'
-                write(6, '(A)') " Warning: Although the sltslf parameter " // &
+                write(6, '(A)') " Warning: Although the slfslt parameter " // &
                      "was set to 'yes', it is changed into 'not'. Maybe " // &
                      "the MD was done without periodic boundary condition " // &
                      "and/or with Coulombic interaction in its bare form."

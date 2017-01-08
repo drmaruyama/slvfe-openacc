@@ -103,8 +103,8 @@ refs:
     energy coordinate, solvent species, distribution
     edcnd(ermax, order_size)
   crcdrf.XX (XX = 01, ... engdiv within parameters_er):
-    distribution; this data is unformatted
-    crcnd(ermax, ermax, order_size)
+    distribution
+    crcnd(ermax, ermax, order_size); this data is unformatted at output
 
 The conditional free energies may be computed with the following schemes.
 1)  Prepare directories of CondYY, where YY = 1, ... order_size.
