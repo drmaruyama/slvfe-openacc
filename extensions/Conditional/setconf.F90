@@ -135,7 +135,7 @@ contains
     use engmain, only: init_params, &
          iseed, &
          skpcnf, corrcal, selfcal, &
-         slttype, wgtslf, wgtins, wgtsys, boxshp, estype, &
+         slttype, wgtslf, wgtsys, wgtins, boxshp, estype, &
          sltspec, hostspec, refspec, ljformat, ljswitch, &
          insorigin, insposition, insorient, insstructure, &
          sltpick, refpick, inscnd, inscfg, &     ! deprecated   
@@ -215,8 +215,8 @@ contains
     skpcnf = 1                     ! no skip for trajectory reading
     
     wgtslf = NO
-    wgtins = NO
     wgtsys = NO
+    wgtins = NO
 
     selfcal = NO                   ! no construction of self-energy distribution
 

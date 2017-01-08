@@ -395,7 +395,7 @@ module engmain
        skpcnf, corrcal, selfcal, &
        slttype, wgtslf, wgtsys, wgtins, boxshp, estype, &
        sltspec, hostspec, refspec, lwreg, upreg, lwstr, upstr, &
-       insorigin, insposition, insorient, insstructure, &
+       insposition, insorient, insstructure, &
        sltpick, refpick, inscnd, inscfg, &                  ! deprecated
        ljformat, ljswitch, &
        inptemp, temp, &

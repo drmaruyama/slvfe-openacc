@@ -54,7 +54,7 @@ module uvcorrect
   integer, parameter :: max_for_spec = 100    ! maximum number of species
   integer :: sltspec, hostspec(max_for_spec), refspec(max_for_spec)
   real :: lwreg, upreg, lwstr, upstr
-  integer :: insorigin, insposition, insorient, insstructure
+  integer :: insposition, insorient, insstructure
   integer :: sltpick, refpick, inscnd, inscfg
   ! ljformat and ljswitch are declared above
   real :: inptemp, temp
@@ -70,7 +70,7 @@ module uvcorrect
        skpcnf, corrcal, selfcal, &
        slttype, wgtslf, wgtsys, wgtins, boxshp, estype, &
        sltspec, hostspec, refspec, lwreg, upreg, lwstr, upstr, &
-       insorigin, insposition, insorient, insstructure, &
+       insposition, insorient, insstructure, &
        sltpick, refpick, inscnd, inscfg, &                  ! deprecated
        ljformat, ljswitch, &
        inptemp, temp, &
