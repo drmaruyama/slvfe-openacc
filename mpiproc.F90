@@ -92,8 +92,8 @@ contains
     nprocs=1
     myrank=0
 #ifdef MPI
-    call mpi_comm_size(mpi_comm_world,nprocs,ierror)
-    call mpi_comm_rank(mpi_comm_world,myrank,ierror)
+    call mpi_comm_size(mpi_comm_world, nprocs, ierror)
+    call mpi_comm_rank(mpi_comm_world, myrank, ierror)
 #endif
     return
   end subroutine mpi_rank_size_info

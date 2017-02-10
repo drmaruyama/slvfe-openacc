@@ -757,14 +757,16 @@ contains
 
        if(myrank == 0) then
           division = stnum / (maxcnf / skpcnf / engdiv)
-          do order_prmid = 1, order_size
-             factor = cndnorm(order_prmid)
-             if(factor > tiny) then
-                avuvcnd(division, :, order_prmid) = sluvcnd(:, order_prmid) / factor
-             else
-                avuvcnd(division, :, order_prmid) = 0.0
-             endif
-          enddo
+          if(slttype == SLT_SOLN) then
+             do order_prmid = 1, order_size
+                factor = cndnorm(order_prmid)
+                if(factor > tiny) then
+                   avuvcnd(division, :, order_prmid) = sluvcnd(:, order_prmid) / factor
+                else
+                   avuvcnd(division, :, order_prmid) = 0.0
+                endif
+             enddo
+          endif
           if(engdiv == 1) then
              suffeng = '.tt'
           else
@@ -993,7 +995,7 @@ contains
        if(.not. initialized) call instslt('init')
        initialized = .true.
        call instslt('proc', stat_weight_solute)
-       if((stnum == maxcnf/skpcnf).and.(cntdst == maxdst)) call instslt('last')
+       if((stnum == maxcnf/skpcnf) .and. (cntdst == maxdst)) call instslt('last')
     end select
 
     ! At this moment all coordinate in the system is determined

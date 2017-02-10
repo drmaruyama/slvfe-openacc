@@ -1,5 +1,5 @@
---- engproc.F90	2016-09-29 11:49:32.425738531 +0900
-+++ extensions/Conditional/engproc.F90	2017-01-08 13:19:29.355015018 +0900
+--- engproc.F90	2017-01-25 21:38:22.642639794 +0900
++++ extensions/Conditional/engproc.F90	2017-01-26 20:21:08.611646687 +0900
 @@ -43,6 +43,15 @@
           aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
           ene_confname, io_paramfile, io_flcuv, &
@@ -164,7 +164,7 @@
      integer :: stnum, pti, j, k, iduv, division
      character(len=9) :: engfile
      character(len=3) :: suffeng
-@@ -595,6 +714,143 @@
+@@ -595,6 +714,145 @@
      if(selfcal == YES) eself(1:esmax) = eself(1:esmax) / engnorm
      avslf = avslf / engnorm
  
@@ -211,14 +211,16 @@
 +
 +       if(myrank == 0) then
 +          division = stnum / (maxcnf / skpcnf / engdiv)
-+          do order_prmid = 1, order_size
-+             factor = cndnorm(order_prmid)
-+             if(factor > tiny) then
-+                avuvcnd(division, :, order_prmid) = sluvcnd(:, order_prmid) / factor
-+             else
-+                avuvcnd(division, :, order_prmid) = 0.0
-+             endif
-+          enddo
++          if(slttype == SLT_SOLN) then
++             do order_prmid = 1, order_size
++                factor = cndnorm(order_prmid)
++                if(factor > tiny) then
++                   avuvcnd(division, :, order_prmid) = sluvcnd(:, order_prmid) / factor
++                else
++                   avuvcnd(division, :, order_prmid) = 0.0
++                endif
++             enddo
++          endif
 +          if(engdiv == 1) then
 +             suffeng = '.tt'
 +          else
@@ -308,7 +310,7 @@
      if(myrank /= 0) return                                            ! MPI
      !
      division = stnum / (maxcnf / skpcnf / engdiv)
-@@ -800,6 +1056,12 @@
+@@ -800,6 +1058,12 @@
  
    subroutine update_histogram(stat_weight_solute, uvengy)
      use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
@@ -321,7 +323,7 @@
                         volume, temp, uvspec, &
                         slnuv, avslf, minuv, maxuv, &
                         edens, ecorr, eself, &
-@@ -809,6 +1071,10 @@
+@@ -809,6 +1073,10 @@
                         ES_NVT, ES_NPT, NO, YES
      use mpiproc
      implicit none
@@ -332,7 +334,7 @@
      real, intent(in) :: uvengy(0:slvmax), stat_weight_solute
      integer, allocatable :: insdst(:), engdst(:)
      integer :: i, k, q, iduv, iduvp, pti
-@@ -895,6 +1161,48 @@
+@@ -895,6 +1163,48 @@
         enddo
      endif
  

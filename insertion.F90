@@ -51,7 +51,7 @@ contains
           ! sanity check of solute specification
           reject = .false.
           if(numslt /= 1) reject = .true.
-          if((numslt == 1).and.(sltlist(1) /= nummol)) reject = .true.
+          if((numslt == 1) .and. (sltlist(1) /= nummol)) reject = .true.
           if(reject) call halt_with_error('ins_set')
           ! inserted solute is set to the last molecule in the system
           insml = sltlist(1)
@@ -442,7 +442,7 @@ contains
                       rewind(sltwgt_io)
                       read(sltwgt_io, *, iostat = ioerr) dumint, weight
                       if(ioerr /= 0) then
-                         write(stdout,*) " The weight file (", sltwgt_file, ") is ill-formed"
+                         write(stdout, *) " The weight file (", sltwgt_file, ") is ill-formed"
                          call mpi_setup('stop')
                          stop
                       endif
