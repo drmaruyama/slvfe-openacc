@@ -426,7 +426,7 @@ contains
           call perf_time()
        endif
 
-       ! cntdst is the pick-up no. of solute MOLECULE from plural solutes (soln)
+       ! cntdst is the pick-up no. of solute molecule from plural solutes (soln)
        ! cntdst is the iteration no. of insertion (refs)
        do cntdst = 1, maxdst
           call get_uv_energy(stnum, stat_weight_solute, uvengy(0:slvmax), skipcond)
@@ -736,7 +736,7 @@ contains
        tagslt = sltlist(1)
        if(.not. initialized) call instslt('init')
        initialized = .true.
-       call instslt('proc', stat_weight_solute)
+       call instslt('proc', cntdst, stat_weight_solute)
        if((stnum == maxcnf/skpcnf) .and. (cntdst == maxdst)) call instslt('last')
     end select
 

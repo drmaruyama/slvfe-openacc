@@ -36,16 +36,17 @@ module ptinsrt
   real, dimension(:,:), allocatable  ::                  refslt_bestfit
   !
 contains
-  subroutine instslt(caltype, stat_weight_solute)
+  subroutine instslt(caltype, cntdst, stat_weight_solute)
     use engmain, only: nummol, slttype, numslt, sltlist, iseed, SLT_REFS_FLEX
     use mpiproc, only: halt_with_error
     implicit none
-    character(len=4), intent(in) :: caltype
-    real, optional, intent(out) :: stat_weight_solute
+    character(len=4),  intent(in) :: caltype
+    integer, optional, intent(in) :: cntdst
+    real,    optional, intent(out) :: stat_weight_solute
     integer, save :: insml
     logical :: reject
     
-    if(.not. present(stat_weight_solute)) then
+    if((.not. present(cntdst)) .and. (.not. present(stat_weight_solute))) then
        select case(caltype)
        case('init')
           ! sanity check of solute specification
@@ -58,11 +59,11 @@ contains
           ! initialize the random number used for solute insertion
           call urand_init(iseed)
           ! opening the file for coordinate of flexible solute
-          if(slttype == SLT_REFS_FLEX) call getsolute(caltype)
+          if(slttype == SLT_REFS_FLEX) call getsolute(caltype, insml)
           return
        case('last')
           ! closing the file for coordinate of flexible solute
-          if(slttype == SLT_REFS_FLEX) call getsolute(caltype)
+          if(slttype == SLT_REFS_FLEX) call getsolute(caltype, insml)
           return
        case('proc')
           call halt_with_error('ins_bug')
@@ -71,11 +72,13 @@ contains
        end select
     endif
 
-    if(.not. present(stat_weight_solute)) call halt_with_error('ins_bug')
+    if((.not. present(cntdst)) .or. (.not. present(stat_weight_solute))) then
+       call halt_with_error('ins_bug')
+    endif
 
     if(slttype == SLT_REFS_FLEX) then
        ! get the configuration and structure-specific weight of flexible solute
-       call getsolute(caltype, insml, stat_weight_solute)
+       call getsolute(caltype, insml, cntdst, stat_weight_solute)
     else
        ! no structure-specific weight when the solute is rigid
        stat_weight_solute = 1.0
@@ -375,9 +378,9 @@ contains
   end subroutine insscheme
 
 
-  subroutine getsolute(caltype, insml, stat_weight)
+  subroutine getsolute(caltype, insml, cntdst, stat_weight)
     use trajectory, only: open_trajectory, close_trajectory
-    use engmain, only: slttype, numsite, bfcoord, stdout, slttrj, &
+    use engmain, only: slttype, maxins, numsite, bfcoord, stdout, slttrj, &
                        wgtins, sltwgt_file, sltwgt_io, &
                        insstructure, lwstr, upstr, &
                        SLT_REFS_FLEX, INSSTR_NOREJECT, INSSTR_RMSD, YES
@@ -385,19 +388,25 @@ contains
     use mpiproc
     use bestfit, only: rmsd_bestfit
     implicit none
-    character(len=4), intent(in) :: caltype
-    integer, optional, intent(in) :: insml
-    real, optional, intent(out) :: stat_weight
+    character(len=4),  intent(in) :: caltype
+    integer,           intent(in) :: insml
+    integer, optional, intent(in) :: cntdst
+    real,    optional, intent(out) :: stat_weight
     logical, save :: read_weight
-    integer :: stmax, dumint, iproc, ioerr
-    real :: dumcl(3,3), weight, rmsd
-    real, dimension(:,:), allocatable :: psite
+    logical, save :: consecutive_read = .false.  ! .true. for special purpose
+    integer, save :: stmax, readmax
+    real, dimension(:,:,:), allocatable, save :: solute_crd
+    real, dimension(:),     allocatable, save :: solute_wgt
+    real, dimension(:,:,:), allocatable :: read_crd
+    real, dimension(:),     allocatable :: read_wgt
+    real, dimension(:,:),   allocatable :: psite
+    integer :: dumint, readcnt, iproc, ioerr
+    real :: dumcl(3, 3), weight, rmsd
     logical :: reject
-!
+ 
     if(slttype /= SLT_REFS_FLEX) call halt_with_error('ins_bug')
-!
-    if((.not. present(insml)) .and. &
-       (.not. present(stat_weight))) then
+ 
+    if((.not. present(cntdst)) .and. (.not. present(stat_weight))) then
        select case(caltype)
        case('init')
           if(wgtins == YES) then
@@ -405,14 +414,25 @@ contains
           else
              read_weight = .false.
           endif
-          if(myrank /= 0) return
-          call open_trajectory(solute_trajectory, slttrj)
-          if(read_weight) open(unit = sltwgt_io, file = sltwgt_file, status = 'old')
+          if(consecutive_read) then
+             readmax = maxins
+          else
+             readmax = 1
+          endif
+          stmax = numsite(insml)
+
+          allocate( solute_crd(3, stmax, readmax), solute_wgt(readmax) )
+          if(myrank == 0) then
+             call open_trajectory(solute_trajectory, slttrj)
+             if(read_weight) open(unit = sltwgt_io, file = sltwgt_file, status = 'old')
+          endif
           return
        case('last')
-          if(myrank /= 0) return
-          call close_trajectory(solute_trajectory)
-          if(read_weight) close(unit = sltwgt_io)
+          deallocate( solute_crd, solute_wgt )
+          if(myrank == 0) then
+             call close_trajectory(solute_trajectory)
+             if(read_weight) close(unit = sltwgt_io)
+          endif
           return
        case('proc')
           call halt_with_error('ins_bug')
@@ -420,73 +440,87 @@ contains
           stop "Incorrect caltype in getsolute"
        end select
     endif
-!
-    if((.not. present(insml)) .or. &
-       (.not. present(stat_weight))) call halt_with_error('ins_bug')
-!
-!   The following part has a similar program structure as
-!   the coordinate-reading part of getconf_parallel subroutine in setconf.F90
-    if(myrank < nactiveproc) then
-       stmax = numsite(insml)
-       if(myrank == 0) then              ! rank-0 to read from file
+ 
+    if((.not. present(cntdst)) .or. (.not. present(stat_weight)) .or. &
+       (myrank >= nactiveproc)) call halt_with_error('ins_bug')
+ 
+    ! get the configuration and structure-specific weight
+    if((.not. consecutive_read) .or. (cntdst == 1)) then
+
+       ! The following part has a similar program structure as the
+       ! coordinate-reading part of getconf_parallel subroutine in setconf.F90
+       if(myrank == 0) then               ! rank-0 to read from file
+          allocate( read_crd(3, stmax, readmax), read_wgt(readmax) )
           allocate( psite(3, stmax) )
           if(size(psite) /= size(bfcoord)) call halt_with_error('ins_siz')
-          do iproc = 1, nactiveproc
-             ! get the configuration and structure-specific weight
-             reject = .true.
-             do while(reject)
-                call OUTconfig(psite, dumcl, stmax, 0, 'solute', 'trjfl_read')
-                if(read_weight) then     ! weight read from a file
-                   read(sltwgt_io, *, iostat = ioerr) dumint, weight
-                   if(ioerr /= 0) then   ! wrap around
-                      rewind(sltwgt_io)
-                      read(sltwgt_io, *, iostat = ioerr) dumint, weight
-                      if(ioerr /= 0) then
-                         write(stdout, *) " The weight file (", sltwgt_file, ") is ill-formed"
-                         call mpi_setup('stop')
-                         stop
-                      endif
-                   endif
-                else                     ! no structure-specific weight
-                   weight = 1.0
-                endif
 
-                select case(insstructure)
-                case(INSSTR_NOREJECT)    ! no rejection of solute structure
-                   reject = .false.
-                case(INSSTR_RMSD)        ! solute structure rejection with RMSD
-                   if(size(psite) /= size(refslt_crd)) call halt_with_error('ins_siz')
-                   if(stmax /= refslt_natom) call halt_with_error('ins_siz')
-                   rmsd = rmsd_bestfit(refslt_natom, refslt_crd, &
-                                       psite, refslt_weight)
-                   if((lwstr <= rmsd) .and. (rmsd <= upstr)) reject = .false.
-                case default
-                   stop "Unknown insstructure in getsolute"
-                end select
+          do iproc = 1, nactiveproc
+             do readcnt = 1, readmax
+                reject = .true.
+                do while(reject)
+                   call OUTconfig(psite, dumcl, stmax, 0, 'solute', 'trjfl_read')
+                   if(read_weight) then   ! weight read from a file
+                      read(sltwgt_io, *, iostat = ioerr) dumint, weight
+                      if(ioerr /= 0) then ! wrap around
+                         rewind(sltwgt_io)
+                         read(sltwgt_io, *, iostat = ioerr) dumint, weight
+                         if(ioerr /= 0) then
+                            write(stdout, *) " The weight file (", sltwgt_file, ") is ill-formed"
+                            call mpi_setup('stop')
+                            stop
+                         endif
+                      endif
+                   else                   ! no structure-specific weight
+                      weight = 1.0
+                   endif
+
+                   select case(insstructure)
+                   case(INSSTR_NOREJECT)  ! no rejection of solute structure
+                      reject = .false.
+                   case(INSSTR_RMSD)      ! solute structure rejection with RMSD
+                      if(size(psite) /= size(refslt_crd)) call halt_with_error('ins_siz')
+                      if(stmax /= refslt_natom) call halt_with_error('ins_siz')
+                      rmsd = rmsd_bestfit(refslt_natom, refslt_crd, &
+                                          psite, refslt_weight)
+                      if((lwstr <= rmsd) .and. (rmsd <= upstr)) reject = .false.
+                   case default
+                      stop "Unknown insstructure in getsolute"
+                   end select
+                enddo
+                read_crd(1:3, 1:stmax, readcnt) = psite(1:3, 1:stmax)
+                read_wgt(readcnt) = weight
              enddo
 
-             if(iproc /= 1) then         ! send the data to other rank
+             if(iproc /= 1) then          ! send the data to other rank
 #ifdef MPI
-                call mpi_send(psite, 3 * stmax, mpi_double_precision, &
+                call mpi_send(read_crd, 3 * stmax * readmax, mpi_double_precision, &
                               iproc - 1, tag_sltcrd, mpi_comm_world, ierror)
-                call mpi_send(weight, 1, mpi_double_precision, &
+                call mpi_send(read_wgt, readmax, mpi_double_precision, &
                               iproc - 1, tag_sltwgt, mpi_comm_world, ierror)
 #endif
-             else                        ! rank-0 to use the data as read
-                bfcoord(1:3, 1:stmax) = psite(1:3, 1:stmax)
-                stat_weight = weight
+             else                         ! rank-0 to use the data as read
+                solute_crd(:, :, :) = read_crd(:, :, :)
+                solute_wgt(:) = read_wgt(:)
              endif
-          end do
-          deallocate( psite )
-       else                              ! non-0 rank to receive the data
+          enddo
+          deallocate( psite, read_crd, read_wgt )
+       else                               ! non-0 rank to receive the data
 #ifdef MPI
-          call mpi_recv(bfcoord, 3 * stmax, mpi_double_precision, &
+          call mpi_recv(solute_crd, 3 * stmax * readmax, mpi_double_precision, &
                         0, tag_sltcrd, mpi_comm_world, mpistatus, ierror)
-          call mpi_recv(stat_weight, 1, mpi_double_precision, &
+          call mpi_recv(solute_wgt, readmax, mpi_double_precision, &
                         0, tag_sltwgt, mpi_comm_world, mpistatus, ierror)
 #endif
        endif
     endif
+
+    if(consecutive_read) then
+       readcnt = cntdst
+    else
+       readcnt = 1
+    endif
+    bfcoord(1:3, 1:stmax) = solute_crd(1:3, 1:stmax, readcnt)
+    stat_weight = solute_wgt(readcnt)
   end subroutine getsolute
 
 

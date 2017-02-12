@@ -885,7 +885,7 @@ contains
           end do
 99        close(perm_io)
           ! each particle appears once and only once in permutation
-          allocate(count_perm(OUTatm))
+          allocate( count_perm(OUTatm) )
           count_perm(:) = 0
           do i = 1, OUTatm
              count_perm(permutation(i)) = count_perm(permutation(i)) + 1
@@ -898,7 +898,7 @@ contains
              end do
              call halt_with_error('set_pmt')
           end if
-          deallocate(count_perm)
+          deallocate( count_perm )
        endif
     end if
     

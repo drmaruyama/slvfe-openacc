@@ -222,7 +222,7 @@ contains
     if(errtype == 'eng_emf') write(stdout, "(A)") " EcdMesh file has wrong format"
     if(errtype == 'eng_cns') write(stdout, "(A)") " Inconsistency is present in the engproc program"
     if(errtype == 'eng_slb') write(stdout, "(A)") " Slab condition can only used in periodic system"
-    if(errtype == 'eng_bug') write(stdout, "(A)") " Critical failure in the engproc program detected"
+    if(errtype == 'eng_bug') write(stdout, "(A)") " Bug in engproc.F90"
 
     if(errtype == 'rcp_fst') write(stdout, "(A)") " The first particle needs to be the solute"
     if(errtype == 'rcp_cns') write(stdout, "(A)") " Inconsistency is present in the recpcal program"
@@ -232,7 +232,7 @@ contains
     if(errtype == 'ins_geo') write(stdout, "(A)") " The system geometry is incorrectly set"
     if(errtype == 'ins_ref') write(stdout, "(A)") " RefInfo file is missing"
     if(errtype == 'ins_str') write(stdout, "(A)") " Incorrect size for RefInfo file"
-    if(errtype == 'ins_bug') write(stdout, "(A)") " Critical failure in the insertion program detected"
+    if(errtype == 'ins_bug') write(stdout, "(A)") " Bug in insertion.F90"
 
     if(errtype == 'set_slt') write(stdout, "(A)") " The solute type is incorrectly set"
     if(errtype == 'set_num') write(stdout, "(A)") " The number of molecules or atoms is incorrectly set"
@@ -243,7 +243,7 @@ contains
     if(errtype == 'set_ewa') write(stdout, "(A)") " The Ewald parameters are incorrectly set"
     if(errtype == 'set_trj') write(stdout, "(A)") " Trajectory is shorter than specified in MDinfo"
     if(errtype == 'set_pmt') write(stdout, "(A)") " Permutation index file is invalid"
-    if(errtype == 'set_bug') write(stdout, "(A)") " Critical failure in the setconf program detected"
+    if(errtype == 'set_bug') write(stdout, "(A)") " Bug in setconf.F90"
 
     if(errtype == 'bst_zrw') write(stdout, "(A)") " Division by zero due to inappropriate setting of mass or weight"
 
