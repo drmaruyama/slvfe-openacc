@@ -1,5 +1,5 @@
---- setconf.F90	2017-02-12 17:25:21.020888585 +0900
-+++ extensions/Conditional/setconf.F90	2017-02-12 17:25:21.009888768 +0900
+--- setconf.F90	2017-02-12 17:37:04.031888528 +0900
++++ extensions/Conditional/setconf.F90	2017-02-12 18:15:19.729790514 +0900
 @@ -821,6 +821,11 @@
  ! returns number of frames read (EXCLUDING skipped frames)
    subroutine getconf_parallel(maxread, actual_read)
@@ -25,53 +25,55 @@
  
      ! sum over solvent & solute in trajectory file (HISTORY); no test particle
      OUTatm = sum( numsite, &
-@@ -901,6 +912,14 @@
+@@ -901,6 +912,16 @@
                  call OUTconfig(readpos, readcell, OUTatm, boxshp, &
                                                    'system','trjfl_read')
                  call read_weight(readweight)
-+          ! start of the extension for computing the conditional distributions
++    ! start of the extension for computing the conditional distributions
++      ! note the consistency with getsolute subroutine in insertion.F90
++      ! caution: program will not work as expected when skpcnf > 1
 +                if((do_conditional == YES) .and. (OrderPrm_read == YES)) then
 +                   do cnt_Order = 1, OrderPrm_ArraySize
 +                      read(OrderPrm_io, *, iostat = stat) dummy_i, check_i, read_order(cnt_Order)
 +                      if((check_i /= cnt_Order) .or. (stat /= 0)) call halt_with_error('set_bug')
 +                   enddo
 +                endif
-+          ! end of the extension for computing the conditional distributions
++    ! end of the extension for computing the conditional distributions
               end do
               
               if(iproc /= 1) then         ! send the data to other rank
-@@ -912,12 +931,19 @@
+@@ -912,12 +933,19 @@
                                iproc - 1, tag_cell, mpi_comm_world, ierror)
                  call mpi_send(readweight, 1, mpi_double_precision, &
                                iproc - 1, tag_weight, mpi_comm_world, ierror)
-+          ! start of the extension for computing the conditional distributions
++    ! start of the extension for computing the conditional distributions
 +                call mpi_send(read_order, OrderPrm_ArraySize, mpi_double_precision, &
 +                              iproc - 1, tag_order, mpi_comm_world, ierror)
-+          ! end of the extension for computing the conditional distributions
++    ! end of the extension for computing the conditional distributions
  #endif
               else                        ! rank-0 to use the data as read
                  ! if this causes memory bottleneck, rewrite with in-place permutation
                  OUTpos(:, :) = readpos(:, :)
                  OUTcell(:, :) = readcell(:, :)
                  weight = readweight
-+          ! start of the extension for computing the conditional distributions
++    ! start of the extension for computing the conditional distributions
 +                OrderPrm_Values(:) = read_order(:)
-+          ! end of the extension for computing the conditional distributions
++    ! end of the extension for computing the conditional distributions
               endif
            end do
         else                              ! non-0 rank to receive the data
-@@ -928,6 +954,10 @@
+@@ -928,6 +956,10 @@
                          0, tag_cell, mpi_comm_world, mpistatus, ierror)
            call mpi_recv(weight, 1, mpi_double_precision, &
                          0, tag_weight, mpi_comm_world, mpistatus, ierror)
-+          ! start of the extension for computing the conditional distributions
++    ! start of the extension for computing the conditional distributions
 +          call mpi_send(OrderPrm_Values, OrderPrm_ArraySize, mpi_double_precision, &
 +                        0, tag_order, mpi_comm_world, mpistatus, ierror)
-+          ! end of the extension for computing the conditional distributions
++    ! end of the extension for computing the conditional distributions
  #endif
         endif
  
-@@ -940,6 +970,9 @@
+@@ -940,6 +972,9 @@
         stat_weight_system = weight
      endif
  

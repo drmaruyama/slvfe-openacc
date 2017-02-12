@@ -912,14 +912,16 @@ contains
                 call OUTconfig(readpos, readcell, OUTatm, boxshp, &
                                                   'system','trjfl_read')
                 call read_weight(readweight)
-          ! start of the extension for computing the conditional distributions
+    ! start of the extension for computing the conditional distributions
+      ! note the consistency with getsolute subroutine in insertion.F90
+      ! caution: program will not work as expected when skpcnf > 1
                 if((do_conditional == YES) .and. (OrderPrm_read == YES)) then
                    do cnt_Order = 1, OrderPrm_ArraySize
                       read(OrderPrm_io, *, iostat = stat) dummy_i, check_i, read_order(cnt_Order)
                       if((check_i /= cnt_Order) .or. (stat /= 0)) call halt_with_error('set_bug')
                    enddo
                 endif
-          ! end of the extension for computing the conditional distributions
+    ! end of the extension for computing the conditional distributions
              end do
              
              if(iproc /= 1) then         ! send the data to other rank
@@ -931,19 +933,19 @@ contains
                               iproc - 1, tag_cell, mpi_comm_world, ierror)
                 call mpi_send(readweight, 1, mpi_double_precision, &
                               iproc - 1, tag_weight, mpi_comm_world, ierror)
-          ! start of the extension for computing the conditional distributions
+    ! start of the extension for computing the conditional distributions
                 call mpi_send(read_order, OrderPrm_ArraySize, mpi_double_precision, &
                               iproc - 1, tag_order, mpi_comm_world, ierror)
-          ! end of the extension for computing the conditional distributions
+    ! end of the extension for computing the conditional distributions
 #endif
              else                        ! rank-0 to use the data as read
                 ! if this causes memory bottleneck, rewrite with in-place permutation
                 OUTpos(:, :) = readpos(:, :)
                 OUTcell(:, :) = readcell(:, :)
                 weight = readweight
-          ! start of the extension for computing the conditional distributions
+    ! start of the extension for computing the conditional distributions
                 OrderPrm_Values(:) = read_order(:)
-          ! end of the extension for computing the conditional distributions
+    ! end of the extension for computing the conditional distributions
              endif
           end do
        else                              ! non-0 rank to receive the data
@@ -954,10 +956,10 @@ contains
                         0, tag_cell, mpi_comm_world, mpistatus, ierror)
           call mpi_recv(weight, 1, mpi_double_precision, &
                         0, tag_weight, mpi_comm_world, mpistatus, ierror)
-          ! start of the extension for computing the conditional distributions
+    ! start of the extension for computing the conditional distributions
           call mpi_send(OrderPrm_Values, OrderPrm_ArraySize, mpi_double_precision, &
                         0, tag_order, mpi_comm_world, mpistatus, ierror)
-          ! end of the extension for computing the conditional distributions
+    ! end of the extension for computing the conditional distributions
 #endif
        endif
 
