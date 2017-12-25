@@ -137,6 +137,7 @@ contains
     !
     allocate( uvmax(numslv), uvsoft(numslv), ercrd(large, 0:numslv) )
     !
+    peread = NO                           ! deprecated
     ecprread = NO
     meshread = NO
     ermax = 0
@@ -877,7 +878,7 @@ contains
        if(.not. initialized) call instslt('init')
        initialized = .true.
        call instslt('proc', cntdst, stat_weight_solute)
-       if((stnum == maxcnf/skpcnf) .and. (cntdst == maxdst)) call instslt('last')
+       if((stnum == (maxcnf / skpcnf)) .and. (cntdst == maxdst)) call instslt('last')
     end select
 
     ! At this moment all coordinate in the system is determined

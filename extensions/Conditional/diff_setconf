@@ -1,5 +1,5 @@
---- setconf.F90	2017-02-12 17:37:04.031888528 +0900
-+++ extensions/Conditional/setconf.F90	2017-02-12 18:15:19.729790514 +0900
+--- setconf.F90	2017-02-12 18:43:45.177638455 +0900
++++ extensions/Conditional/setconf.F90	2017-02-22 11:22:53.203640089 +0900
 @@ -821,6 +821,11 @@
  ! returns number of frames read (EXCLUDING skipped frames)
    subroutine getconf_parallel(maxread, actual_read)
@@ -67,7 +67,7 @@
            call mpi_recv(weight, 1, mpi_double_precision, &
                          0, tag_weight, mpi_comm_world, mpistatus, ierror)
 +    ! start of the extension for computing the conditional distributions
-+          call mpi_send(OrderPrm_Values, OrderPrm_ArraySize, mpi_double_precision, &
++          call mpi_recv(OrderPrm_Values, OrderPrm_ArraySize, mpi_double_precision, &
 +                        0, tag_order, mpi_comm_world, mpistatus, ierror)
 +    ! end of the extension for computing the conditional distributions
  #endif

@@ -957,7 +957,7 @@ contains
           call mpi_recv(weight, 1, mpi_double_precision, &
                         0, tag_weight, mpi_comm_world, mpistatus, ierror)
     ! start of the extension for computing the conditional distributions
-          call mpi_send(OrderPrm_Values, OrderPrm_ArraySize, mpi_double_precision, &
+          call mpi_recv(OrderPrm_Values, OrderPrm_ArraySize, mpi_double_precision, &
                         0, tag_order, mpi_comm_world, mpistatus, ierror)
     ! end of the extension for computing the conditional distributions
 #endif

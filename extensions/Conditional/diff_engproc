@@ -1,5 +1,5 @@
---- engproc.F90	2017-02-12 17:25:21.005888416 +0900
-+++ extensions/Conditional/engproc.F90	2017-02-12 17:30:55.508641067 +0900
+--- engproc.F90	2017-12-22 16:23:57.240869990 +0900
++++ extensions/Conditional/engproc.F90	2017-12-22 16:24:11.845744289 +0900
 @@ -43,6 +43,15 @@
           aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
           ene_confname, io_paramfile, io_flcuv, &
@@ -27,7 +27,7 @@
      !
      allocate( tplst(nummol) )
      numslt = 0
-@@ -300,6 +313,93 @@
+@@ -301,6 +314,93 @@
      enddo
      voffset = -infty
  
@@ -121,7 +121,7 @@
      call engclear
  
      ! Output for energy fluctuation
-@@ -318,6 +418,9 @@
+@@ -319,6 +419,9 @@
  
    subroutine engclear
      use engmain, only: corrcal, selfcal, slttype, SLT_SOLN, YES, &
@@ -131,7 +131,7 @@
                         edens, ecorr, eself, slnuv, avslf, engnorm, engsmpl
      implicit none
      edens(:) = 0.0
-@@ -327,6 +430,14 @@
+@@ -328,6 +431,14 @@
      avslf = 0.0
      engnorm = 0.0
      engsmpl = 0.0
@@ -146,7 +146,7 @@
      return
    end subroutine engclear
  
-@@ -499,9 +610,17 @@
+@@ -500,9 +611,17 @@
           edens, ecorr, eself, &
           aveuv, slnuv, avediv, avslf, minuv, maxuv, &
           engnorm, engsmpl, voffset, voffset_initialized, &
@@ -164,7 +164,7 @@
      integer :: stnum, pti, j, k, iduv, division
      character(len=9) :: engfile
      character(len=3) :: suffeng
-@@ -595,6 +714,145 @@
+@@ -596,6 +715,145 @@
      if(selfcal == YES) eself(1:esmax) = eself(1:esmax) / engnorm
      avslf = avslf / engnorm
  
@@ -261,7 +261,7 @@
 +             else
 +                edcnd(:, order_prmid) = 0.0
 +             endif
-+             if(order_prmid > 0) write(eng_io, *)
++             if(order_prmid > 1) write(eng_io, *)
 +             do iduv = 1, ermax
 +                call repval('intn', iduv, factor, pti)
 +                write(eng_io, '(g15.7,i5,g25.15)') factor, pti, edcnd(iduv, order_prmid)
@@ -285,7 +285,7 @@
 +                else
 +                   crcnd(:, :, order_prmid) = 0.0
 +                endif
-+                if(order_prmid > 0) write(cor_io)
++                if(order_prmid > 1) write(cor_io)
 +                write(cor_io) crcnd(:, :, order_prmid)
 +             enddo
 +          endif
@@ -295,7 +295,7 @@
 +          if((slttype == SLT_SOLN) .and. (stnum == maxcnf)) then
 +             open(unit = ave_io, file = 'avcnd.tt', action = 'write')
 +             do order_prmid = 1, order_size
-+                if(order_prmid > 0) write(ave_io, *)
++                if(order_prmid > 1) write(ave_io, *)
 +                do k = 1, engdiv
 +                   write(ave_io, 751) k, avuvcnd(k, 1:numslv, order_prmid)
 +                enddo
@@ -310,7 +310,7 @@
      if(myrank /= 0) return                                            ! MPI
      !
      division = stnum / (maxcnf / skpcnf / engdiv)
-@@ -800,6 +1058,12 @@
+@@ -801,6 +1059,12 @@
  
    subroutine update_histogram(stat_weight_solute, uvengy)
      use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
@@ -323,7 +323,7 @@
                         volume, temp, uvspec, &
                         slnuv, avslf, minuv, maxuv, &
                         edens, ecorr, eself, &
-@@ -809,6 +1073,10 @@
+@@ -810,6 +1074,10 @@
                         ES_NVT, ES_NPT, NO, YES
      use mpiproc
      implicit none
@@ -334,7 +334,7 @@
      real, intent(in) :: uvengy(0:slvmax), stat_weight_solute
      integer, allocatable :: insdst(:), engdst(:)
      integer :: i, k, q, iduv, iduvp, pti
-@@ -895,6 +1163,48 @@
+@@ -896,6 +1164,48 @@
         enddo
      endif
  

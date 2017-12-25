@@ -133,6 +133,7 @@ contains
     !
     allocate( uvmax(numslv), uvsoft(numslv), ercrd(large, 0:numslv) )
     !
+    peread = NO                           ! deprecated
     ecprread = NO
     meshread = NO
     ermax = 0
@@ -807,7 +808,7 @@ contains
              else
                 edcnd(:, order_prmid) = 0.0
              endif
-             if(order_prmid > 0) write(eng_io, *)
+             if(order_prmid > 1) write(eng_io, *)
              do iduv = 1, ermax
                 call repval('intn', iduv, factor, pti)
                 write(eng_io, '(g15.7,i5,g25.15)') factor, pti, edcnd(iduv, order_prmid)
@@ -831,7 +832,7 @@ contains
                 else
                    crcnd(:, :, order_prmid) = 0.0
                 endif
-                if(order_prmid > 0) write(cor_io)
+                if(order_prmid > 1) write(cor_io)
                 write(cor_io) crcnd(:, :, order_prmid)
              enddo
           endif
@@ -841,7 +842,7 @@ contains
           if((slttype == SLT_SOLN) .and. (stnum == maxcnf)) then
              open(unit = ave_io, file = 'avcnd.tt', action = 'write')
              do order_prmid = 1, order_size
-                if(order_prmid > 0) write(ave_io, *)
+                if(order_prmid > 1) write(ave_io, *)
                 do k = 1, engdiv
                    write(ave_io, 751) k, avuvcnd(k, 1:numslv, order_prmid)
                 enddo
@@ -995,7 +996,7 @@ contains
        if(.not. initialized) call instslt('init')
        initialized = .true.
        call instslt('proc', cntdst, stat_weight_solute)
-       if((stnum == maxcnf/skpcnf) .and. (cntdst == maxdst)) call instslt('last')
+       if((stnum == (maxcnf / skpcnf)) .and. (cntdst == maxdst)) call instslt('last')
     end select
 
     ! At this moment all coordinate in the system is determined
