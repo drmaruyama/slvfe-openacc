@@ -1417,7 +1417,7 @@ contains
           if(idpt == idmax) engcoord = uvcrd(iduv)
        endif
     case default
-       stop "Unknown caltype in repval"
+       stop "Unknown uvtype in repval"
     end select
     return
   end subroutine repval

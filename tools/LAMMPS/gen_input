@@ -195,12 +195,11 @@ def parse_log():
 
         if len(words) > 4 and words[0] == "dump":
             log("dumpN")
-            if dic.has_key("dumpN"):
-                log("(updated)")
-            if words[3] not in ["xtc", "dcd", "atom", "atom/mpiio"] :
-                error("Unsupported dump style")
-            dic["dumpN"] = int(words[4])
-            log(dic["dumpN"])
+            if words[3] == os.path.splitext(options.traj)[1][1:]:
+                if dic.has_key("dumpN"):
+                    log("(updated)")
+                dic["dumpN"] = int(words[4])
+                log(dic["dumpN"])
 
         if len(words) > 1 and words[0] == "run":
             log("Number of steps:")
@@ -219,7 +218,7 @@ def parse_log():
             l = l[:pos]
         words = l.split()
 
-        re_gewald=re.compile(r"^  G vector .1.distance. = (.*)$").match(l)
+        re_gewald=re.compile(r"^G vector .1.distance. = (.*)$").match(l.strip())
         if re_gewald:
             log("Ewald coefficient:")
             if dic.has_key("gewald"):
@@ -227,7 +226,7 @@ def parse_log():
             dic["gewald"] = float(re_gewald.group(1))
             log(dic["gewald"])
 
-        re_order=re.compile(r"^  stencil order = (.*)$").match(l)
+        re_order=re.compile(r"^stencil order = (.*)$").match(l.strip())
         if re_order:
             log("PPPM order:")
             if dic.has_key("pppm_order"):
@@ -235,7 +234,7 @@ def parse_log():
             dic["pppm_order"] = float(re_order.group(1))
             log(dic["pppm_order"])
 
-        re_mesh=re.compile(r"^  grid = ([0-9]+) ([0-9]+) ([0-9]+)$").match(l)
+        re_mesh=re.compile(r"^grid = ([0-9]+) ([0-9]+) ([0-9]+)$").match(l.strip())
         if re_mesh:
             log("PPPM mesh size:")
             if dic.has_key("meshx"):
@@ -276,6 +275,9 @@ def parse_log():
         params['slttype'] = 3 # flexible
     else:
         params['slttype'] = 1 # solution
+
+    if not dic.has_key("dumpN"):
+        error("Keyword \"dump " + os.path.splitext(options.traj)[1][1:] + "\" was not found.")
 
     if not dic.has_key("pair_style"):
         error("Keyword \"pair_style\" was not found in log file. Specify input script file by \"-i\" option.")

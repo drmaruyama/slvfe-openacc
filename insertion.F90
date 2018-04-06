@@ -702,13 +702,13 @@ contains
 
     if(refhost_natom > 0) then
        do i = 1, refhost_natom
-          call read_refPDF_weight(refhost_specatm(i), crd, wgt)
+          call read_refPDB_weight(refhost_specatm(i), crd, wgt)
           refhost_crd(1:3, i) = crd(1:3)
           refhost_weight(i) = wgt
        end do
     endif
     do i = 1, refslt_natom
-       call read_refPDF_weight(refslt_specatm(i), crd, wgt)
+       call read_refPDB_weight(refslt_specatm(i), crd, wgt)
        refslt_crd(1:3, i) = crd(1:3)
        refslt_weight(i) = wgt
     end do
@@ -716,7 +716,7 @@ contains
     return
 
   contains
-    subroutine read_refPDF_weight(ati, crd, wgt)
+    subroutine read_refPDB_weight(ati, crd, wgt)
       use engmain, only: sitemass
       implicit none
       integer, intent(in) :: ati
@@ -751,6 +751,6 @@ contains
          !
       endif
       return
-    end subroutine read_refPDF_weight
+    end subroutine read_refPDB_weight
   end subroutine load_refstructure
 end module

@@ -1,5 +1,5 @@
---- insertion.F90	2017-02-12 17:37:04.024888464 +0900
-+++ extensions/Conditional/insertion.F90	2017-02-12 18:13:37.387794917 +0900
+--- insertion.F90	2018-01-05 12:02:55.564776791 +0900
++++ extensions/Conditional/insertion.F90	2018-04-06 14:53:36.186902753 +0900
 @@ -383,6 +383,9 @@
      use engmain, only: slttype, maxins, numsite, bfcoord, stdout, slttrj, &
                         wgtins, sltwgt_file, sltwgt_io, &

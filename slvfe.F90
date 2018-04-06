@@ -752,11 +752,11 @@ contains
           do iduvp = 1, iduv - 1
              if((uvspec(iduvp) == pti) .and. (ext_target(iduvp)) .and. &
                 (m < iduvp)) m = iduvp
-          end do
+          enddo
           do iduvp = gemax, iduv + 1, -1
              if((uvspec(iduvp) == pti) .and. (ext_target(iduvp)) .and. &
                 (k > iduvp)) k = iduvp
-          end do
+          enddo
           !
           if(extsln == 'sim') then
              if(abs(m - iduv) <  abs(k - iduv)) factor = slncv(m)
@@ -765,8 +765,17 @@ contains
                 factor = (slncv(m) + slncv(k)) / 2.0
              endif
           else
-             j = k
-             if(abs(m - iduv) < abs(k - iduv)) j = m
+             if(ext_target(m) .and. ext_target(k)) then
+                j = k
+                if(abs(m - iduv) < abs(k - iduv)) j = m
+             elseif(ext_target(m) .and. (.not. ext_target(k))) then
+                j = m
+             elseif((.not. ext_target(m)) .and. ext_target(k)) then
+                j = k
+             else  ! (.not. ext_target(m)) .and. (.not. ext_target(k))
+                write(6, *) "Extrapolation is not possible at ", uvcrd(iduv)
+                stop
+             endif
              allocate( work(gemax) )
              work(:) = 0.0
              do iduvp = 1, gemax
@@ -779,11 +788,11 @@ contains
                    ampl = wgtdst(iduvp, 1, 'extsl', wgtfnform)
                    work(iduvp) = exp(- factor / kT) * ampl
                 endif
-             end do
+             enddo
              factor = sum( work, mask = (work > zero) )
              do iduvp = 1, gemax
                 work(iduvp) = work(iduvp) / factor
-             end do
+             enddo
              factor = sum( work * uvcrd, mask = (work > zero) )
              ampl = sum( work * uvcrd * uvcrd, mask = (work > zero) )
              lcsln = sum( work * slncv, mask = (work > zero) )
@@ -795,7 +804,7 @@ contains
           endif
           slncv(iduv) = factor
        endif
-    end do
+    enddo
     !
     deallocate( ext_target )
     !
@@ -1557,7 +1566,14 @@ contains
        if(numslv >= 3) write(6, "(A)", advance='no') "         3rd component"
        if(numslv >= 4) then
           do pti = 4, numslv
-             write(6, "(A,i1,A)", advance='no') "         ", pti, "th component"
+             select case(pti / 10)
+             case(0)                   ! 4 <= pti < 10
+                write(6, "(A,i1,A)", advance='no') "         ", pti, "th component"
+             case(1)                   ! 10 <= pti < 100
+                write(6, "(A,i2,A)", advance='no') "        ", pti, "th component"
+             case default              ! 100 <= pti
+                write(6, "(A,i4,A)", advance='no') "        ", pti, "th component"
+             end select
           enddo
        endif
        write(6, '(A)') ""

@@ -1,3 +1,11 @@
+version 0.3.6 (XX/XX/2018)
+* Energy Histogram Computation:
+    * Modified LAMMPS gen_input to accept the CRLF code and handle the
+    situation when multiple types are species at dump
+* Bug fixes:
+    * Fixed possible bugs in extensions/Conditional for reading solute
+    coordinates
+
 version 0.3.5 (09/27/2016)
 * Energy Histogram Computation:
     * gen_structure for NAMD now accepts NBFIX keyword
@@ -30,7 +38,7 @@ version 0.3.2 (09/26/2015)
 
 version 0.3.1 (06/08/2015)
 * Bug fixes:
-    Fixed GROMAS gen_structure cannot specify solutes in interactive way
+    Fixed GROMACS gen_structure cannot specify solutes in interactive way
 
 version 0.3.0 (06/01/2015)
 * Bug fixes:
