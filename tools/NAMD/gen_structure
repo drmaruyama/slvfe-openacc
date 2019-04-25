@@ -357,8 +357,7 @@ def get_topology_info():
                 return True
             return False
             
-        if (solvent == [] or 
-            is_new_residue(rb, rl, rn)):
+        if is_new_residue(rb, rl, rn):
             # beginning of new residue
             solvent.append((rb, rl, 1))
         else:
