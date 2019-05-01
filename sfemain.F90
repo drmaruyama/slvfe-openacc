@@ -23,6 +23,7 @@ module sysvars
   character(len=5) :: clcond = 'merge'
   character(len=3) :: uvread = 'yes',    slfslt = 'yes',   ljlrc = 'not'
   character(len=3) :: infchk = 'not',    meshread = 'not', cumuint = 'not'
+  character(len=3) :: write_mesherror = 'not'
   character(len=4) :: zerosft = 'orig',  wgtfnform = 'harm'
   character(len=3) :: refmerge = 'yes',  extsln = 'lin'
   character(len=3) :: wgtf2smpl = 'yes', slncor = 'not'
@@ -32,7 +33,7 @@ module sysvars
   real :: inptemp = 300.0                    ! temperature in Kelvin
   integer :: pickgr = 3
   integer :: msemin = 1, msemax = 5
-  real :: mesherr = 0.10                     ! allowed mesh error in kcal/mol
+  real :: mesherr = 0.0                      ! allowed mesh error in kcal/mol
   real :: avevolume = 0.0                    ! average volume of system
   integer :: extthres_soln = 1, extthres_refs = 1
   integer :: minthres_soln = 0, minthres_refs = 0
@@ -75,7 +76,7 @@ module sysvars
        refmerge, extsln, extthres_soln, extthres_refs, &
        minthres_soln, minthres_refs, &
        wgtf2smpl, slncor, normalize, showdst, wrtzrsft, readwgtfl, &
-       inptemp, pickgr, msemin, msemax, mesherr, &
+       inptemp, pickgr, write_mesherror, msemin, msemax, mesherr, &
        ljlrc, avevolume, &
        solndirec, refsdirec, wgtslnfl, wgtreffl, &
        slndnspf, slncorpf, refdnspf, refcorpf, &

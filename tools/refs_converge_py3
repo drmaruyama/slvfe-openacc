@@ -99,7 +99,8 @@ os.chdir(slvfe_dir)
 shutil.copyfile('parameters_fe', 'parameters_fe.bak')
 # CHANGE mesherr IN parameters_fe
 dic_chmesh = makeDict('parameters_fe')
-change_prm(dic_chmesh, file='parameters_fe', key='mesherr', new_prm=-1)
+change_prm(dic_chmesh, file='parameters_fe', key='clcond', new_prm='\'merge\'')
+change_prm(dic_chmesh, file='parameters_fe', key='write_mesherror', new_prm='\'yes\'')
 
 # MAKE result summary
 result_file = 'result_summary'
@@ -126,7 +127,7 @@ for value in range(1, args.numref+1):  # CHANGE NUMREF FROM 1 TO args.numref
     linelist = slvf.readlines()  # READ slvfe_XX
     block = value
     solvationFE_95pError = linelist[-3][3:26].strip()
-    MeshError = linelist[-1].split()[4]
+    MeshError = linelist[-1].split()[3]
     resf.write('%2d\t%s\t%s\n' % (block, solvationFE_95pError, MeshError))
 
     # REMOVE slvfe_XX if '-s' option is not specified

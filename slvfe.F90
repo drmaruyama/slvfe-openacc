@@ -610,7 +610,7 @@ contains
     !
     if(prmcnt == 1) then
        if(uvread /= 'yes') then
-          do pti=1,numslv
+          do pti = 1, numslv
              aveuv(pti) = sum( uvcrd * edist, mask = (uvspec == pti) )
           end do
        endif
@@ -1305,17 +1305,18 @@ end module sfecalc
 module opwrite
   use sysvars, only: clcond, uvread, slfslt, infchk, &
        prmmax, numrun, numslv, zero, &
-       pickgr, msemin, msemax, mesherr, &
+       pickgr, write_mesherror, msemin, msemax, mesherr, &
        slfeng, chmpt, aveuv, blkuv, svgrp, svinf
   implicit none
   integer :: grref
+  real :: fe_stat_error     ! 95% error of the solvation free energy
   real, dimension(:), allocatable :: mshdif
 contains
   !
   subroutine wrtresl
     implicit none
     integer :: prmcnt, pti, k, group, inft
-    real :: factor, valcp
+    real :: totuv, differ, mesh_error, valcp
     !
     if(slfslt == 'yes') write(6, "(A,f12.4,A)") "  Self-energy of the solute   =   ", slfeng, "  kcal/mol"
     !
@@ -1323,9 +1324,9 @@ contains
        write(6,*)
        if((numslv > 1) .and. (uvread /= 'yes')) write(6, 331) aveuv(1:numslv)
 331    format('  Solute-solvent energy       =   ', 9999f12.4)
-       factor = sum( aveuv(1:numslv) )
-       if(slfslt == 'yes') factor = factor + slfeng
-       write(6, "(A,f12.4,A)") "  Total solvation energy      =   ", factor, "  kcal/mol"
+       totuv = sum( aveuv(1:numslv) )
+       if(slfslt == 'yes') totuv = totuv + slfeng
+       write(6, "(A,f12.4,A)") "  Total solvation energy      =   ", totuv, "  kcal/mol"
     endif
     !
     if(clcond == 'basic') then
@@ -1371,15 +1372,15 @@ contains
              group = svgrp(prmcnt)
              inft = svinf(prmcnt)
              valcp = chmpt(pti, prmcnt, 1)
-             factor = valcp - chmpt(pti, grref, 1)
+             differ = valcp - chmpt(pti, grref, 1)
              if(infchk == 'yes') then
-                write(6, "(i4,i7,f17.5,f18.5)") group, inft, valcp, factor
+                write(6, "(i4,i7,f17.5,f18.5)") group, inft, valcp, differ
              else
-                write(6, "(i4,f20.5,f18.5)") group, valcp, factor
+                write(6, "(i4,f20.5,f18.5)") group, valcp, differ
              endif
              if((pti == 0) .and. (inft == 0) .and. &
                 (group >= msemin) .and. (group <= msemax)) then
-                mshdif(group) = abs(factor)
+                mshdif(group) = abs(differ)
              endif
           end do
        end do
@@ -1388,13 +1389,28 @@ contains
     if(clcond == 'merge') call wrtmerge
     !
     if((clcond == 'range') .or. (clcond == 'merge')) then
-       factor = maxval( mshdif(msemin:msemax), &
-                        mask = (mshdif(msemin:msemax) > zero) )
-       if(factor > mesherr) then
+       mesh_error = maxval( mshdif(msemin:msemax), &
+                            mask = (mshdif(msemin:msemax) > zero) )
+       ! mesh error written in any case
+       if(write_mesherror == 'yes') then
           write(6, *)
-          write(6, "(A,f8.3,A,g12.3,A)") " Warning: mesh error is ", factor, &
-              " kcal/mol and is larger than the recommended value of ", &
-              mesherr, " kcal/mol"
+          write(6, "(A,f8.3,A)") " Mesh error is ", mesh_error, " kcal/mol"
+       ! write_mesherror = 'not', clcond = 'merge', mesh_error > fe_stat_error
+       elseif((clcond == 'merge') .and. (mesh_error > fe_stat_error)) then
+          write(6, *)
+          write(6, "(A,f8.3,A,f8.3,A)") &
+             " Warning: mesh error is ", mesh_error, &
+             " kcal/mol and is larger than the 95% error of ", &
+             fe_stat_error, " kcal/mol"
+       ! write_mesherror = 'not',
+       ! clcond = 'range' or mesh_error < fe_stat_error,
+       ! mesherr is set to be positive, mesh_error > mesherr
+       elseif((mesherr > zero) .and. (mesh_error > mesherr)) then
+          write(6, *)
+          write(6, "(A,f8.3,A,f8.3,A)") &
+             " Warning: mesh error is ", mesh_error, &
+             " kcal/mol and is larger than the threshold value of ", &
+             mesherr, " kcal/mol"
        endif
        deallocate( mshdif )
     endif
@@ -1614,6 +1630,9 @@ contains
              write(6, 772) cntrun, shcp(1:2*numslv+2)
 772          format(i3,9999f11.4)
           endif
+          ! 95% error of the solvation free energy
+          ! used only when the mesh error for free energy is assessed
+          if(cntrun == numrun) fe_stat_error = shcp(2)
        endif
     end do
 

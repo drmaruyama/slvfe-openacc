@@ -79,7 +79,7 @@ To obtain this free-energy change, the slvfe executable is used by setting
 slndnspf  = 'engint'
 aveuvfile = 'avint.tt'
 
-in parameters_fe (use does not need to set aveuvfile when uvread = 'not').
+in parameters_fe (user does not need to set aveuvfile when uvread = 'not').
 If user modifies the filenames of avint.tt and engint.XX,
 the lines for slndnspf and aveuvfile in parameters_fe
 need to be changed as such.
