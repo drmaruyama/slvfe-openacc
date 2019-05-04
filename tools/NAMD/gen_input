@@ -26,12 +26,16 @@ parser.add_option("-s", "--flexible", dest = "solute",
                   help = "Solute trajectory file (for flexible insertion)")
 
 parser.add_option("-d", "--div", dest = "div", type = "int",
-                  help = "Number of sections divided into",
+                  help = "Number of divided sections",
                   default = None)
 
 parser.add_option("--minenergy", dest = "minenergy", type = "float",
-                  help = "Minimum energy",
+                  help = "Minimum energy in kcal/mol",
                   default = -20.0)
+
+parser.add_option("--maxins", dest = "maxins", type = "int",
+                  help = "Number of insertions for refs (default: 1000)",
+                  default = 1000)
 
 (options, args) = parser.parse_args()
 
@@ -151,15 +155,15 @@ def parse_log():
     logfh.close()
 
     params = {
-        "temp": temp,
-        "simtype": simtype,
-        "switchlj": switchlj,
-        "boxshape": is_periodic,
-        "calctype": mode,
+        "slttype": mode,
+        "boxshp": is_periodic,
+        "estype": simtype,
+        "inptemp": temp,
         "ljswitch": ljfrcswt,
-        "cut": cut,
-        "lowlj": switchlj,
-        "cltype": coulombtype
+        "upljcut": cut,
+        "lwljcut": switchlj,
+        "cltype": coulombtype,
+        "elecut": cut
     }
 
     carryover = {}
@@ -167,6 +171,7 @@ def parse_log():
         ifh = file(".extraparam", "rt")
         carryover = pickle.load(ifh)
         ifh.close()
+        # read ljformat from carryover
         for k in carryover:
             if k != "sltspec": # sltspec is referenced only in soln
                 params[k] = carryover[k]
@@ -174,46 +179,55 @@ def parse_log():
     except OSError:
         pass
 
-    ofh = open("parameters_er", "wt")
-    print >> ofh, """&ene_param
-  slttype = %(calctype)d,
-  estype = %(simtype)d,
-  boxshp = %(boxshape)d,
-  inptemp = %(temp)f,
-  elecut = %(cut)f,
-  ljformat = %(ljformat)d,
-  ljswitch = %(ljswitch)d,
-  upljcut = %(cut)f,
-  lwljcut = %(lowlj)f,
-  cltype = %(cltype)d,""" % params
-
     if mode == 1: # for solution system
         if "sltspec" in carryover:
             params["sltspec"] = carryover["sltspec"]
-
-        if "sltspec" in params:
-            print >> ofh, """\
-  sltspec = %d,""" % params["sltspec"]
 
     if coulombtype == 1:
         # TODO: print alpha
         pass        
     elif coulombtype == 2: # PME
-        print >> ofh, """\
-  screen = %f,
-  splodr = %d,
-  ms1max = %d,
-  ms2max = %d,
-  ms3max = %d,""" % (alpha, pme_order, box1, box2, box3)
+        params.update({
+            "screen": alpha,
+            "splodr": pme_order,
+            "ms1max": box1,
+            "ms2max": box2,
+            "ms3max": box3
+        })
         pass
+
     if options.div == None:
         if options.solute != None or options.pdb != None:
-            divs = 5
+            params["engdiv"] = 5             # reference solvent
         else:
-            divs = 10
+            params["engdiv"] = 10            # solution
     else:
-        divs = options.div
-    print >> ofh, "  engdiv = %d" % divs
+        params["engdiv"] = options.div
+
+    if options.maxins != None and mode != 1: # for reference solvent
+        params["maxins"] = options.maxins
+
+    # Order of the outputs to parameters_er
+    output_var =["slttype", "sltspec", "boxshp", "estype", "inptemp",
+                 "ljformat", "ljswitch", "upljcut", "lwljcut",
+                 "cltype", "elecut", "screen", "splodr",
+                 "ms1max", "ms2max", "ms3max",
+                 "maxins", "engdiv"]
+
+    ofh = open("parameters_er", "wt")
+    print >> ofh, "&ene_param"
+    for k in output_var:
+        if k in params.keys():
+            v = params[k]
+            if isinstance(v, str):
+                print >> ofh, "        %s = \"%s\"," % (k, v)
+            elif isinstance(v, int):
+                print >> ofh, "        %s = %d," % (k, v)
+            elif isinstance(v, float):
+                print >> ofh, "        %s = %g," % (k, v)
+            else:
+                error("Unknown output type")
+
     print >> ofh, """/
 &hist
       eclbin=5.0e-2, ecfbin=2.0e-3, ec0bin=2.0e-4, finfac=10.0e0,
