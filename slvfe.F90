@@ -1559,16 +1559,17 @@ contains
     write(6, *)
     write(6, *)
     write(6, "(A)") " cumulative average & 95% error for solvation free energy"
-    call wrtcumu(wrtdata)
+    call wrtcumu(wrtdata, fe_stat_error)
     deallocate( wrtdata )
 
     return
   end subroutine wrtmerge
 
-  subroutine wrtcumu(wrtdata)
+  subroutine wrtcumu(wrtdata, stat_error)
     use sysvars, only: large, zero
     implicit none
     real, intent(in) :: wrtdata(0:numslv, numrun)
+    real, intent(out), optional :: stat_error
     integer :: cntrun, pti
     real :: avecp, factor, slvfe, recnt, shcp(large)
     real, dimension(:), allocatable :: runcp, runer
@@ -1632,7 +1633,7 @@ contains
           endif
           ! 95% error of the solvation free energy
           ! used only when the mesh error for free energy is assessed
-          if(cntrun == numrun) fe_stat_error = shcp(2)
+          if(present(stat_error) .and. (cntrun == numrun)) stat_error = shcp(2)
        endif
     end do
 

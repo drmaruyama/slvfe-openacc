@@ -277,6 +277,11 @@ def get_topology_info():
             segnames.append(segname)
             segname_set[segname] = 0
 
+    if options.verbose:
+        print >> sys.stderr, "\n"\
+        "If the number of solute molecules in the solution system of interest\n"\
+        "  is more than unity, user needs to modify MDinfo, MolPrmX, and SltInfo manually"
+
     if options.solute:
         solutes = options.solute.split(',')
     else:
@@ -285,7 +290,9 @@ def get_topology_info():
         for s in segnames:
             print s,
         print
-        l = raw_input("Which segments are solutes? (For multiple choice please specify as comma-separated list) ").split(',')
+        l = raw_input("Which segments are solutes? "\
+          "(More than a single species can be chosen \n" \
+          "  as comma-separated entries when they are listed contiguously)   ").split(',')
         solutes = [x.strip() for x in l]
 
     if solutes == []:

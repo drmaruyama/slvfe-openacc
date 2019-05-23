@@ -30,11 +30,13 @@ module sysvars
   character(len=3) :: normalize = 'yes', showdst= 'not'
   character(len=3) :: wrtzrsft = 'not',  readwgtfl = 'yes'
 
-  real :: inptemp = 300.0                    ! temperature in Kelvin
+  real :: inptemp = 300.0                 ! temperature in Kelvin
+  integer :: numprm_def_inf_yes = 11      ! default numprm at infchk = 'yes'
+  integer :: numprm_def_inf_not = 5       ! default numprm at infchk = 'not'
   integer :: pickgr = 3
   integer :: msemin = 1, msemax = 5
-  real :: mesherr = 0.0                      ! allowed mesh error in kcal/mol
-  real :: avevolume = 0.0                    ! average volume of system
+  real :: mesherr = 0.0                   ! allowed mesh error in kcal/mol
+  real :: avevolume = 0.0                 ! average volume of system
   integer :: extthres_soln = 1, extthres_refs = 1
   integer :: minthres_soln = 0, minthres_refs = 0
   real, parameter :: zero = 0.0
@@ -55,7 +57,8 @@ module sysvars
   character(len=1024) :: cumuintfl = 'cumsfe'
   character(len=10), parameter :: numbers='0123456789'
   
-  integer :: numsln, numref, numdiv, numprm
+  integer :: numprm = 0                   ! initialized to be 0
+  integer :: numsln, numref, numdiv
   integer :: maxsln, maxref, numrun, prmmax
   integer :: numslv, ermax
   real :: temp, kT, slfeng
@@ -152,11 +155,15 @@ contains
 
     if(numprm <= 0) then                 ! default setting
        if(infchk == 'yes') then
-          numprm = 11
+          numprm = numprm_def_inf_yes    ! default numprm at infchk = 'yes'
        else
-          numprm = 10
+          numprm = numprm_def_inf_not    ! default numprm at infchk = 'not'
        endif
     endif
+
+    if(pickgr < msemin) stop " Incorrect setting: pickgr < msemin not allowed"
+    if(pickgr > msemax) stop " Incorrect setting: pickgr > msemax not allowed"
+    if(pickgr > numprm) stop " Incorrect setting: pickgr > numprm not allowed"
 
   end subroutine init_sysvars
 end module sysvars
