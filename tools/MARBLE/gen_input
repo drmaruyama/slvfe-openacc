@@ -29,11 +29,11 @@ parser.add_option("-s", "--flexible", dest = "solute",
                   help = "Solute trajectory file (for flexible insertion)")
 
 parser.add_option("-d", "--div", dest = "div", type = "int",
-                  help = "Number of sections divided into",
+                  help = "Number of divided sections",
                   default = None)
 
 parser.add_option("--minenergy", dest = "minenergy", type = "float",
-                  help = "Minimum energy",
+                  help = "Minimum energy in kcal/mol",
                   default = -20.0)
 
 parser.add_option("--maxins", dest = "maxins", type = "int",
@@ -172,57 +172,74 @@ def parse_log():
     logfh.close()
 
     params = {
-        "temp": temp,
-        "simtype": simtype,
-        "switchlj": switchlj,
-        "boxshape": is_periodic,
-        "calctype": mode,
-        "cut": cut,
-        "lowlj": switchlj,
-        "cltype": coulombtype
+        "slttype": mode,
+        "boxshp": is_periodic,
+        "estype": simtype,
+        "inptemp": temp,
+        "ljformat": 1,
+        "upljcut": cut,
+        "lwljcut": switchlj,
+        "cltype": coulombtype,
+        "elecut": cut
     }
 
-    
-    ofh = open("parameters_er", "wt")
-    print >> ofh, """&ene_param
-  slttype = %(calctype)d,
-  estype = %(simtype)d,
-  boxshp = %(boxshape)d,
-  inptemp = %(temp)f,
-  elecut = %(cut)f,
-  ljformat = 1,
-  upljcut = %(cut)f,
-  lwljcut = %(lowlj)f,
-  cltype = %(cltype)d,""" % params
-
     if mode == 1 and "sltspec" in carryover:
-        print >> ofh, """\
-  sltspec = %d,""" % (carryover["sltspec"])
+        params["sltspec"] = carryover["sltspec"]
 
     if coulombtype == 1:
         # TODO: print alpha
         pass        
     elif coulombtype == 2: # PME
-        print >> ofh, """\
-  screen = %f,
-  splodr = %d,
-  ms1max = %d,
-  ms2max = %d,
-  ms3max = %d,""" % (alpha, pme_order, box1, box2, box3)
+        params.update({
+            "screen": alpha,
+            "splodr": pme_order,
+            "ms1max": box1,
+            "ms2max": box2,
+            "ms3max": box3
+        })
         pass
-    if options.solute != None or options.pdb != None:
-        print >> ofh, """\
-  maxins = %d,
-  inscfg = %d,""" % (options.maxins, inscfg)
-        pass
+
+    if options.solute != None or options.pdb != None: # for reference solvent
+        params["maxins"] = options.maxins
+        if inscfg == 0:
+            pass                          # random position and orientation
+        elif inscfg == 1:
+            params["insorient"] = 1       # fixed orientation (random position)
+        elif inscfg == 2:
+            params["insposition"] = 1     # fixed position
+            params["insorient"] = 1       # fixed orientation
+        else:
+            error("Unknown inscfg")
+
     if options.div == None:
         if options.solute != None or options.pdb != None:
-            divs = 5
+            params["engdiv"] = 5          # reference solvent
         else:
-            divs = 10
+            params["engdiv"] = 10         # solution
     else:
-        divs = options.div
-    print >> ofh, "  engdiv = %d" % divs
+        params["engdiv"] = options.div
+
+    # Order of the outputs to parameters_er
+    output_var =["slttype", "sltspec", "boxshp", "estype", "inptemp",
+                 "ljformat", "upljcut", "lwljcut",
+                 "cltype", "elecut", "screen", "splodr",
+                 "ms1max", "ms2max", "ms3max",
+                 "maxins", "insposition", "insorient", "engdiv"]
+
+    ofh = open("parameters_er", "wt")
+    print >> ofh, "&ene_param"
+    for k in output_var:
+        if k in params.keys():
+            v = params[k]
+            if isinstance(v, str):
+                print >> ofh, "        %s = \"%s\"," % (k, v)
+            elif isinstance(v, int):
+                print >> ofh, "        %s = %d," % (k, v)
+            elif isinstance(v, float):
+                print >> ofh, "        %s = %g," % (k, v)
+            else:
+                error("Unknown output type")
+
     print >> ofh, """/
 &hist
       eclbin=5.0e-2, ecfbin=2.0e-3, ec0bin=2.0e-4, finfac=10.0e0,
