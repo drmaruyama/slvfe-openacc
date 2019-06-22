@@ -63,6 +63,7 @@ module uvcorrect
   integer :: intprm, cltype, splodr, plmode
   real :: elecut, screen, ewtoler
   integer :: ew1max, ew2max, ew3max, ms1max, ms2max, ms3max
+  integer :: ermax_limit
   real :: block_threshold
   logical :: force_calculation
 
@@ -78,7 +79,7 @@ module uvcorrect
        intprm, elecut, lwljcut, upljcut, &
        cmbrule, cltype, screen, ewtoler, splodr, plmode, &
        ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
-       block_threshold, force_calculation
+       ermax_limit, block_threshold, force_calculation
 
 contains
   subroutine ljcorrect(cntrun)
@@ -122,11 +123,13 @@ contains
     integer, parameter :: iounit = 555
     real, parameter :: volm_min = 3.0e3
     integer :: stat
+
     ljformat = LJFMT_EPS_Rminh                    ! default setting
     ljswitch = LJSWT_POT_CHM                      ! default setting
     cmbrule = LJCMB_ARITH                         ! default setting
     upljcut = 12.0                                ! default setting
     lwljcut = upljcut - 2.0                       ! default setting
+
     keyfile = trim(refsdirec)//'/'//ene_confname
     open(unit = iounit, file = keyfile, action = 'read', status = 'old', iostat = stat)
     if(stat == 0) then

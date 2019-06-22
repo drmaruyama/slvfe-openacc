@@ -41,7 +41,7 @@ module sysvars
   integer :: minthres_soln = 0, minthres_refs = 0
   real, parameter :: zero = 0.0
   real :: error = 1.0e-8, tiny = 1.0e-8
-  integer :: too_large_ermax = 30000
+  integer :: ermax_limit = 15000
   integer :: large = 500000, itrmax = 100
   
   character(len=1024) :: solndirec = 'soln'
@@ -84,7 +84,7 @@ module sysvars
        solndirec, refsdirec, wgtslnfl, wgtreffl, &
        slndnspf, slncorpf, refdnspf, refcorpf, &
        aveuvfile, engmeshfile, cumuint, cumuintfl, &
-       too_large_ermax, large, itrmax, error, tiny
+       ermax_limit, large, itrmax, error, tiny
 
 contains
 

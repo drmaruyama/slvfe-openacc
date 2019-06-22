@@ -145,8 +145,7 @@ contains
          intprm, elecut, lwljcut, upljcut, &
          cmbrule, cltype, screen, ewtoler, splodr, plmode, &
          ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
-         block_threshold, &
-         force_calculation, &
+         ermax_limit, block_threshold, force_calculation, &
          NO, YES, &
          SYS_NONPERIODIC, SYS_PERIODIC, &
          ES_NVT, ES_NPT, &
@@ -203,10 +202,10 @@ contains
     insorient = INSROT_RANDOM
     insstructure = INSSTR_NOREJECT
 
-    ! block-wise calculation, corresponds to 13 atoms / box
-    block_threshold = 4.0
-
-    force_calculation = .false.
+    ! default settings
+    ermax_limit = 15000          ! maximum size of the distribution functions
+    block_threshold = 4.0        ! cell-link box size of 13 atoms / box
+    force_calculation = .false.  ! program terminates when there is a warning
 
     ! only part of constants set here
     call init_params()

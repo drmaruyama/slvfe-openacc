@@ -33,7 +33,7 @@ contains
          slndnspf, aveuvfile, engmeshfile, &
          numprm, prmmax, numsln, numref, numdiv, &
          inptemp, temp, kT, &
-         too_large_ermax, tiny, large, &
+         ermax_limit, tiny, large, &
          rduvmax, rduvcore, &
          chmpt, svgrp, svinf
     implicit none
@@ -156,7 +156,7 @@ contains
     endif
     !
     if(sum( rduvmax(1:numslv) ) /= ermax) stop ' The file format is incorrect'
-    if(ermax > too_large_ermax) stop ' The number of energy bins is too large'
+    if(ermax > ermax_limit) stop ' The number of energy bins is too large'
     !
     select case(clcond)
     case('basic')
