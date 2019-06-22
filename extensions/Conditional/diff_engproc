@@ -1,5 +1,5 @@
---- engproc.F90	2018-01-02 21:46:47.341772625 +0900
-+++ extensions/Conditional/engproc.F90	2018-04-06 14:52:54.527869777 +0900
+--- engproc.F90	2019-06-22 14:24:32.946103904 +0900
++++ extensions/Conditional/engproc.F90	2019-06-22 14:50:04.647980335 +0900
 @@ -43,6 +43,15 @@
           aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
           ene_confname, io_paramfile, io_flcuv, &
@@ -13,10 +13,10 @@
 +         order_min, order_max, order_binwidth, &
 +         order_crd, edcnd, sluvcnd, crcnd, avuvcnd, cndnorm, &
 +    ! end of the extension for computing the conditional distributions
-          SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, NO, YES
+          SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, NO, YES, &
+          ermax_limit
      use mpiproc, only: halt_with_error, warning, myrank
-     implicit none
-@@ -68,6 +77,10 @@
+@@ -69,6 +78,10 @@
      namelist /hist/ ecdmin, ecfmns, ecdcen, eccore, ecdmax, &
                      eclbin, ecfbin, ec0bin, finfac, pecore, &
                      ecprread, meshread, peread
@@ -27,7 +27,7 @@
      !
      allocate( tplst(nummol) )
      numslt = 0
-@@ -301,6 +314,93 @@
+@@ -302,6 +315,93 @@
      enddo
      voffset = -infty
  
@@ -107,7 +107,7 @@
 +       allocate( edcnd(ermax, order_size) )
 +       if(corrcal == YES) then
 +          factor = real(ermax) * sqrt( real(order_size) )
-+          if(nint(factor) > too_large_ermax) call warning('emax')
++          if(nint(factor) > ermax_limit) call warning('emax')
 +          allocate( crcnd(ermax, ermax, order_size) )
 +       endif
 +       if(slttype == SLT_SOLN) then
@@ -121,7 +121,7 @@
      call engclear
  
      ! Output for energy fluctuation
-@@ -319,6 +419,9 @@
+@@ -320,6 +420,9 @@
  
    subroutine engclear
      use engmain, only: corrcal, selfcal, slttype, SLT_SOLN, YES, &
@@ -131,7 +131,7 @@
                         edens, ecorr, eself, slnuv, avslf, engnorm, engsmpl
      implicit none
      edens(:) = 0.0
-@@ -328,6 +431,14 @@
+@@ -329,6 +432,14 @@
      avslf = 0.0
      engnorm = 0.0
      engsmpl = 0.0
@@ -146,7 +146,7 @@
      return
    end subroutine engclear
  
-@@ -500,9 +611,17 @@
+@@ -501,9 +612,17 @@
           edens, ecorr, eself, &
           aveuv, slnuv, avediv, avslf, minuv, maxuv, &
           engnorm, engsmpl, voffset, voffset_initialized, &
@@ -164,7 +164,7 @@
      integer :: stnum, pti, j, k, iduv, division
      character(len=9) :: engfile
      character(len=3) :: suffeng
-@@ -596,6 +715,145 @@
+@@ -597,6 +716,145 @@
      if(selfcal == YES) eself(1:esmax) = eself(1:esmax) / engnorm
      avslf = avslf / engnorm
  
@@ -310,7 +310,7 @@
      if(myrank /= 0) return                                            ! MPI
      !
      division = stnum / (maxcnf / skpcnf / engdiv)
-@@ -801,6 +1059,12 @@
+@@ -802,6 +1060,12 @@
  
    subroutine update_histogram(stat_weight_solute, uvengy)
      use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
@@ -323,7 +323,7 @@
                         volume, temp, uvspec, &
                         slnuv, avslf, minuv, maxuv, &
                         edens, ecorr, eself, &
-@@ -810,6 +1074,10 @@
+@@ -811,6 +1075,10 @@
                         ES_NVT, ES_NPT, NO, YES
      use mpiproc
      implicit none
@@ -334,7 +334,7 @@
      real, intent(in) :: uvengy(0:slvmax), stat_weight_solute
      integer, allocatable :: insdst(:), engdst(:)
      integer :: i, k, q, iduv, iduvp, pti
-@@ -896,6 +1164,48 @@
+@@ -897,6 +1165,48 @@
         enddo
      endif
  

@@ -148,6 +148,8 @@
 !   iseed : seed parameter for uniform random number
 !   inptemp : temperature of the system in Kelvin
 !   temp  : temperature of the system in kcal/mol
+!
+!   ermax_limit : limiting the size of the distribution functions
 !   block_threshold : box size for cell-link list based method in realcal.F90
 !   force_calculation: if set to .true.,
 !                      the program continues to run even if there is a warning
@@ -262,6 +264,7 @@ module engmain
   real :: lwreg, upreg, lwstr, upstr
   integer :: ljformat, ljswitch, iseed
   real :: inptemp, temp
+  integer :: ermax_limit
   real :: block_threshold
   logical :: force_calculation
 
@@ -403,7 +406,7 @@ module engmain
        intprm, elecut, lwljcut, upljcut, &
        cmbrule, cltype, screen, ewtoler, splodr, plmode, &
        ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
-       block_threshold, force_calculation
+       ermax_limit, block_threshold, force_calculation
 
 contains 
   subroutine init_params()

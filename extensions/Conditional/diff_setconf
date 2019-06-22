@@ -1,6 +1,6 @@
---- setconf.F90	2017-02-12 18:43:45.177638455 +0900
-+++ extensions/Conditional/setconf.F90	2017-02-22 11:22:53.203640089 +0900
-@@ -821,6 +821,11 @@
+--- setconf.F90	2019-06-22 14:24:32.965728972 +0900
++++ extensions/Conditional/setconf.F90	2019-06-22 14:37:08.172730509 +0900
+@@ -820,6 +820,11 @@
  ! returns number of frames read (EXCLUDING skipped frames)
    subroutine getconf_parallel(maxread, actual_read)
      use engmain, only: skpcnf, boxshp, numsite, sluvid, stdout, &
@@ -12,7 +12,7 @@
                         sitepos, cell, stat_weight_system, &
                         perm_file, perm_io, &
                         PT_SOLVENT, PT_SOLUTE
-@@ -839,6 +844,12 @@
+@@ -838,6 +843,12 @@
      integer, allocatable, save :: permutation(:)
      integer, allocatable :: count_perm(:)
      integer :: stat
@@ -25,7 +25,7 @@
  
      ! sum over solvent & solute in trajectory file (HISTORY); no test particle
      OUTatm = sum( numsite, &
-@@ -901,6 +912,16 @@
+@@ -900,6 +911,16 @@
                  call OUTconfig(readpos, readcell, OUTatm, boxshp, &
                                                    'system','trjfl_read')
                  call read_weight(readweight)
@@ -42,7 +42,7 @@
               end do
               
               if(iproc /= 1) then         ! send the data to other rank
-@@ -912,12 +933,19 @@
+@@ -911,12 +932,19 @@
                                iproc - 1, tag_cell, mpi_comm_world, ierror)
                  call mpi_send(readweight, 1, mpi_double_precision, &
                                iproc - 1, tag_weight, mpi_comm_world, ierror)
@@ -62,7 +62,7 @@
               endif
            end do
         else                              ! non-0 rank to receive the data
-@@ -928,6 +956,10 @@
+@@ -927,6 +955,10 @@
                          0, tag_cell, mpi_comm_world, mpistatus, ierror)
            call mpi_recv(weight, 1, mpi_double_precision, &
                          0, tag_weight, mpi_comm_world, mpistatus, ierror)
@@ -73,7 +73,7 @@
  #endif
         endif
  
-@@ -940,6 +972,9 @@
+@@ -939,6 +971,9 @@
         stat_weight_system = weight
      endif
  

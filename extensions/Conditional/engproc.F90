@@ -52,7 +52,8 @@ contains
          order_min, order_max, order_binwidth, &
          order_crd, edcnd, sluvcnd, crcnd, avuvcnd, cndnorm, &
     ! end of the extension for computing the conditional distributions
-         SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, NO, YES
+         SLT_SOLN, SLT_REFS_RIGID, SLT_REFS_FLEX, PT_SOLVENT, NO, YES, &
+         ermax_limit
     use mpiproc, only: halt_with_error, warning, myrank
     implicit none
     real :: ecdmin, ecfmns, ecmns0, ecdcen, ecpls0, ecfpls, eccore, ecdmax
@@ -65,7 +66,7 @@ contains
     integer :: ecprread, meshread, peread
     !
     real, parameter :: infty = 1.0e50      ! essentially equal to infinity
-    integer, parameter :: rglmax = 5, large = 10000, too_large_ermax = 15000
+    integer, parameter :: rglmax = 5, large = 10000
     real :: factor, incre, cdrgvl(0:rglmax+1), ecpmrd(large)
     integer :: solute_moltype
     integer :: iduv, i, q, pti, regn, minrg, maxrg, uprgcd(0:rglmax+1), dummy
@@ -294,7 +295,7 @@ contains
     enddo
 
     if(corrcal == YES) then
-       if(ermax > too_large_ermax) call warning('emax')
+       if(ermax > ermax_limit) call warning('emax')
        allocate( ecorr(ermax, ermax) )
     endif
 
@@ -390,7 +391,7 @@ contains
        allocate( edcnd(ermax, order_size) )
        if(corrcal == YES) then
           factor = real(ermax) * sqrt( real(order_size) )
-          if(nint(factor) > too_large_ermax) call warning('emax')
+          if(nint(factor) > ermax_limit) call warning('emax')
           allocate( crcnd(ermax, ermax, order_size) )
        endif
        if(slttype == SLT_SOLN) then
