@@ -27,12 +27,16 @@ parser.add_option("-s", "--flexible", dest = "solute",
                   help = "Solute trajectory file (flexible solute) (dcd format)")
 
 parser.add_option("-d", "--div", dest = "div", type = "int",
-                  help = "Number of sections divided into",
+                  help = "Number of divided sections",
                   default = None)
 
 parser.add_option("--minenergy", dest = "minenergy", type = "float",
-                  help = "Minimum energy",
+                  help = "Minimum energy in kcal/mol",
                   default = -20.0)
+
+parser.add_option("--maxins", dest = "maxins", type = "int",
+                  help = "Number of insertions for refs (default: 1000)",
+                  default = 1000)
 
 parser.add_option("-v", "--verbose", dest = "verbose", action = "store_true",
                   help = "Increase verbosity (for debug)",
@@ -313,20 +317,29 @@ def parse_log():
     else:
         params["engdiv"] = options.div
     
+    if options.maxins != None and mode == "reference":
+        params["maxins"] = options.maxins
+
+    # Order of the outputs to parameters_er
+    output_var =["slttype", "sltspec", "boxshp", "estype", "inptemp",
+                 "ljformat", "cmbrule", "ljswitch", "upljcut", "lwljcut",
+                 "cltype", "elecut", "screen", "splodr",
+                 "ms1max", "ms2max", "ms3max",
+                 "maxins", "engdiv"]
+
     ofh = open("parameters_er", "wt")
     print >> ofh, "&ene_param"
-    keys = params.keys()
-    keys.sort()
-    for k in keys:
-        v = params[k]
-        if isinstance(v, str):
-            print >> ofh, "        %s = \"%s\"," % (k, v)
-        elif isinstance(v, int):
-            print >> ofh, "        %s = %d," % (k, v)
-        elif isinstance(v, float):
-            print >> ofh, "        %s = %g," % (k, v)
-        else:
-            error("Unknown output type")
+    for k in output_var:
+        if k in params.keys():
+            v = params[k]
+            if isinstance(v, str):
+                print >> ofh, "        %s = \"%s\"," % (k, v)
+            elif isinstance(v, int):
+                print >> ofh, "        %s = %d," % (k, v)
+            elif isinstance(v, float):
+                print >> ofh, "        %s = %g," % (k, v)
+            else:
+                error("Unknown output type")
     
     print >> ofh, """/
 &hist
