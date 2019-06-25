@@ -9,7 +9,7 @@ nobase_pkgdata_SCRIPTS = \
 	tools/MODYLAS/gen_structure tools/MODYLAS/gen_input \
 	tools/LAMMPS/gen_structure tools/LAMMPS/gen_input \
 	tools/CHARMM/gen_structure tools/CHARMM/gen_input \
-	tools/refs_converge tools/refs_converge_py3
+	tools/refs_converge tools/refs_converge_py2 tools/refs_converge_py3
 
 dist_pkglibexec_SCRIPTS = vmdplugins/libexec/*.so
 
