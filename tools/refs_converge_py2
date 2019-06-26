@@ -2,9 +2,11 @@
 # -*- encoding: utf-8 -*-
 # For python2
 """
-   CODED BY Kazuo YAMADA in August, 2016
+Check convergence with different numref values
 
-   Requirement: Python2.4 or higher
+    Copyright (C) 2016-2016 Kazuo YAMADA
+
+    Requirement: Python2.4 or higher
 """
 
 import optparse
