@@ -2,7 +2,7 @@
 ! ERmod - Eneregy Representation Module
 ! Copyright (C) 2000-2019 Nobuyuki Matubayasi
 ! Copyright (C) 2010-2019 Shun Sakuraba
-! Copyright (C) 2015-2015 X-Ability Co., Ltd.
+! Copyright (C) 2015-2019 X-Ability Co., Ltd.
 ! 
 ! This program is free software; you can redistribute it and/or
 ! modify it under the terms of the GNU General Public License

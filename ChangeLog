@@ -1,4 +1,4 @@
-version 0.3.6 (25 June 2019)
+version 0.3.6 (27 June 2019)
 * Energy Histogram Computation:
     * Modified LAMMPS gen_input to accept the CRLF code and handle the
     situation when multiple types are species at dump

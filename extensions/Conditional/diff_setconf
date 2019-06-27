@@ -1,5 +1,5 @@
---- setconf.F90	2019-06-22 14:24:32.965728972 +0900
-+++ extensions/Conditional/setconf.F90	2019-06-22 14:37:08.172730509 +0900
+--- setconf.F90	2019-06-27 10:30:08.659745785 +0900
++++ extensions/Conditional/setconf.F90	2019-06-27 10:30:13.930104151 +0900
 @@ -820,6 +820,11 @@
  ! returns number of frames read (EXCLUDING skipped frames)
    subroutine getconf_parallel(maxread, actual_read)

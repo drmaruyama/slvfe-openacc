@@ -4,7 +4,7 @@
 """
 Check convergence with different numref values
 
-    Copyright (C) 2016-2016 Kazuo YAMADA
+    Copyright (C) 2016-2019 Kazuo YAMADA
 
     Requirement: Python2.4 or higher
 """
