@@ -64,16 +64,16 @@ contains
           write(6, "(A)") " Which file has the meshes for energy coordinates?"
           read(5, *) engfile(5)
        endif
-       maxsln=1
-       maxref=1
-       numrun=1
-       if(clcond == 'basic') prmmax=1
-       if(clcond == 'range') prmmax=numprm
+       maxsln = 1
+       maxref = 1
+       numrun = 1
+       if(clcond == 'basic') prmmax = 1
+       if(clcond == 'range') prmmax = numprm
     case('merge')
-       maxsln=numsln
-       maxref=numref
-       numrun=numdiv
-       prmmax=numprm
+       maxsln = numsln
+       maxref = numref
+       numrun = numdiv
+       prmmax = numprm
     end select
     !
     if(clcond == 'merge') then
@@ -123,7 +123,7 @@ contains
           rduvmax(pti) = rduvmax(pti) + 1
           crddif_now = crdnow - crdprev
           if(rduvmax(pti) > 2) then
-             if(abs(crddif_now - crddif_prev) .lt. tiny) then
+             if(abs(crddif_now - crddif_prev) < tiny) then
                 rduvcore(pti) = 0                      ! linear mesh
              else
                 rduvcore(pti) = rduvcore(pti) + 1      ! logarithmic mesh
@@ -433,7 +433,7 @@ end module sysread
 
 module sfecalc
   use sysvars, only: zerosft, wgtfnform, slncor, &
-                     numslv, ermax, nummol, kT, itrmax, zero, error, &
+                     numslv, ermax, nummol, kT, itrmax, zero, error, tiny, &
                      rduvmax, rduvcore, &
                      rdcrd, rddst, rddns, rdslc, rdcor, rdspec
   implicit none
@@ -1048,9 +1048,11 @@ contains
           if((uvcrd(iduv) <= 0.0) .and. (uvcrd(iduv + 1) >= 0.0)) then
              factor = abs(uvcrd(iduv))
              ampl = uvcrd(iduv + 1)
-             if(ampl > factor + zero) k = iduv
-             if(factor > ampl + zero) k = iduv + 1
-             if(abs(factor - ampl) <= zero) then
+             if(ampl > factor + tiny) then
+                k = iduv
+             elseif(ampl < factor - tiny) then
+                k = iduv + 1
+             elseif(abs(ampl - factor) <= tiny) then
                 if(cnt == 1) then
                    lcsln = edist(iduv)
                    lcref = edist(iduv + 1)
@@ -1064,6 +1066,8 @@ contains
                 else
                    k = iduv + 1
                 endif
+             else
+                stop 'Bug in the program'
              endif
           endif
        endif
@@ -1146,7 +1150,7 @@ contains
           intg = factor / 2.0
        endif
     case(3)         ! special case to be examined carefully
-       if(factor >= zero) then
+       if(factor > zero) then
           intg = 1.0 - log(1.0 + factor) * (1.0 / factor + 1.0)
        else
           intg = - factor / 2.0
@@ -1391,18 +1395,24 @@ contains
     if((clcond == 'range') .or. (clcond == 'merge')) then
        mesh_error = maxval( mshdif(msemin:msemax), &
                             mask = (mshdif(msemin:msemax) > zero) )
+       ! mesh error not written in any case
+       if(write_mesherror == 'not') then
+          ! do nothing
        ! mesh error written in any case
-       if(write_mesherror == 'yes') then
+       elseif(write_mesherror == 'yes') then
           write(6, *)
           write(6, "(A,f8.3,A)") " Mesh error is ", mesh_error, " kcal/mol"
-       ! write_mesherror = 'not', clcond = 'merge', mesh_error > fe_stat_error
+       ! write_mesherror is other than 'not' or 'yes'
+       ! no output for mesh error when mesh_error < mesherr
+       elseif(mesh_error < mesherr) then
+          ! do nothing
+       ! clcond = 'merge', mesh_error > fe_stat_error
        elseif((clcond == 'merge') .and. (mesh_error > fe_stat_error)) then
           write(6, *)
           write(6, "(A,f8.3,A,f8.3,A)") &
              " Warning: mesh error is ", mesh_error, &
              " kcal/mol and is larger than the 95% error of ", &
              fe_stat_error, " kcal/mol"
-       ! write_mesherror = 'not',
        ! clcond = 'range' or mesh_error < fe_stat_error,
        ! mesherr is set to be positive, mesh_error > mesherr
        elseif((mesherr > zero) .and. (mesh_error > mesherr)) then

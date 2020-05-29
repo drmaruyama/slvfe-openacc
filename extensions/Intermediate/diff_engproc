@@ -1,5 +1,5 @@
---- engproc.F90	2019-06-27 10:30:08.642103869 +0900
-+++ extensions/Intermediate/engproc.F90	2019-06-27 10:30:13.932103479 +0900
+--- engproc.F90	2019-09-18 17:39:53.880580152 +0900
++++ extensions/Intermediate/engproc.F90	2020-05-29 12:29:06.577494204 +0900
 @@ -30,6 +30,15 @@
    logical, allocatable :: flceng_stored(:)
    real, allocatable :: flceng(:, :)
@@ -182,7 +182,7 @@
      if(myrank /= 0) return                                            ! MPI
      !
      division = stnum / (maxcnf / skpcnf / engdiv)
-@@ -897,6 +1037,22 @@
+@@ -895,6 +1035,22 @@
         enddo
      endif
  
@@ -202,6 +202,6 @@
 +    endif
 +    ! end of the extension for the method with the intermediate state
 +
-     deallocate( insdst, engdst )
+     deallocate( insdst )
    end subroutine update_histogram
  

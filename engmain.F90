@@ -190,6 +190,8 @@
 !   ewtoler : tolerance in Ewald, PME or PPPM to set the screening parameter
 !      when screen is given, screen has the priority
 !   splodr : order of spline function used in PME or PPPM
+!   scrtype : with 'relative', Ewald tolerance refers to erfc(screen * elecut)
+!             with 'distance', to erfc(screen * elecut) / elecut (NAMD type)
 !   ew1max,ew2max,ew3max : number of reciprocal vectors along one direction
 !   ms1max,ms2max,ms3max : number of meshes in PME or PPPM along one direction
 !   plmode : parallelization mode for calculation of solute-solvent interaction
@@ -332,7 +334,8 @@ module engmain
   real, dimension(3)                 :: celllen
   real                               :: volume
 
-  real    :: elecut, lwljcut, upljcut, screen, ewtoler
+  real :: elecut, lwljcut, upljcut, screen, ewtoler
+  character(len=8) :: scrtype
   integer :: intprm, cmbrule, cltype, splodr, plmode
   integer :: ew1max, ew2max, ew3max, ms1max, ms2max, ms3max
   
@@ -388,7 +391,7 @@ module engmain
        inptemp, temp, &
        engdiv, maxins, &
        intprm, elecut, lwljcut, upljcut, &
-       cmbrule, cltype, screen, ewtoler, splodr, plmode, &
+       cmbrule, cltype, screen, ewtoler, splodr, scrtype, plmode, &
        ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
        ermax_limit, block_threshold, force_calculation
 

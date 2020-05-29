@@ -143,7 +143,7 @@ contains
          inptemp, temp, &
          engdiv, maxins, &
          intprm, elecut, lwljcut, upljcut, &
-         cmbrule, cltype, screen, ewtoler, splodr, plmode, &
+         cmbrule, cltype, screen, ewtoler, splodr, scrtype, plmode, &
          ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
          ermax_limit, block_threshold, force_calculation, &
          NO, YES, &
@@ -171,7 +171,6 @@ contains
     implicit none
     real, parameter :: tiny = 1.0e-20
     real :: real_seed
-    character(len=3) :: scrtype
 
     intprm=1                                     ! trajectory reading
     select case(intprm)
@@ -188,9 +187,9 @@ contains
       cltype = EL_PME  ; ms1max = 64             ! PME
       inptemp = 300.0                            ! Kelvin
       engdiv = 1                                 ! number of divisions
-      screen = 0.0     ; ewtoler = 0.0  
-      ewtoler = 1.0e-6 ; elecut = 12.0
-      splodr = 4       ; scrtype = 'dis'
+      elecut = 12.0
+      screen = 0.0     ; ewtoler = 1.0e-5
+      splodr = 6       ; scrtype = 'relative'
       upljcut = elecut ; lwljcut = upljcut - 2.0
     case default
        stop "Unknown intprm"
@@ -497,15 +496,15 @@ contains
 
   real function getscrn(ewtoler, elecut, scrtype)
     implicit none
-    character(len=3), intent(in) :: scrtype
+    character(len=8), intent(in) :: scrtype
     real, intent(in) :: ewtoler, elecut
     real :: ewasml, ewalrg, scrfac, factor
-    real, parameter :: error = 1.0e-20
+    real, parameter :: error = 1.0e-15
     factor = error + 1.0 ; ewasml = 0.0 ; ewalrg = 1.0e3
     do while(factor > error)
        scrfac = (ewasml + ewalrg) / 2.0
        factor = erfc(scrfac * elecut)
-       if(scrtype == 'dis') factor = factor / elecut
+       if(scrtype == 'distance') factor = factor / elecut
        if(factor > ewtoler) then
           ewasml = scrfac
        else

@@ -1080,11 +1080,11 @@ contains
     real :: order_param
     ! end of the extension for computing the conditional distributions
     real, intent(in) :: uvengy(0:slvmax), stat_weight_solute
-    integer, allocatable :: insdst(:), engdst(:)
+    integer, allocatable :: insdst(:)
     integer :: i, k, q, iduv, iduvp, pti
     real :: factor, engnmfc, pairep, total_weight
 
-    allocate( insdst(ermax), engdst(ermax) )
+    allocate( insdst(ermax) )
 
     select case(wgtslf)
     case(NO)
@@ -1155,11 +1155,9 @@ contains
        do iduv = 1, ermax
           k = insdst(iduv)
           if(k == 0) cycle
-
           do iduvp = 1, ermax
              q = insdst(iduvp)
              if(q == 0) cycle
-
              ecorr(iduvp,iduv) = ecorr(iduvp,iduv) + engnmfc * real(k) * real(q)
           enddo
        enddo
@@ -1207,7 +1205,7 @@ contains
     endif
     ! end of the extension for computing the conditional distributions
 
-    deallocate( insdst, engdst )
+    deallocate( insdst )
   end subroutine update_histogram
 
   !

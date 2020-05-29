@@ -121,7 +121,7 @@ contains
     implicit none
     character(len=80) :: keyfile
     integer, parameter :: iounit = 555
-    real, parameter :: volm_min = 3.0e3
+    real, parameter :: volm_min = 1.40e4
     integer :: stat
 
     ljformat = LJFMT_EPS_Rminh                    ! default setting

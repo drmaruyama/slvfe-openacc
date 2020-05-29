@@ -1,6 +1,6 @@
---- engmain.F90	2019-06-27 10:30:08.640104029 +0900
-+++ extensions/Conditional/engmain.F90	2019-06-27 10:30:13.917983868 +0900
-@@ -352,6 +352,22 @@
+--- engmain.F90	2020-05-27 19:17:39.167592409 +0900
++++ extensions/Conditional/engmain.F90	2020-05-29 12:27:50.537709999 +0900
+@@ -355,6 +355,22 @@
    real :: engnorm, engsmpl, voffset
    logical :: voffset_initialized = .false.
  
