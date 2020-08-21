@@ -57,7 +57,7 @@ program trjmain
   use OUTname, only: opentrj, closetrj, OUTinitial, initconf, finiconf
   use setconf, only: getconf_parallel
   use trajectory, only: init_trajectory, finish_trajectory
-  use engproc, only: engclear,engstore, engproc_cleanup
+  use engproc, only: engclear, engstore, engproc_cleanup
   use mpiproc               ! MPI
   implicit none
   integer :: stnum, idiv, frames_per_div, nread, iframe

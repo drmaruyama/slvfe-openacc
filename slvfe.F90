@@ -468,9 +468,18 @@ contains
     lwork = -1
     liwork = 10 * n
     allocate(iwork(liwork))
-    call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-         dummyi, dummyi, abstol, dummyi, eigval, &
-         z, n, isuppz, worksize, lwork, iwork, liwork, info)
+    select case(kind(mat))
+    case(8)
+       call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
+                   dummyi, dummyi, abstol, dummyi, eigval, &
+                   z, n, isuppz, worksize, lwork, iwork, liwork, info)
+    case(4)
+       call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
+                   dummyi, dummyi, abstol, dummyi, eigval, &
+                   z, n, isuppz, worksize, lwork, iwork, liwork, info)
+    case default
+       stop "The libraries are used only at real or double precision"
+    end select
     if (info /= 0) then
        deallocate(isuppz)
        deallocate(z)
@@ -480,9 +489,16 @@ contains
 
     lwork = worksize
     allocate(work(lwork))
-    call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-         dummyi, dummyi, abstol, dummyi, eigval, &
-         z, n, isuppz, work, lwork, iwork, liwork, info)
+    select case(kind(mat))
+    case(8)
+       call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
+                   dummyi, dummyi, abstol, dummyi, eigval, &
+                   z, n, isuppz, work, lwork, iwork, liwork, info)
+    case(4)
+       call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
+                   dummyi, dummyi, abstol, dummyi, eigval, &
+                   z, n, isuppz, work, lwork, iwork, liwork, info)
+    end select
 
     mat(:, :) = z(:, :)
 

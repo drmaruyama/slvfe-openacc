@@ -47,6 +47,7 @@ contains
     integer, intent(in) :: slvmax, tagpt(slvmax)
     integer :: m, k
     integer :: gridsize(3), ptrnk
+    real :: dummy
 
     allocate( slvtag(nummol) )
     slvtag(:) = -1
@@ -80,6 +81,9 @@ contains
     allocate( engfac(rc1min:ccemax, rc2min:rc2max, rc3min:rc3max) )
     allocate( rcpslt(rc1min:ccemax, rc2min:rc2max, rc3min:rc3max) )
     ! init fft
+    if((kind(dummy) /= 4) .and. (kind(dummy) /= 8)) then
+       stop "The FFT libraries are used only at real or double precision"
+    endif
     call fft_init_rtc(handle_r2c, cnvslt, rcpslt)
     call fft_init_ctr(handle_c2r, rcpslt, cnvslt)
   end subroutine recpcal_init

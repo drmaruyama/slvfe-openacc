@@ -395,6 +395,7 @@ contains
     logical, save :: read_weight
     logical, save :: consecutive_read = .false.  ! .true. for special purpose
     integer, save :: stmax, readmax
+    integer, save :: solute_mpikind
     real, dimension(:,:,:), allocatable, save :: solute_crd
     real, dimension(:),     allocatable, save :: solute_wgt
     real, dimension(:,:,:), allocatable :: read_crd
@@ -426,6 +427,12 @@ contains
              call open_trajectory(solute_trajectory, slttrj)
              if(read_weight) open(unit = sltwgt_io, file = sltwgt_file, status = 'old')
           endif
+#ifdef MPI
+           call get_mympi_realkind(kind(solute_crd), solute_mpikind)
+           if(kind(solute_crd) /= kind(solute_wgt)) then
+              stop "inconsistent kind(real) for solute_crd and solute_wgt"
+           endif
+#endif
           return
        case('last')
           deallocate( solute_crd, solute_wgt )
@@ -493,9 +500,9 @@ contains
 
              if(iproc /= 1) then          ! send the data to other rank
 #ifdef MPI
-                call mpi_send(read_crd, 3 * stmax * readmax, mpi_double_precision, &
+                call mpi_send(read_crd, 3 * stmax * readmax, solute_mpikind, &
                               iproc - 1, tag_sltcrd, mpi_comm_world, ierror)
-                call mpi_send(read_wgt, readmax, mpi_double_precision, &
+                call mpi_send(read_wgt, readmax, solute_mpikind, &
                               iproc - 1, tag_sltwgt, mpi_comm_world, ierror)
 #endif
              else                         ! rank-0 to use the data as read
@@ -506,9 +513,9 @@ contains
           deallocate( psite, read_crd, read_wgt )
        else                               ! non-0 rank to receive the data
 #ifdef MPI
-          call mpi_recv(solute_crd, 3 * stmax * readmax, mpi_double_precision, &
+          call mpi_recv(solute_crd, 3 * stmax * readmax, solute_mpikind, &
                         0, tag_sltcrd, mpi_comm_world, mpistatus, ierror)
-          call mpi_recv(solute_wgt, readmax, mpi_double_precision, &
+          call mpi_recv(solute_wgt, readmax, solute_mpikind, &
                         0, tag_sltwgt, mpi_comm_world, mpistatus, ierror)
 #endif
        endif

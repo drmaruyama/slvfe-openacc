@@ -789,12 +789,9 @@ contains
   subroutine normalize_periodic
     use engmain, only: cell, sitepos
     implicit none
-    integer :: n
-    real :: newcell(3, 3), scale(3), qr(3,3)
-    integer :: lwork
+    integer :: n, i, perm(3), info, lwork
+    real :: qr(3,3), scale(3), newcell(3, 3)
     real, allocatable :: work(:)
-    integer :: info, perm(3)
-    integer :: i
     real :: dummy
 
     n = size(sitepos, 2)
@@ -805,40 +802,45 @@ contains
     qr(:, :) = cell
     perm(:) = 0
 
-    if(kind(dummy) == 8) then
+    select case(kind(dummy))
+    case(8)
        call dgeqp3(3, 3, qr, 3, perm, scale, work, lwork, info)
-    else
+    case(4)
        call sgeqp3(3, 3, qr, 3, perm, scale, work, lwork, info)
-    endif
-    if(info /= 0) stop "engproc.f90, normalize_periodic: failed to factorize box vector"
+    case default
+       stop "The libraries are used only at real or double precision"
+    end select
+    if(info /= 0) stop "normalize_periodic: failed to factorize box vector"
 
     ! reorganize R
     ! AP = QR    <=>  Q^T AP = R
     newcell(:, :) = cell(:, perm(:))
 
-    if(kind(dummy) == 8) then
+    select case(kind(dummy))
+    case(8)
        call dormqr('L', 'T', 3, 3, 3, qr, 3, scale, newcell, 3, work, lwork, info)
-    else
+    case(4)
        call sormqr('L', 'T', 3, 3, 3, qr, 3, scale, newcell, 3, work, lwork, info)
-    endif
-    if(info /= 0) stop "engproc.f90, normalize_periodic: failed to rotate cell"
+    end select
+    if(info /= 0) stop "normalize_periodic: failed to rotate cell"
 
     cell_normal(:, :) = newcell(:, :)
     if(abs(newcell(2, 1)) > check_rotate .or. &
        abs(newcell(3, 1)) > check_rotate .or. &
        abs(newcell(3, 2)) > check_rotate ) then
        print *, newcell
-       stop "engproc.f90, normalize_periodic: assertion failed, box rotation is bugged"
+       stop "normalize_periodic: assertion failed, box rotation is bugged"
     endif
 
     ! rotate coordinates
     ! Note: sitepos does not need permutation. (the order of cell axis is not important)
-    if(kind(dummy) == 8) then
+    select case(kind(dummy))
+    case(8)
        call dormqr('L', 'T', 3, n, 3, qr, 3, scale, sitepos_normal, 3, work, lwork, info)
-    else
+    case(4)
        call sormqr('L', 'T', 3, n, 3, qr, 3, scale, sitepos_normal, 3, work, lwork, info)
-    endif
-    if(info /= 0) stop "engproc.f90, normalize_periodic: failed to rotate coordinate"
+    end select
+    if(info /= 0) stop "normalize_periodic: failed to rotate coordinate"
 
     deallocate(work)
 
@@ -849,16 +851,17 @@ contains
 
     info = 0
     invcell(:, :) = cell_normal(:, :)
-    if(kind(dummy) == 8) then
+    select case(kind(dummy))
+    case(8)
        call dtrtri('U', 'N', 3, invcell, 3, info)
-    else
+    case(4)
        call strtri('U', 'N', 3, invcell, 3, info)
-    endif
-    if(info /= 0) stop "engproc.f90, normalize_periodic: failed to invert box vector"
+    end select
+    if(info /= 0) stop "normalize_periodic: failed to invert box vector"
 
-    if(  abs(cell(1, 2)) > cuboid_thres .or. &
-         abs(cell(1, 3)) > cuboid_thres .or. &
-         abs(cell(2, 3)) > cuboid_thres ) then
+    if(abs(cell(1, 2)) > cuboid_thres .or. &
+       abs(cell(1, 3)) > cuboid_thres .or. &
+       abs(cell(2, 3)) > cuboid_thres ) then
        is_cuboid = .false.
        stop "A non-cuboidal cell is not supported. Wait for ver 0.4"
     else
@@ -881,7 +884,6 @@ contains
        sitepos_normal(1, i) = sitepos_normal(1, i) - &
             cell_normal(1, 1) * floor(invcell(1, 1) * sitepos_normal(1, i))
     end do
-
   end subroutine normalize_periodic
 
   ! get the coefficients for gromacs force switching

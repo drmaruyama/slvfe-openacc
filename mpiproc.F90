@@ -89,8 +89,8 @@ contains
   end subroutine mpi_setup
 
   subroutine mpi_rank_size_info
-    nprocs=1
-    myrank=0
+    nprocs = 1
+    myrank = 0
 #ifdef MPI
     call mpi_comm_size(mpi_comm_world, nprocs, ierror)
     call mpi_comm_rank(mpi_comm_world, myrank, ierror)
@@ -133,29 +133,49 @@ contains
 
   ! helper library for reduce variables
   ! Note: mpi_reduce(mpi_in_place, ...) seems to be allowed only on MPI 2.2+
-  subroutine mympi_reduce_real(data, data_size, operation, rootrank)
+  subroutine mympi_reduce_real_array(data, data_size, operation, rootrank)
     implicit none
     integer, intent(in) :: data_size, operation, rootrank
     real, intent(inout) :: data(data_size)
     real, allocatable :: buf(:)
-    integer :: mpitype
-
+    integer :: mympi_realkind
 #ifdef MPI
-    allocate(buf(data_size))
-    select case(kind(data))
-    case(4)
-       mpitype = mpi_real
-    case(8)
-       mpitype = mpi_double_precision
-    case default
-       stop "invalid kind(real) value"
-    end select
-
-    call mpi_reduce(data, buf, data_size, mpitype, operation, rootrank, mpi_comm_world, ierror)
+    allocate( buf(data_size) )
+    call get_mympi_realkind(kind(data), mympi_realkind)
+    call mpi_reduce(data, buf, data_size, mympi_realkind, operation, rootrank, mpi_comm_world, ierror)
     data(:) = buf(:)
     deallocate(buf)
 #endif
-  end subroutine mympi_reduce_real
+  end subroutine mympi_reduce_real_array
+
+  subroutine mympi_reduce_real_scalar(data, operation, rootrank)
+    implicit none
+    integer, intent(in) :: operation, rootrank
+    real, intent(inout) :: data
+    real :: buf
+    integer :: mympi_realkind
+#ifdef MPI
+    call get_mympi_realkind(kind(data), mympi_realkind)
+    call mpi_reduce(data, buf, 1, mympi_realkind, operation, rootrank, mpi_comm_world, ierror)
+    data = buf
+#endif
+  end subroutine mympi_reduce_real_scalar
+
+  subroutine get_mympi_realkind(data_kind, local_realkind)
+    implicit none
+    integer, intent(in) :: data_kind
+    integer, intent(out) :: local_realkind
+#ifdef MPI
+    select case(data_kind)
+    case(4)
+       local_realkind = mpi_real
+    case(8)
+       local_realkind = mpi_double_precision
+    case default
+       stop "invalid kind(real) value"
+    end select
+#endif
+  end subroutine get_mympi_realkind
 
 
   subroutine perf_time(state)
