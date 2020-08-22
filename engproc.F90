@@ -503,7 +503,7 @@ contains
     !
     use engmain, only: maxcnf, skpcnf, engdiv, corrcal, selfcal, &
          slttype, wgtslf, &
-         plmode, ermax, numslv, esmax, temp, &
+         ermax, numslv, esmax, temp, &
          edens, ecorr, eself, &
          aveuv, slnuv, avediv, avslf, minuv, maxuv, &
          engnorm, engsmpl, voffset, voffset_initialized, &
@@ -550,19 +550,17 @@ contains
 #endif
     endif
 
-    ! Gather all information to master node
 #ifdef MPI
-    if(plmode == 2) then
-       call mympi_reduce_real_scalar(avslf, mpi_sum, 0)
-       call mympi_reduce_real_scalar(engnorm, mpi_sum, 0)
-       call mympi_reduce_real_scalar(engsmpl, mpi_sum, 0)
-       if(selfcal == YES) call mympi_reduce_real_array(eself, esmax, mpi_sum, 0)
-       if(slttype == SLT_SOLN) call mympi_reduce_real_array(slnuv, numslv, mpi_sum, 0)
-    endif
+    ! Gather all information to master node
+    ! Only the variables which are initialized in the subsequent engclear
+    !    can be subject to the mympi_reduce_real_* procedures
+    call mympi_reduce_real_scalar(avslf, mpi_sum, 0)
+    call mympi_reduce_real_scalar(engnorm, mpi_sum, 0)
+    call mympi_reduce_real_scalar(engsmpl, mpi_sum, 0)
+    if(selfcal == YES) call mympi_reduce_real_array(eself, esmax, mpi_sum, 0)
+    if(slttype == SLT_SOLN) call mympi_reduce_real_array(slnuv, numslv, mpi_sum, 0)
     call mympi_reduce_real_array(edens, ermax, mpi_sum, 0)
-    if(corrcal == YES) then
-       call mympi_reduce_real_array(ecorr, (ermax * ermax), mpi_sum, 0)
-    endif
+    if(corrcal == YES) call mympi_reduce_real_array(ecorr, (ermax * ermax), mpi_sum, 0)
 #endif
 
 

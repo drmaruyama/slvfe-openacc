@@ -1,5 +1,5 @@
---- engproc.F90	2019-09-18 17:39:53.880580152 +0900
-+++ extensions/Intermediate/engproc.F90	2020-05-29 12:29:06.577494204 +0900
+--- engproc.F90	2020-08-21 22:21:55.079412279 +0900
++++ extensions/Intermediate/engproc.F90	2020-08-21 22:33:59.018316685 +0900
 @@ -30,6 +30,15 @@
    logical, allocatable :: flceng_stored(:)
    real, allocatable :: flceng(:, :)
@@ -94,21 +94,20 @@
      return
    end subroutine engclear
  
-@@ -513,6 +579,7 @@
+@@ -517,6 +583,7 @@
+     integer, parameter :: ave_io = 54, wgt_io = 55, uvr_io = 56
+     real :: voffset_local, voffset_scale
      real :: factor
-     real, dimension(:), allocatable :: sve1, sve2
-     real, dimension(:, :), allocatable :: sve3
 +    integer, parameter :: prb_io = 81  ! extension with the intermediate state
      call mpi_rank_size_info                                          ! MPI
-     !
  
-@@ -597,6 +664,79 @@
-     if(selfcal == YES) eself(1:esmax) = eself(1:esmax) / engnorm
-     avslf = avslf / engnorm
+     ! synchronize voffset
+@@ -574,6 +641,67 @@
+ #endif
+     endif
  
 +    ! start of the extension for the method with the intermediate state
 +    if(do_intermediate == YES) then
-+       division = stnum / (maxcnf / skpcnf / engdiv)
 +#ifdef MPI
 +       if(wgtslf == YES) then
 +          soln_total = soln_total * voffset_scale
@@ -118,28 +117,14 @@
 +          uvintm(:) = uvintm(:) * voffset_scale
 +       endif
 +
-+       if(plmode == 2) then
-+          call mpi_reduce(norm_intm, factor, 1, &
-+               mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-+          norm_intm = factor
-+          call mympi_reduce_real(uvintm, numslv, mpi_sum, 0)
-+          allocate( sve1(ermax) )
-+          sve1(1:ermax) = edintm(1:ermax)
-+          call mpi_reduce(sve1, edintm, ermax, &
-+               mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-+          deallocate( sve1 )
-+
-+          if(division == engdiv) then
-+             call mpi_reduce(soln_total, factor, 1, &
-+                  mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-+             soln_total = factor
-+             call mpi_reduce(soln_intm, factor, 1, &
-+                  mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-+             soln_intm = factor
-+          endif
++       call mympi_reduce_real_scalar(norm_intm, mpi_sum, 0)
++       call mympi_reduce_real_array(uvintm, numslv, mpi_sum, 0)
++       call mympi_reduce_real_array(edintm, ermax, mpi_sum, 0)
++       if(division == engdiv) then
++          call mympi_reduce_real_scalar(soln_total, mpi_sum, 0)
++          call mympi_reduce_real_scalar(soln_intm, mpi_sum, 0)
 +       endif
 +#endif
-+       edintm(:) = edintm(:) / norm_intm
 +       if(myrank == 0) then
 +          if(engdiv == 1) then
 +             suffeng = '.tt'
@@ -149,6 +134,8 @@
 +             suffeng = '.' // numbers(j+1:j+1) // numbers(k+1:k+1)
 +          endif
 +
++          edintm(:) = edintm(:) / norm_intm
++
 +          engfile = 'engint' // suffeng
 +          open(unit = eng_io, file = engfile, form = "FORMATTED", action = 'write')
 +          do iduv = 1, ermax
@@ -157,6 +144,7 @@
 +          enddo
 +          endfile(eng_io)
 +          close(eng_io)
++
 +          avintm(division, :) = uvintm(:) / norm_intm
 +
 +          if(division == engdiv) then
@@ -180,9 +168,9 @@
 +    ! end of the extension for the method with the intermediate state
 +
      if(myrank /= 0) return                                            ! MPI
-     !
-     division = stnum / (maxcnf / skpcnf / engdiv)
-@@ -895,6 +1035,22 @@
+     ! data to be stored; only the master node matters
+ 
+@@ -877,6 +1005,22 @@
         enddo
      endif
  

@@ -60,7 +60,7 @@ module uvcorrect
   real :: inptemp, temp
   integer :: engdiv, maxins
   ! cmbrule, lwljcut, upljcut are declared above
-  integer :: intprm, cltype, splodr, plmode
+  integer :: intprm, cltype, splodr
   real :: elecut, screen, ewtoler
   integer :: ew1max, ew2max, ew3max, ms1max, ms2max, ms3max
   integer :: ermax_limit
@@ -77,7 +77,7 @@ module uvcorrect
        inptemp, temp, &
        engdiv, maxins, &
        intprm, elecut, lwljcut, upljcut, &
-       cmbrule, cltype, screen, ewtoler, splodr, plmode, &
+       cmbrule, cltype, screen, ewtoler, splodr, &
        ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
        ermax_limit, block_threshold, force_calculation
 

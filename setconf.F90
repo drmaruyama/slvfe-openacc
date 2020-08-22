@@ -143,7 +143,7 @@ contains
          inptemp, temp, &
          engdiv, maxins, &
          intprm, elecut, lwljcut, upljcut, &
-         cmbrule, cltype, screen, ewtoler, splodr, scrtype, plmode, &
+         cmbrule, cltype, screen, ewtoler, splodr, scrtype, &
          ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
          ermax_limit, block_threshold, force_calculation, &
          NO, YES, &
@@ -313,8 +313,6 @@ contains
           screen = getscrn(ewtoler, elecut, scrtype)
        endif
     endif
-
-    plmode = 2                  ! energy calculation parallelization mode
 
     ! check cltype and related parameters
     select case(cltype)

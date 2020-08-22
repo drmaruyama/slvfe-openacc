@@ -194,12 +194,6 @@
 !             with 'distance', to erfc(screen * elecut) / elecut (NAMD type)
 !   ew1max,ew2max,ew3max : number of reciprocal vectors along one direction
 !   ms1max,ms2max,ms3max : number of meshes in PME or PPPM along one direction
-!   plmode : parallelization mode for calculation of solute-solvent interaction
-!        1 : parallel over solvent molecules in each trajectory snapshot
-!        2 : each trajectory snapshot is assigned to
-!                   each processor and calculated in parallel
-!        default = 2
-!        plmode = 1 is not used any more
 !   specatm : specification of the site, defined as an integer function
 !   sitepos : coordiantes of interaction site
 !   cell : unit cell vector
@@ -336,7 +330,7 @@ module engmain
 
   real :: elecut, lwljcut, upljcut, screen, ewtoler
   character(len=8) :: scrtype
-  integer :: intprm, cmbrule, cltype, splodr, plmode
+  integer :: intprm, cmbrule, cltype, splodr
   integer :: ew1max, ew2max, ew3max, ms1max, ms2max, ms3max
   
   integer :: ermax, numslv, esmax, maxins
@@ -391,7 +385,7 @@ module engmain
        inptemp, temp, &
        engdiv, maxins, &
        intprm, elecut, lwljcut, upljcut, &
-       cmbrule, cltype, screen, ewtoler, splodr, scrtype, plmode, &
+       cmbrule, cltype, screen, ewtoler, splodr, scrtype, &
        ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
        ermax_limit, block_threshold, force_calculation
 
