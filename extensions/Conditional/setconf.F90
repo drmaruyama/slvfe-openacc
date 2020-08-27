@@ -143,7 +143,7 @@ contains
          inptemp, temp, &
          engdiv, maxins, &
          intprm, elecut, lwljcut, upljcut, &
-         cmbrule, cltype, screen, ewtoler, splodr, scrtype, plmode, &
+         cmbrule, cltype, screen, ewtoler, splodr, scrtype, &
          ew1max, ew2max, ew3max, ms1max, ms2max, ms3max, &
          ermax_limit, block_threshold, force_calculation, &
          NO, YES, &
@@ -314,8 +314,6 @@ contains
        endif
     endif
 
-    plmode = 2                  ! energy calculation parallelization mode
-
     ! check cltype and related parameters
     select case(cltype)
     case(EL_COULOMB)
@@ -324,7 +322,7 @@ contains
        if(ew1max * ew2max * ew3max == 0) call halt_with_error('set_ewa')
     case(EL_PME)     ! PME parameters
        if(ms1max * ms2max * ms3max == 0) call halt_with_error('set_ewa')
-    case(EL_PPPM)     ! PPPM parameters
+    case(EL_PPPM)    ! PPPM parameters
        if(ms1max * ms2max * ms3max == 0) call halt_with_error('set_ewa')
     case default
        stop "Unknown cltype"
@@ -837,6 +835,7 @@ contains
     real :: readcell(3, 3)
     real :: weight, readweight
     integer :: i, OUTatm, iproc, nread
+    integer, save :: system_mpikind
 
     logical, save :: first_time = .true.
     integer, allocatable, save :: permutation(:)
@@ -898,6 +897,15 @@ contains
           end if
           deallocate( count_perm )
        endif
+#ifdef MPI
+       call get_mympi_realkind(kind(OUTpos), system_mpikind)
+       if(kind(OUTcell) /= kind(OUTpos)) then
+          stop "inconsistent kind(real) values for OUTcell and OUTpos"
+       endif
+       if(kind(weight) /= kind(OUTpos)) then
+          stop "inconsistent kind(real) values for weight and OUTpos"
+       endif
+#endif
     end if
     
     nread = min(nprocs, maxread)
@@ -925,14 +933,14 @@ contains
              if(iproc /= 1) then         ! send the data to other rank
 #ifdef MPI
                 ! FIXME: rewrite with grouping and scatter?
-                call mpi_send(readpos, 3 * OUTatm, mpi_double_precision, &
+                call mpi_send(readpos, 3 * OUTatm, system_mpikind, &
                               iproc - 1, tag_coord, mpi_comm_world, ierror)
-                call mpi_send(readcell, 3 * 3, mpi_double_precision, &
+                call mpi_send(readcell, 3 * 3, system_mpikind, &
                               iproc - 1, tag_cell, mpi_comm_world, ierror)
-                call mpi_send(readweight, 1, mpi_double_precision, &
+                call mpi_send(readweight, 1, system_mpikind, &
                               iproc - 1, tag_weight, mpi_comm_world, ierror)
     ! start of the extension for computing the conditional distributions
-                call mpi_send(read_order, OrderPrm_ArraySize, mpi_double_precision, &
+                call mpi_send(read_order, OrderPrm_ArraySize, system_mpikind, &
                               iproc - 1, tag_order, mpi_comm_world, ierror)
     ! end of the extension for computing the conditional distributions
 #endif
@@ -948,14 +956,14 @@ contains
           end do
        else                              ! non-0 rank to receive the data
 #ifdef MPI
-          call mpi_recv(OUTpos, 3 * OUTatm, mpi_double_precision, &
+          call mpi_recv(OUTpos, 3 * OUTatm, system_mpikind, &
                         0, tag_coord, mpi_comm_world, mpistatus, ierror)
-          call mpi_recv(OUTcell, 3 * 3, mpi_double_precision, &
+          call mpi_recv(OUTcell, 3 * 3, system_mpikind, &
                         0, tag_cell, mpi_comm_world, mpistatus, ierror)
-          call mpi_recv(weight, 1, mpi_double_precision, &
+          call mpi_recv(weight, 1, system_mpikind, &
                         0, tag_weight, mpi_comm_world, mpistatus, ierror)
     ! start of the extension for computing the conditional distributions
-          call mpi_recv(OrderPrm_Values, OrderPrm_ArraySize, mpi_double_precision, &
+          call mpi_recv(OrderPrm_Values, OrderPrm_ArraySize, system_mpikind, &
                         0, tag_order, mpi_comm_world, mpistatus, ierror)
     ! end of the extension for computing the conditional distributions
 #endif

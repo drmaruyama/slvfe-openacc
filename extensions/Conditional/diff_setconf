@@ -1,6 +1,6 @@
---- setconf.F90	2020-05-27 19:19:25.966480287 +0900
-+++ extensions/Conditional/setconf.F90	2020-05-29 12:38:12.341590621 +0900
-@@ -819,6 +819,11 @@
+--- setconf.F90	2020-08-27 19:36:10.417013159 +0900
++++ extensions/Conditional/setconf.F90	2020-08-25 15:38:51.077343411 +0900
+@@ -817,6 +817,11 @@
  ! returns number of frames read (EXCLUDING skipped frames)
    subroutine getconf_parallel(maxread, actual_read)
      use engmain, only: skpcnf, boxshp, numsite, sluvid, stdout, &
@@ -12,7 +12,7 @@
                         sitepos, cell, stat_weight_system, &
                         perm_file, perm_io, &
                         PT_SOLVENT, PT_SOLUTE
-@@ -837,6 +842,12 @@
+@@ -836,6 +841,12 @@
      integer, allocatable, save :: permutation(:)
      integer, allocatable :: count_perm(:)
      integer :: stat
@@ -25,7 +25,7 @@
  
      ! sum over solvent & solute in trajectory file (HISTORY); no test particle
      OUTatm = sum( numsite, &
-@@ -899,6 +910,16 @@
+@@ -907,6 +918,16 @@
                  call OUTconfig(readpos, readcell, OUTatm, boxshp, &
                                                    'system','trjfl_read')
                  call read_weight(readweight)
@@ -42,12 +42,12 @@
               end do
               
               if(iproc /= 1) then         ! send the data to other rank
-@@ -910,12 +931,19 @@
+@@ -918,12 +939,19 @@
                                iproc - 1, tag_cell, mpi_comm_world, ierror)
-                 call mpi_send(readweight, 1, mpi_double_precision, &
+                 call mpi_send(readweight, 1, system_mpikind, &
                                iproc - 1, tag_weight, mpi_comm_world, ierror)
 +    ! start of the extension for computing the conditional distributions
-+                call mpi_send(read_order, OrderPrm_ArraySize, mpi_double_precision, &
++                call mpi_send(read_order, OrderPrm_ArraySize, system_mpikind, &
 +                              iproc - 1, tag_order, mpi_comm_world, ierror)
 +    ! end of the extension for computing the conditional distributions
  #endif
@@ -62,18 +62,18 @@
               endif
            end do
         else                              ! non-0 rank to receive the data
-@@ -926,6 +954,10 @@
+@@ -934,6 +962,10 @@
                          0, tag_cell, mpi_comm_world, mpistatus, ierror)
-           call mpi_recv(weight, 1, mpi_double_precision, &
+           call mpi_recv(weight, 1, system_mpikind, &
                          0, tag_weight, mpi_comm_world, mpistatus, ierror)
 +    ! start of the extension for computing the conditional distributions
-+          call mpi_recv(OrderPrm_Values, OrderPrm_ArraySize, mpi_double_precision, &
++          call mpi_recv(OrderPrm_Values, OrderPrm_ArraySize, system_mpikind, &
 +                        0, tag_order, mpi_comm_world, mpistatus, ierror)
 +    ! end of the extension for computing the conditional distributions
  #endif
         endif
  
-@@ -938,6 +970,9 @@
+@@ -946,6 +978,9 @@
         stat_weight_system = weight
      endif
  

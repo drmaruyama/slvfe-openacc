@@ -1,5 +1,5 @@
---- insertion.F90	2019-06-27 10:30:08.652104083 +0900
-+++ extensions/Conditional/insertion.F90	2019-06-27 10:30:13.926104237 +0900
+--- insertion.F90	2020-08-27 19:36:10.410013364 +0900
++++ extensions/Conditional/insertion.F90	2020-08-25 15:42:42.466600722 +0900
 @@ -383,6 +383,9 @@
      use engmain, only: slttype, maxins, numsite, bfcoord, stdout, slttrj, &
                         wgtins, sltwgt_file, sltwgt_io, &
@@ -10,7 +10,7 @@
                         SLT_REFS_FLEX, INSSTR_NOREJECT, INSSTR_RMSD, YES
      use OUTname, only: OUTconfig, solute_trajectory
      use mpiproc
-@@ -409,6 +412,13 @@
+@@ -410,6 +413,13 @@
      if((.not. present(cntdst)) .and. (.not. present(stat_weight))) then
         select case(caltype)
         case('init')

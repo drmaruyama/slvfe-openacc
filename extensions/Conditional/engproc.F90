@@ -473,6 +473,7 @@ contains
     real, dimension(:),    allocatable :: uvengy
     logical, allocatable :: flceng_stored_g(:,:)
     real, allocatable :: flceng_g(:,:,:)
+    integer :: flceng_mpikind
     real, save :: prevcl(3,3)
     logical :: skipcond
     logical, save :: pme_initialized = .false. ! NOTE: this variable is also used when PPPM is selected.
@@ -554,12 +555,17 @@ contains
           
 #ifdef MPI
           ! gather flceng values to rank 0
+          if(kind(flceng) /= kind(flceng_g)) then
+             stop "bug in the kind(real) for flceng or flceng_g"
+          else
+             call get_mympi_realkind(kind(flceng), flceng_mpikind)
+          endif
           call mpi_gather(flceng_stored, maxdst, mpi_logical, &
-               flceng_stored_g, maxdst, mpi_logical, &
-               0, mpi_comm_activeprocs, ierror)
-          call mpi_gather(flceng, numslv * maxdst, mpi_double_precision, &
-               flceng_g, numslv * maxdst, mpi_double_precision, &
-               0, mpi_comm_activeprocs, ierror)
+                          flceng_stored_g, maxdst, mpi_logical, &
+                          0, mpi_comm_activeprocs, ierror)
+          call mpi_gather(flceng, numslv * maxdst, flceng_mpikind, &
+                          flceng_g, numslv * maxdst, flceng_mpikind, &
+                          0, mpi_comm_activeprocs, ierror)
 #else
           flceng_stored_g(:,1) = flceng_stored(:)
           flceng_g(:,:,1) = flceng(:,:)
@@ -608,7 +614,7 @@ contains
     !
     use engmain, only: maxcnf, skpcnf, engdiv, corrcal, selfcal, &
          slttype, wgtslf, &
-         plmode, ermax, numslv, esmax, temp, &
+         ermax, numslv, esmax, temp, &
          edens, ecorr, eself, &
          aveuv, slnuv, avediv, avslf, minuv, maxuv, &
          engnorm, engsmpl, voffset, voffset_initialized, &
@@ -623,25 +629,26 @@ contains
     integer :: order_prmid
     real :: order_param
     ! end of the extension for computing the conditional distributions
-    integer :: stnum, pti, j, k, iduv, division
+    integer :: stnum, pti, j, k, iduv, division, reduce_mpikind
     character(len=9) :: engfile
     character(len=3) :: suffeng
     integer, parameter :: eng_io = 51, cor_io = 52, slf_io = 53
     integer, parameter :: ave_io = 54, wgt_io = 55, uvr_io = 56
     real :: voffset_local, voffset_scale
     real :: factor
-    real, dimension(:), allocatable :: sve1, sve2
-    real, dimension(:, :), allocatable :: sve3
     call mpi_rank_size_info                                          ! MPI
-    !
 
     ! synchronize voffset
     if(wgtslf == YES) then
        voffset_local = voffset
 #ifdef MPI
-    ! MPI part starts here
-       call mpi_allreduce(voffset_local, voffset, 1, &
-            mpi_double_precision, mpi_max, mpi_comm_world, ierror)
+       if(kind(voffset) /= kind(voffset_local)) then
+          stop "bug in the kind(real) for voffset or voffset_local"
+       else
+          call get_mympi_realkind(kind(voffset), reduce_mpikind)
+          call mpi_allreduce(voffset_local, voffset, 1, &
+                             reduce_mpikind, mpi_max, mpi_comm_world, ierror)
+       endif
 
        ! if uninitialized, use voffset so as not to pollute results with NaN
        if(.not. voffset_initialized) voffset_local = voffset
@@ -659,62 +666,32 @@ contains
        if(slttype == SLT_SOLN) slnuv(:) = slnuv(:) * voffset_scale
        edens(:) = edens(:) * voffset_scale
        if(corrcal == YES) ecorr(:, :) = ecorr(:, :) * voffset_scale
-    ! MPI part ends here
 #endif
     endif
 
-    ! Gather all information to Master node
 #ifdef MPI
-    ! MPI part starts here
-    if(plmode == 2) then
-       call mpi_reduce(avslf, factor, 1, &
-            mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-       avslf = factor
-       call mpi_reduce(engnorm, factor, 1, &
-            mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-       engnorm = factor
-       call mpi_reduce(engsmpl, factor, 1, &
-            mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-       engsmpl = factor
-       if(selfcal == YES) then
-         allocate( sve1(esmax) )
-         sve1(1:esmax) = eself(1:esmax)
-         call mpi_reduce(sve1, eself, esmax, &
-              mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-         deallocate( sve1 )
-       endif
-       if(slttype == SLT_SOLN) call mympi_reduce_real(slnuv, numslv, mpi_sum, 0)
-    endif
-    allocate( sve1(0:numslv), sve2(0:numslv) )
-    sve1(0:numslv) = minuv(0:numslv)
-    sve2(0:numslv) = maxuv(0:numslv)
-    call mpi_reduce(sve1, minuv, (numslv + 1), &
-         mpi_double_precision, mpi_min, 0, mpi_comm_world, ierror)
-    call mpi_reduce(sve2, maxuv, (numslv + 1), &
-         mpi_double_precision, mpi_max, 0, mpi_comm_world, ierror)
-    deallocate( sve1, sve2 )
-    allocate( sve1(ermax) )
-    sve1(1:ermax) = edens(1:ermax)
-    call mpi_reduce(sve1, edens, ermax, &
-         mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-    deallocate( sve1 )
-    ! MPI part ends here
+    ! Gather all information to master node
+    ! Only the variables which are initialized in the subsequent engclear
+    !    can be subject to the mympi_reduce_real_* procedures
+    call mympi_reduce_real_scalar(avslf, mpi_sum, 0)
+    call mympi_reduce_real_scalar(engnorm, mpi_sum, 0)
+    call mympi_reduce_real_scalar(engsmpl, mpi_sum, 0)
+    if(selfcal == YES) call mympi_reduce_real_array(eself, esmax, mpi_sum, 0)
+    if(slttype == SLT_SOLN) call mympi_reduce_real_array(slnuv, numslv, mpi_sum, 0)
+    call mympi_reduce_real_array(edens, ermax, mpi_sum, 0)
+    if(corrcal == YES) call mympi_reduce_real_array(ecorr, (ermax * ermax), mpi_sum, 0)
 #endif
-    edens(1:ermax) = edens(1:ermax) / engnorm
-    if(corrcal == YES) then
+
+
+    ! index for the division of the trajectory
+    division = stnum / (maxcnf / skpcnf / engdiv)
+
+    if(division == engdiv) then
 #ifdef MPI
-    ! MPI part starts here
-       allocate( sve3(ermax, ermax) )
-       sve3 = ecorr
-       call mpi_reduce(sve3, ecorr, (ermax * ermax), &
-            mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-       deallocate( sve3 )
-    ! MPI part ends here
+       call mympi_reduce_real_array(minuv, (numslv + 1), mpi_min, 0)
+       call mympi_reduce_real_array(maxuv, (numslv + 1), mpi_max, 0)
 #endif
-       ecorr(1:ermax, 1:ermax) = ecorr(1:ermax, 1:ermax) / engnorm
     endif
-    if(selfcal == YES) eself(1:esmax) = eself(1:esmax) / engnorm
-    avslf = avslf / engnorm
 
     ! start of the extension for computing the conditional distributions
     if(do_conditional == YES) then
@@ -725,40 +702,23 @@ contains
           if(corrcal == YES) crcnd(:,:,:) = crcnd(:,:,:) * voffset_scale
           if(slttype == SLT_SOLN) sluvcnd(:,:) = sluvcnd(:,:) * voffset_scale
        endif
-       if(plmode == 2) then
-          do order_prmid = 1, order_size
-             call mpi_reduce(cndnorm(order_prmid), factor, 1, &
-                  mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-             cndnorm(order_prmid) = factor
-
-             allocate( sve1(ermax) )
-             sve1(1:ermax) = edcnd(1:ermax, order_prmid)
-             call mpi_reduce(sve1(:), edcnd(:, order_prmid), ermax, &
-                  mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-             deallocate( sve1 )
-
-             if(corrcal == YES) then
-                allocate( sve3(ermax, ermax) )
-                sve3(:, :) = crcnd(:, :, order_prmid)
-                call mpi_reduce(sve3(:, :), crcnd(:, :, order_prmid), &
-                                (ermax * ermax), &
-                     mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-                deallocate( sve3 )
-             endif
-
-             if(slttype == SLT_SOLN) then
-                call mympi_reduce_real(sluvcnd(:, order_prmid), numslv, mpi_sum, 0)
-             endif
-          enddo
-       endif
+       do order_prmid = 1, order_size
+          call mympi_reduce_real_scalar(cndnorm(order_prmid), mpi_sum, 0)
+          call mympi_reduce_real_array(edcnd(:, order_prmid), ermax, mpi_sum, 0)
+          if(corrcal == YES) then
+             call mympi_reduce_real_array(crcnd(:, :, order_prmid), (ermax * ermax), mpi_sum, 0)
+          endif
+          if(slttype == SLT_SOLN) then
+             call mympi_reduce_real_array(sluvcnd(:, order_prmid), numslv, mpi_sum, 0)
+          endif
+       enddo
 #endif
-       cndnorm(:) = cndnorm(:) / engnorm
-       edcnd(:, :) = edcnd(:, :) / engnorm
-       if(corrcal == YES) crcnd(:, :, :) = crcnd(:, :, :) / engnorm
-       if(slttype == SLT_SOLN) sluvcnd(:, :) = sluvcnd(:, :) / engnorm
-
        if(myrank == 0) then
-          division = stnum / (maxcnf / skpcnf / engdiv)
+          cndnorm(:) = cndnorm(:) / engnorm
+          edcnd(:, :) = edcnd(:, :) / engnorm
+          if(corrcal == YES) crcnd(:, :, :) = crcnd(:, :, :) / engnorm
+          if(slttype == SLT_SOLN) sluvcnd(:, :) = sluvcnd(:, :) / engnorm
+
           if(slttype == SLT_SOLN) then
              do order_prmid = 1, order_size
                 factor = cndnorm(order_prmid)
@@ -769,6 +729,7 @@ contains
                 endif
              enddo
           endif
+
           if(engdiv == 1) then
              suffeng = '.tt'
           else
@@ -856,10 +817,15 @@ contains
     ! end of the extension for computing the conditional distributions
 
     if(myrank /= 0) return                                            ! MPI
-    !
-    division = stnum / (maxcnf / skpcnf / engdiv)
-    !
+    ! data to be stored; only the master node matters
+
+    edens(:) = edens(:) / engnorm
+    if(corrcal == YES) ecorr(:,:) = ecorr(:,:) / engnorm
+    if(selfcal == YES) eself(:) = eself(:) / engnorm
+
+    avslf = avslf / engnorm
     avediv(division, 1) = engnorm / engsmpl
+
     select case(slttype)
     case(SLT_SOLN)
        aveuv(division, 1:numslv) = slnuv(1:numslv) / engnorm
@@ -1114,8 +1080,8 @@ contains
 
     ! self energy histogram
     if(selfcal == YES) then
-      call getiduv(0, uvengy(0), iduv)
-      eself(iduv) = eself(iduv) + engnmfc
+       call getiduv(0, uvengy(0), iduv)
+       eself(iduv) = eself(iduv) + engnmfc
     endif
     minuv(0) = min(minuv(0), uvengy(0))
     maxuv(0) = max(maxuv(0), uvengy(0))

@@ -1,5 +1,5 @@
---- engproc.F90	2019-09-18 17:39:53.880580152 +0900
-+++ extensions/Conditional/engproc.F90	2020-05-29 12:28:41.052238004 +0900
+--- engproc.F90	2020-08-27 19:36:10.400013656 +0900
++++ extensions/Conditional/engproc.F90	2020-08-25 16:29:37.790562124 +0900
 @@ -43,6 +43,15 @@
           aveuv, slnuv, avediv, minuv, maxuv, numslt, sltlist, &
           ene_confname, io_paramfile, io_flcuv, &
@@ -146,7 +146,7 @@
      return
    end subroutine engclear
  
-@@ -501,9 +612,17 @@
+@@ -507,9 +618,17 @@
           edens, ecorr, eself, &
           aveuv, slnuv, avediv, avslf, minuv, maxuv, &
           engnorm, engsmpl, voffset, voffset_initialized, &
@@ -161,12 +161,12 @@
 +    integer :: order_prmid
 +    real :: order_param
 +    ! end of the extension for computing the conditional distributions
-     integer :: stnum, pti, j, k, iduv, division
+     integer :: stnum, pti, j, k, iduv, division, reduce_mpikind
      character(len=9) :: engfile
      character(len=3) :: suffeng
-@@ -597,6 +716,145 @@
-     if(selfcal == YES) eself(1:esmax) = eself(1:esmax) / engnorm
-     avslf = avslf / engnorm
+@@ -574,6 +693,129 @@
+ #endif
+     endif
  
 +    ! start of the extension for computing the conditional distributions
 +    if(do_conditional == YES) then
@@ -177,40 +177,23 @@
 +          if(corrcal == YES) crcnd(:,:,:) = crcnd(:,:,:) * voffset_scale
 +          if(slttype == SLT_SOLN) sluvcnd(:,:) = sluvcnd(:,:) * voffset_scale
 +       endif
-+       if(plmode == 2) then
-+          do order_prmid = 1, order_size
-+             call mpi_reduce(cndnorm(order_prmid), factor, 1, &
-+                  mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-+             cndnorm(order_prmid) = factor
-+
-+             allocate( sve1(ermax) )
-+             sve1(1:ermax) = edcnd(1:ermax, order_prmid)
-+             call mpi_reduce(sve1(:), edcnd(:, order_prmid), ermax, &
-+                  mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-+             deallocate( sve1 )
-+
-+             if(corrcal == YES) then
-+                allocate( sve3(ermax, ermax) )
-+                sve3(:, :) = crcnd(:, :, order_prmid)
-+                call mpi_reduce(sve3(:, :), crcnd(:, :, order_prmid), &
-+                                (ermax * ermax), &
-+                     mpi_double_precision, mpi_sum, 0, mpi_comm_world, ierror)
-+                deallocate( sve3 )
-+             endif
-+
-+             if(slttype == SLT_SOLN) then
-+                call mympi_reduce_real(sluvcnd(:, order_prmid), numslv, mpi_sum, 0)
-+             endif
-+          enddo
-+       endif
++       do order_prmid = 1, order_size
++          call mympi_reduce_real_scalar(cndnorm(order_prmid), mpi_sum, 0)
++          call mympi_reduce_real_array(edcnd(:, order_prmid), ermax, mpi_sum, 0)
++          if(corrcal == YES) then
++             call mympi_reduce_real_array(crcnd(:, :, order_prmid), (ermax * ermax), mpi_sum, 0)
++          endif
++          if(slttype == SLT_SOLN) then
++             call mympi_reduce_real_array(sluvcnd(:, order_prmid), numslv, mpi_sum, 0)
++          endif
++       enddo
 +#endif
-+       cndnorm(:) = cndnorm(:) / engnorm
-+       edcnd(:, :) = edcnd(:, :) / engnorm
-+       if(corrcal == YES) crcnd(:, :, :) = crcnd(:, :, :) / engnorm
-+       if(slttype == SLT_SOLN) sluvcnd(:, :) = sluvcnd(:, :) / engnorm
-+
 +       if(myrank == 0) then
-+          division = stnum / (maxcnf / skpcnf / engdiv)
++          cndnorm(:) = cndnorm(:) / engnorm
++          edcnd(:, :) = edcnd(:, :) / engnorm
++          if(corrcal == YES) crcnd(:, :, :) = crcnd(:, :, :) / engnorm
++          if(slttype == SLT_SOLN) sluvcnd(:, :) = sluvcnd(:, :) / engnorm
++
 +          if(slttype == SLT_SOLN) then
 +             do order_prmid = 1, order_size
 +                factor = cndnorm(order_prmid)
@@ -221,6 +204,7 @@
 +                endif
 +             enddo
 +          endif
++
 +          if(engdiv == 1) then
 +             suffeng = '.tt'
 +          else
@@ -308,9 +292,9 @@
 +    ! end of the extension for computing the conditional distributions
 +
      if(myrank /= 0) return                                            ! MPI
-     !
-     division = stnum / (maxcnf / skpcnf / engdiv)
-@@ -802,6 +1060,12 @@
+     ! data to be stored; only the master node matters
+ 
+@@ -784,6 +1026,12 @@
  
    subroutine update_histogram(stat_weight_solute, uvengy)
      use engmain, only: wgtslf, estype, slttype, corrcal, selfcal, ermax, &
@@ -323,7 +307,7 @@
                         volume, temp, uvspec, &
                         slnuv, avslf, minuv, maxuv, &
                         edens, ecorr, eself, &
-@@ -811,6 +1075,10 @@
+@@ -793,6 +1041,10 @@
                         ES_NVT, ES_NPT, NO, YES
      use mpiproc
      implicit none
@@ -334,7 +318,7 @@
      real, intent(in) :: uvengy(0:slvmax), stat_weight_solute
      integer, allocatable :: insdst(:)
      integer :: i, k, q, iduv, iduvp, pti
-@@ -895,6 +1163,48 @@
+@@ -877,6 +1129,48 @@
         enddo
      endif
  
