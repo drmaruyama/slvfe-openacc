@@ -150,7 +150,10 @@ contains
           endif
        endif
 
-       if(cumuint == 'yes') numdiv = 1
+       if(cumuint == 'yes') then
+          numdiv = 1
+          refmerge = 'yes'
+       endif
     endif
 
     if(numprm <= 0) then                 ! default setting

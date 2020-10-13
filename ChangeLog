@@ -2,6 +2,8 @@ version 0.3.7 (XX XXXX 2020)
 * Solvation Free Energy:
     * The output convention for the mesh error is regulated by
     write_mesherror.
+    * The energy coordinates need not be the same among all the solvent
+    species when the running integrals are calculated.
 
 version 0.3.6 (28 June 2019)
 * Energy Histogram Computation:

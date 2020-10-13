@@ -522,7 +522,8 @@ contains
     real :: factor, ampl, slvfe, uvpot, lcent, lcsln, lcref
     real :: soln_zero, refs_zero
     integer, dimension(:), allocatable :: gpnum
-    real, dimension(:,:), allocatable :: cumsfe
+    real, dimension(:), allocatable :: cumsfe, cumu_coord, cumu_write
+    logical :: cumu_process, cumu_homoform
     integer, parameter :: cumu_io = 51
     !
     group = svgrp(prmcnt)
@@ -633,10 +634,10 @@ contains
        if(ljlrc == 'yes') call ljcorrect(cntrun)   ! LJ long-range correction
     endif
     !
+    cumu_process = .false.
     if((cumuint == 'yes') .and. (group == pickgr) .and. (inft == 0)) then
-       ge_perslv = gemax / numslv
-       if(any(uvmax(1:numslv) /= ge_perslv)) stop ' Incorrect file format for storing the running integral'
-       allocate( cumsfe(numslv, ge_perslv) )
+       cumu_process = .true.                  ! cumulative integral treated
+       allocate( cumsfe(gemax) )
     endif
     !
     soln_zero = minthres_soln * minval( rddst, mask = (rddst > zero) )
@@ -674,29 +675,60 @@ contains
              factor = ampl * lcsln + (1.0 - ampl) * lcref
              slvfe = slvfe + kT * factor * (edist(iduv) - edens(iduv))
 5009         continue
-             if((cumuint == 'yes') .and. (group == pickgr) .and. (inft == 0)) then
-               m = mod(iduv - 1, ge_perslv) + 1
-               cumsfe(pti, m) = uvpot + slvfe
-             endif
+
+             ! cumulative integral
+             if(cumu_process) cumsfe(iduv) = uvpot + slvfe
           endif
        end do
        chmpt(pti, prmcnt, cntrun) = slvfe + aveuv(pti)
     end do
     !
-    if((cumuint == 'yes') .and. (group == pickgr) .and. (inft == 0)) then
-      open(unit = cumu_io, file = cumuintfl, status = 'replace')
-      do iduv = 1, ge_perslv
-        factor = sum( cumsfe(1:numslv, iduv) )
-        if(numslv == 1) then
-           write(cumu_io, 511) iduv, uvcrd(iduv), factor
-        else
-           write(cumu_io, 511) iduv, uvcrd(iduv), factor, cumsfe(1:numslv,iduv)
-        endif
-      enddo
-511   format(i6, g15.5, 9999f12.5)
-      endfile(cumu_io)
-      close(cumu_io)
-      deallocate( cumsfe )
+    if(cumu_process) then                     ! cumulative integral stored
+       open(unit = cumu_io, file = cumuintfl, status = 'replace')
+       if(numslv == 1) then
+          do iduv = 1, gemax
+             write(cumu_io, '(g15.5, f12.5)') uvcrd(iduv), cumsfe(iduv)
+          enddo
+       else
+          ge_perslv = gemax / numslv
+          if(all(uvmax(1:numslv) == ge_perslv)) then
+             cumu_homoform = .true.
+             allocate( cumu_coord(numslv) )
+             do iduv = 1, ge_perslv
+                do j = 1, numslv
+                   cumu_coord(j) = uvcrd(iduv + (j - 1) * ge_perslv)
+                enddo
+                if(all(cumu_coord(2:numslv) == cumu_coord(1))) then
+                   ! do nothing
+                else              ! unless all the coordinates are identical
+                   cumu_homoform = .false.
+                endif
+             enddo
+             deallocate( cumu_coord )
+          else
+             cumu_homoform = .false.
+          endif
+          if(cumu_homoform) then  ! same coordinates for all the solvent
+             allocate( cumu_write(numslv) )
+             do iduv = 1, ge_perslv
+                do j = 1, numslv
+                   cumu_write(j) = cumsfe(iduv + (j - 1) * ge_perslv)
+                enddo
+                factor = sum( cumu_write(1:numslv) )
+                write(cumu_io, '(g15.5, 999f12.5)') &
+                               uvcrd(iduv), factor, cumu_write(1:numslv)
+             enddo
+             deallocate( cumu_write )
+          else
+             do iduv = 1, gemax
+                write(cumu_io, '(g15.5, i5, f12.5)') &
+                               uvcrd(iduv), uvspec(iduv), cumsfe(iduv)
+             enddo
+          endif
+       endif
+       endfile(cumu_io)
+       close(cumu_io)
+       deallocate( cumsfe )
     endif
     !
     chmpt(0, prmcnt, cntrun) = sum( chmpt(1:numslv, prmcnt, cntrun) )
@@ -883,9 +915,18 @@ contains
              edmcr(iduvp, iduv) = lcref
           end do
        end do
-       !
+
        call syevr_wrap(gemax, edmcr, egnvl, k)
-       ! call DSYEV('V', 'U', gemax, edmcr, gemax, egnvl, work, wrksz, k)
+
+     ! select case(kind(edmcr))
+     ! case(8)
+     !    call DSYEV('V', 'U', gemax, edmcr, gemax, egnvl, work, wrksz, k)
+     ! case(4)
+     !    call SSYEV('V', 'U', gemax, edmcr, gemax, egnvl, work, wrksz, k)
+     ! case default
+     !    stop "The libraries are used only at real or double precision"
+     ! end select
+
        pti = numslv + 1
        do iduv = pti, gemax
           factor = 0.0
@@ -1445,13 +1486,13 @@ contains
   end subroutine wrtresl
    
   subroutine wrtmerge
-    use sysvars, only: large
     implicit none
     integer :: prmcnt, cntrun, group, inft, pti, i, j, k, m
-    real :: avecp, stdcp, avcp0, recnt, slvfe, shcp(large)
+    real :: avecp, stdcp, avcp0, recnt, slvfe
+    real, dimension(:),   allocatable :: showcp
     real, dimension(:,:), allocatable :: wrtdata
     !
-    allocate( wrtdata(0:numslv, numrun) )
+    allocate( showcp(numrun), wrtdata(0:numslv, numrun) )
     if(uvread == 'yes') then
        wrtdata(0:numslv, 1:numrun) = blkuv(0:numslv, 1:numrun)
        write(6, *)
@@ -1517,7 +1558,7 @@ contains
        do prmcnt = 1, prmmax
           group = svgrp(prmcnt)
           inft = svinf(prmcnt)
-          shcp(1:numrun) = chmpt(pti, prmcnt, 1:numrun)
+          showcp(1:numrun) = chmpt(pti, prmcnt, 1:numrun)
           if(prmcnt == 1) then
              if(infchk == 'yes') then
                 if(numslv == 1) then
@@ -1547,34 +1588,34 @@ contains
           k = (numrun - 1) / 5
           if(infchk == 'yes') then
              if(k == 0) then
-                write(6, "(i4,i7,5f13.4)") group, inft, shcp(1:numrun)
+                write(6, "(i4,i7,5f13.4)") group, inft, showcp(1:numrun)
              else
-                write(6, "(i4,i7,5f13.4)") group, inft, shcp(1:5)
+                write(6, "(i4,i7,5f13.4)") group, inft, showcp(1:5)
                 if(k > 1) then
                    do i = 1, k - 1
                       write(6, "('           ',5f13.4)") &
-                               (shcp(5 * i + m), m = 1, 5)
+                               (showcp(5 * i + m), m = 1, 5)
                    enddo
                 endif
                 if(5 * k < numrun) then
                    write(6, "('           ',5f13.4)") &
-                            (shcp(m), m = 5 * k + 1, numrun)
+                            (showcp(m), m = 5 * k + 1, numrun)
                 endif
              endif
           else
              if(k == 0) then
-                write(6, "(i4,'  ',5f13.4)") group, shcp(1:numrun)
+                write(6, "(i4,'  ',5f13.4)") group, showcp(1:numrun)
              else
-                write(6, "(i4,'  ',5f13.4)") group, shcp(1:5)
+                write(6, "(i4,'  ',5f13.4)") group, showcp(1:5)
                 if(k > 1) then
                    do i = 1, k - 1
                       write(6, "('      ',5f13.4)") &
-                               (shcp(5 * i + m), m = 1, 5)
+                               (showcp(5 * i + m), m = 1, 5)
                    enddo
                 endif
                 if(5 * k < numrun) then
                    write(6, "('      ',5f13.4)") &
-                            (shcp(m), m = 5 * k + 1, numrun)
+                            (showcp(m), m = 5 * k + 1, numrun)
                 endif
             endif
           endif
@@ -1586,21 +1627,20 @@ contains
     write(6, *)
     write(6, "(A)") " cumulative average & 95% error for solvation free energy"
     call wrtcumu(wrtdata, fe_stat_error)
-    deallocate( wrtdata )
+    deallocate( showcp, wrtdata )
 
     return
   end subroutine wrtmerge
 
   subroutine wrtcumu(wrtdata, stat_error)
-    use sysvars, only: large, zero
     implicit none
     real, intent(in) :: wrtdata(0:numslv, numrun)
     real, intent(out), optional :: stat_error
     integer :: cntrun, pti
-    real :: avecp, factor, slvfe, recnt, shcp(large)
-    real, dimension(:), allocatable :: runcp, runer
+    real :: avecp, factor, slvfe, recnt
+    real, dimension(:), allocatable :: runcp, runer, wrtcp
 
-    allocate( runcp(0:numslv), runer(0:numslv) )
+    allocate( runcp(0:numslv), runer(0:numslv), wrtcp(2 * numslv + 2) )
     runcp(:) = 0.0
     runer(:) = 0.0
 
@@ -1629,41 +1669,41 @@ contains
           runcp(pti) = runcp(pti) + slvfe
           runer(pti) = runer(pti) + slvfe ** 2
           avecp = runcp(pti) / recnt
-          shcp(2 * pti + 1) = avecp
+          wrtcp(2 * pti + 1) = avecp
           if(cntrun > 1) then
              factor = runer(pti) / recnt - avecp ** 2
              if(factor <= zero) then
-                shcp(2 * pti + 2) = 0.0
+                wrtcp(2 * pti + 2) = 0.0
              else
-                shcp(2 * pti + 2) = (2.0 / sqrt(recnt) ) &
-                                  *sqrt(recnt / (recnt - 1.0)) * sqrt(factor)
+                wrtcp(2 * pti + 2) = (2.0 / sqrt(recnt) ) &
+                                   *sqrt(recnt / (recnt - 1.0)) * sqrt(factor)
              endif
           endif
        end do
        if(cntrun == 1) then
           do pti = 0, numslv
-             shcp(pti + 1) = shcp(2 * pti + 1)
+             wrtcp(pti + 1) = wrtcp(2 * pti + 1)
           end do
           if(numslv == 1) then
-             write(6, "(i3,f11.4)") cntrun, shcp(1)
+             write(6, "(i3,f11.4)") cntrun, wrtcp(1)
           else
-             write(6, 771) cntrun, shcp(1), shcp(2:numslv+1)
+             write(6, 771) cntrun, wrtcp(1), wrtcp(2:numslv+1)
 771          format(i3,f11.4,9999f22.4)
           endif
        else
           if(numslv == 1) then
-             write(6, "(i3,2f11.4)") cntrun, shcp(1:2)
+             write(6, "(i3,2f11.4)") cntrun, wrtcp(1:2)
           else
-             write(6, 772) cntrun, shcp(1:2*numslv+2)
+             write(6, 772) cntrun, wrtcp(1:2*numslv+2)
 772          format(i3,9999f11.4)
           endif
           ! 95% error of the solvation free energy
           ! used only when the mesh error for free energy is assessed
-          if(present(stat_error) .and. (cntrun == numrun)) stat_error = shcp(2)
+          if(present(stat_error) .and. (cntrun == numrun)) stat_error = wrtcp(2)
        endif
     end do
 
-    deallocate( runcp, runer )
+    deallocate( runcp, runer, wrtcp )
 
     return
   end subroutine wrtcumu
