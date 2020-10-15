@@ -1517,16 +1517,26 @@ contains
           end do
           recnt = real(numrun)
           avecp = avecp / recnt
-          stdcp = sqrt(recnt / (recnt - 1.0)) &
-                * sqrt(stdcp / recnt - avecp ** 2)
-          stdcp = 2.0 * stdcp / sqrt(recnt)
+          if(numrun > 1) then
+             stdcp = sqrt(recnt / (recnt - 1.0)) &
+                   * sqrt(stdcp / recnt - avecp ** 2)    ! standard deviation
+             stdcp = 2.0 * stdcp / sqrt(recnt)           ! 95% error
+          endif
           if(prmcnt == 1) then
              write(6, *)
              if(pti == 0) then
                 if(infchk == 'yes') then
-                   write(6, "(A)") " group  inft  solvation free energy     error          difference"
+                   if(numrun == 1) then
+                      write(6, "(A)") " group  inft  solvation free energy     difference"
+                   else
+                      write(6, "(A)") " group  inft  solvation free energy     error          difference"
+                   endif
                 else
-                   write(6, "(A)") " group    solvation free energy     error          difference"
+                   if(numrun == 1) then
+                      write(6, "(A)") " group    solvation free energy     difference"
+                   else
+                      write(6, "(A)") " group    solvation free energy     error          difference"
+                   endif
                 endif
              endif
              if(numslv > 1) then
@@ -1538,9 +1548,17 @@ contains
              endif
           endif
           if(infchk == 'yes') then
-             write(6, "(i4,i7,f17.5,2f18.5)") group, inft, avecp, stdcp, (avecp - avcp0)
+             if(numrun == 1) then
+                write(6, "(i4,i7,f17.5,f21.5)") group, inft, avecp, (avecp - avcp0)
+             else
+                write(6, "(i4,i7,f17.5,2f18.5)") group, inft, avecp, stdcp, (avecp - avcp0)
+             endif
           else
-             write(6, "(i4,f20.5,2f18.5)") group, avecp, stdcp, (avecp - avcp0)
+             if(numrun == 1) then
+                write(6, "(i4,f20.5,f21.5)") group, avecp, (avecp - avcp0)
+             else
+                write(6, "(i4,f20.5,2f18.5)") group, avecp, stdcp, (avecp - avcp0)
+             endif
           endif
 
           if((pti == 0) .and. (inft == 0) .and. &
@@ -1549,79 +1567,80 @@ contains
           endif
        end do
     end do
-    !
-    write(6, *)
-    write(6, *)
 
-    do pti = 0, numslv
-       if((numslv == 1) .and. (pti /= 0)) cycle
-       do prmcnt = 1, prmmax
-          group = svgrp(prmcnt)
-          inft = svinf(prmcnt)
-          showcp(1:numrun) = chmpt(pti, prmcnt, 1:numrun)
-          if(prmcnt == 1) then
+    if(numrun > 1) then
+       write(6, *)
+       write(6, *)
+       do pti = 0, numslv
+          if((numslv == 1) .and. (pti /= 0)) cycle
+          do prmcnt = 1, prmmax
+             group = svgrp(prmcnt)
+             inft = svinf(prmcnt)
+             showcp(1:numrun) = chmpt(pti, prmcnt, 1:numrun)
+             if(prmcnt == 1) then
+                if(infchk == 'yes') then
+                   if(numslv == 1) then
+                      write(6, "(A)") " group  inft   Estimated free energy (kcal/mol)"
+                   else
+                      if(pti == 0) then
+                         write(6, "(A)") " group  inft   Estimated free energy: total (kcal/mol)"
+                      else
+                         write(6, *)
+                         write(6, "(A,i2,A)") " group  inft   Estimated free energy:", pti, "-th solvent contribution (kcal/mol)"
+                      endif
+                   endif
+                else
+                   if(numslv == 1) then
+                      write(6, "(A)") " group   Estimated free energy (kcal/mol)"
+                   else
+                      if(pti == 0) then
+                         write(6, "(A)") " group   Estimated free energy: total (kcal/mol)"
+                      else
+                         write(6, *)
+                         write(6, "(A,i2,A)") " group   Estimated free energy:", pti, "-th solvent contribution (kcal/mol)"
+                      endif
+                   endif
+                endif
+             endif
+
+             k = (numrun - 1) / 5
              if(infchk == 'yes') then
-                if(numslv == 1) then
-                   write(6, "(A)") " group  inft   Estimated free energy (kcal/mol)"
+                if(k == 0) then
+                   write(6, "(i4,i7,5f13.4)") group, inft, showcp(1:numrun)
                 else
-                   if(pti == 0) then
-                      write(6, "(A)") " group  inft   Estimated free energy: total (kcal/mol)"
-                   else
-                      write(6, *)
-                      write(6, "(A,i2,A)") " group  inft   Estimated free energy:", pti, "-th solvent contribution (kcal/mol)"
+                   write(6, "(i4,i7,5f13.4)") group, inft, showcp(1:5)
+                   if(k > 1) then
+                      do i = 1, k - 1
+                         write(6, "('           ',5f13.4)") &
+                                  (showcp(5 * i + m), m = 1, 5)
+                      end do
                    endif
-                endif
-             else
-                if(numslv == 1) then
-                   write(6, "(A)") " group   Estimated free energy (kcal/mol)"
-                else
-                   if(pti == 0) then
-                      write(6, "(A)") " group   Estimated free energy: total (kcal/mol)"
-                   else
-                      write(6, *)
-                      write(6, "(A,i2,A)") " group   Estimated free energy:", pti, "-th solvent contribution (kcal/mol)"
-                   endif
-                endif
-             endif
-          endif
-
-          k = (numrun - 1) / 5
-          if(infchk == 'yes') then
-             if(k == 0) then
-                write(6, "(i4,i7,5f13.4)") group, inft, showcp(1:numrun)
-             else
-                write(6, "(i4,i7,5f13.4)") group, inft, showcp(1:5)
-                if(k > 1) then
-                   do i = 1, k - 1
+                   if(5 * k < numrun) then
                       write(6, "('           ',5f13.4)") &
-                               (showcp(5 * i + m), m = 1, 5)
-                   enddo
+                               (showcp(m), m = 5 * k + 1, numrun)
+                   endif
                 endif
-                if(5 * k < numrun) then
-                   write(6, "('           ',5f13.4)") &
-                            (showcp(m), m = 5 * k + 1, numrun)
-                endif
-             endif
-          else
-             if(k == 0) then
-                write(6, "(i4,'  ',5f13.4)") group, showcp(1:numrun)
              else
-                write(6, "(i4,'  ',5f13.4)") group, showcp(1:5)
-                if(k > 1) then
-                   do i = 1, k - 1
-                      write(6, "('      ',5f13.4)") &
+                if(k == 0) then
+                   write(6, "(i4,'  ',5f13.4)") group, showcp(1:numrun)
+                else
+                   write(6, "(i4,'  ',5f13.4)") group, showcp(1:5)
+                   if(k > 1) then
+                      do i = 1, k - 1
+                         write(6, "('      ',5f13.4)") &
                                (showcp(5 * i + m), m = 1, 5)
-                   enddo
-                endif
-                if(5 * k < numrun) then
-                   write(6, "('      ',5f13.4)") &
-                            (showcp(m), m = 5 * k + 1, numrun)
-                endif
-            endif
-          endif
+                      end do
+                   endif
+                   if(5 * k < numrun) then
+                      write(6, "('      ',5f13.4)") &
+                               (showcp(m), m = 5 * k + 1, numrun)
+                   endif
+               endif
+             endif
+          end do
        end do
-    end do
-    !
+    endif
+
     wrtdata(0:numslv, 1:numrun) = chmpt(0:numslv, grref, 1:numrun)
     write(6, *)
     write(6, *)
