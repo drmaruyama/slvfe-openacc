@@ -149,11 +149,6 @@ contains
              numref = numdiv * (numref / numdiv)
           endif
        endif
-
-       if(cumuint == 'yes') then
-          numdiv = 1
-          refmerge = 'yes'
-       endif
     endif
 
     if(numprm <= 0) then                 ! default setting

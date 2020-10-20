@@ -511,9 +511,10 @@ contains
   subroutine chmpot(prmcnt, cntrun)
     use sysvars, only: uvread, slfslt, ljlrc, normalize, showdst, wrtzrsft, &
                        slfeng, chmpt, aveuv, svgrp, svinf, &
-                       pickgr, &
+                       numrun, pickgr, &
                        minthres_soln, minthres_refs, &
-                       cumuint, cumuintfl
+                       cumuint, cumuintfl, &
+                       numbers
     use uvcorrect, only: ljcorrect
     implicit none
     integer, intent(in) :: prmcnt, cntrun
@@ -522,9 +523,12 @@ contains
     real :: factor, ampl, slvfe, uvpot, lcent, lcsln, lcref
     real :: soln_zero, refs_zero
     integer, dimension(:), allocatable :: gpnum
-    real, dimension(:), allocatable :: cumsfe, cumu_coord, cumu_write
+    real, dimension(:,:), allocatable, save :: cumsfe
+    real, dimension(:), allocatable :: cumu_coord, cumu_write
     logical :: cumu_process, cumu_homoform
     integer, parameter :: cumu_io = 51
+    character(len=1024) :: opnfile
+    character(len=2) :: suffnum
     !
     group = svgrp(prmcnt)
     inft = svinf(prmcnt)
@@ -637,7 +641,7 @@ contains
     cumu_process = .false.
     if((cumuint == 'yes') .and. (group == pickgr) .and. (inft == 0)) then
        cumu_process = .true.                  ! cumulative integral treated
-       allocate( cumsfe(gemax) )
+       if(cntrun == 1) allocate( cumsfe(gemax, 0:numrun) )
     endif
     !
     soln_zero = minthres_soln * minval( rddst, mask = (rddst > zero) )
@@ -677,57 +681,73 @@ contains
 5009         continue
 
              ! cumulative integral
-             if(cumu_process) cumsfe(iduv) = uvpot + slvfe
+             if(cumu_process) cumsfe(iduv, cntrun) = uvpot + slvfe
           endif
        end do
        chmpt(pti, prmcnt, cntrun) = slvfe + aveuv(pti)
     end do
     !
-    if(cumu_process) then                     ! cumulative integral stored
-       open(unit = cumu_io, file = cumuintfl, status = 'replace')
-       if(numslv == 1) then
-          do iduv = 1, gemax
-             write(cumu_io, '(g15.5, f12.5)') uvcrd(iduv), cumsfe(iduv)
-          enddo
-       else
-          ge_perslv = gemax / numslv
-          if(all(uvmax(1:numslv) == ge_perslv)) then
-             cumu_homoform = .true.
-             allocate( cumu_coord(numslv) )
-             do iduv = 1, ge_perslv
-                do j = 1, numslv
-                   cumu_coord(j) = uvcrd(iduv + (j - 1) * ge_perslv)
-                enddo
-                if(all(cumu_coord(2:numslv) == cumu_coord(1))) then
-                   ! do nothing
-                else              ! unless all the coordinates are identical
-                   cumu_homoform = .false.
-                endif
-             enddo
-             deallocate( cumu_coord )
+    ! cumulative integral stored
+    if(cumu_process .and. (cntrun == numrun)) then
+       do iduv = 1, gemax
+          cumsfe(iduv, 0) = sum( cumsfe(iduv, 1:numrun) ) / real(numrun)
+       enddo
+
+       do k = 0, numrun
+          if((numrun == 1) .and. (k /=0)) cycle   ! only k = 0 when numrun = 1
+          if(k == 0) then
+             opnfile = trim(cumuintfl)
           else
-             cumu_homoform = .false.
+             j = k / 10
+             m = mod(k, 10)
+             suffnum = numbers(j+1:j+1) // numbers(m+1:m+1)
+             opnfile = trim(cumuintfl) // suffnum
           endif
-          if(cumu_homoform) then  ! same coordinates for all the solvent
-             allocate( cumu_write(numslv) )
-             do iduv = 1, ge_perslv
-                do j = 1, numslv
-                   cumu_write(j) = cumsfe(iduv + (j - 1) * ge_perslv)
-                enddo
-                factor = sum( cumu_write(1:numslv) )
-                write(cumu_io, '(g15.5, 999f12.5)') &
-                               uvcrd(iduv), factor, cumu_write(1:numslv)
-             enddo
-             deallocate( cumu_write )
-          else
+          open(unit = cumu_io, file = opnfile, status = 'replace')
+          if(numslv == 1) then
              do iduv = 1, gemax
-                write(cumu_io, '(g15.5, i5, f12.5)') &
-                               uvcrd(iduv), uvspec(iduv), cumsfe(iduv)
+                write(cumu_io, '(g15.5, f12.5)') uvcrd(iduv), cumsfe(iduv, k)
              enddo
+          else
+             ge_perslv = gemax / numslv
+             if(all(uvmax(1:numslv) == ge_perslv)) then
+                cumu_homoform = .true.
+                allocate( cumu_coord(numslv) )
+                do iduv = 1, ge_perslv
+                   do j = 1, numslv
+                      cumu_coord(j) = uvcrd(iduv + (j - 1) * ge_perslv)
+                   enddo
+                   if(all(cumu_coord(2:numslv) == cumu_coord(1))) then
+                      ! do nothing
+                   else             ! unless all the coordinates are identical
+                      cumu_homoform = .false.
+                   endif
+                enddo
+                deallocate( cumu_coord )
+             else
+                cumu_homoform = .false.
+             endif
+             if(cumu_homoform) then ! same coordinates for all the solvent
+                allocate( cumu_write(numslv) )
+                do iduv = 1, ge_perslv
+                   do j = 1, numslv
+                      cumu_write(j) = cumsfe(iduv + (j - 1) * ge_perslv, k)
+                   enddo
+                   factor = sum( cumu_write(1:numslv) )
+                   write(cumu_io, '(g15.5, 999f12.5)') &
+                                  uvcrd(iduv), factor, cumu_write(1:numslv)
+                enddo
+                deallocate( cumu_write )
+             else
+                do iduv = 1, gemax
+                   write(cumu_io, '(g15.5, i5, f12.5)') &
+                                  uvcrd(iduv), uvspec(iduv), cumsfe(iduv, k)
+                enddo
+             endif
           endif
-       endif
-       endfile(cumu_io)
-       close(cumu_io)
+          endfile(cumu_io)
+          close(cumu_io)
+       enddo
        deallocate( cumsfe )
     endif
     !
