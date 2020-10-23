@@ -519,7 +519,7 @@ contains
     implicit none
     integer, intent(in) :: prmcnt, cntrun
     integer :: group, inft
-    integer :: iduv, iduvp, pti, cnt, j, k, m, ge_perslv
+    integer :: iduv, iduvp, pti, cnt, j, k, m, cntdiv, ge_perslv
     real :: factor, ampl, slvfe, uvpot, lcent, lcsln, lcref
     real :: soln_zero, refs_zero
     integer, dimension(:), allocatable :: gpnum
@@ -528,7 +528,6 @@ contains
     logical :: cumu_process, cumu_homoform
     integer, parameter :: cumu_io = 51
     character(len=1024) :: opnfile
-    character(len=2) :: suffnum
     !
     group = svgrp(prmcnt)
     inft = svinf(prmcnt)
@@ -689,24 +688,25 @@ contains
     !
     ! cumulative integral stored
     if(cumu_process .and. (cntrun == numrun)) then
-       do iduv = 1, gemax
+       do iduv = 1, gemax                     ! averaged cumsfe
           cumsfe(iduv, 0) = sum( cumsfe(iduv, 1:numrun) ) / real(numrun)
        enddo
 
-       do k = 0, numrun
-          if((numrun == 1) .and. (k /=0)) cycle   ! only k = 0 when numrun = 1
-          if(k == 0) then
+       do cntdiv = 0, numrun
+          ! only cntdiv = 0 when numrun = 1, and cntdiv >= 0 when numrun > 1
+          if((numrun == 1) .and. (cntdiv /= 0)) cycle
+          if(cntdiv == 0) then                ! averaged cumsfe
              opnfile = trim(cumuintfl)
-          else
-             j = k / 10
-             m = mod(k, 10)
-             suffnum = numbers(j+1:j+1) // numbers(m+1:m+1)
-             opnfile = trim(cumuintfl) // suffnum
+          else                                ! cumsfe in each block
+             j = cntdiv / 10
+             m = mod(cntdiv, 10)
+             opnfile = trim(cumuintfl) // numbers(j+1:j+1) // numbers(m+1:m+1)
           endif
           open(unit = cumu_io, file = opnfile, status = 'replace')
           if(numslv == 1) then
              do iduv = 1, gemax
-                write(cumu_io, '(g15.5, f12.5)') uvcrd(iduv), cumsfe(iduv, k)
+                write(cumu_io, '(g15.5, f12.5)') &
+                             uvcrd(iduv), cumsfe(iduv, cntdiv)
              enddo
           else
              ge_perslv = gemax / numslv
@@ -731,17 +731,17 @@ contains
                 allocate( cumu_write(numslv) )
                 do iduv = 1, ge_perslv
                    do j = 1, numslv
-                      cumu_write(j) = cumsfe(iduv + (j - 1) * ge_perslv, k)
+                      cumu_write(j) = cumsfe(iduv + (j - 1) * ge_perslv, cntdiv)
                    enddo
                    factor = sum( cumu_write(1:numslv) )
                    write(cumu_io, '(g15.5, 999f12.5)') &
-                                  uvcrd(iduv), factor, cumu_write(1:numslv)
+                             uvcrd(iduv), factor, cumu_write(1:numslv)
                 enddo
                 deallocate( cumu_write )
              else
                 do iduv = 1, gemax
                    write(cumu_io, '(g15.5, i5, f12.5)') &
-                                  uvcrd(iduv), uvspec(iduv), cumsfe(iduv, k)
+                             uvcrd(iduv), uvspec(iduv), cumsfe(iduv, cntdiv)
                 enddo
              endif
           endif
