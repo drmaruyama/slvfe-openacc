@@ -22,7 +22,7 @@ module sysread
        maxsln, maxref, numrun, &
        numslv, ermax, slfeng, nummol, &
        rdcrd, rddst, rddns, rdslc, rdcor, rdspec, &
-       aveuv, uvene, blkuv, wgtsln, wgtref
+       aveuv, uvene, blockuv, wgtsln, wgtref
   implicit none
   character(len=1024) :: engfile(5)
 contains
@@ -103,8 +103,8 @@ contains
     allocate( rdcor(ermax,ermax) )
     allocate( rdspec(ermax) )
     allocate( chmpt(0:numslv, prmmax, numrun), aveuv(numslv) )
-    if((uvread == 'yes') .and. (clcond == 'merge')) then
-       allocate( uvene(numslv, maxsln), blkuv(0:numslv, numrun) )
+    if((uvread /= 'not') .and. (clcond == 'merge')) then
+       allocate( uvene(numslv, maxsln), blockuv(0:numslv, numrun) )
     endif
     allocate( svgrp(prmmax), svinf(prmmax) )
     allocate( wgtsln(maxsln), wgtref(maxref) )
@@ -203,7 +203,7 @@ contains
     end select
     kT = temp * 8.314510e-3 / 4.184              ! kcal/mol
     !
-    if(uvread == 'yes') then
+    if(uvread /= 'not') then
        select case(clcond)
        case('basic', 'range')
           write(6, "(A)") " What is average solute-solvent energy in solution?"
@@ -417,13 +417,13 @@ contains
     end do
     if(cntrun == 1) write(6, *)
 !
-    if((uvread == 'yes') .and. (clcond == 'merge')) then
+    if((uvread /= 'not') .and. (clcond == 'merge')) then
        do pti = 1, numslv
          aveuv(pti) = sum( wgtsln(slnini:slnfin) * uvene(pti, slnini:slnfin) )
        end do
-       blkuv(1:numslv, cntrun) = aveuv(1:numslv)
-       blkuv(0, cntrun) = sum( blkuv(1:numslv, cntrun) )
-       if(slfslt == 'yes') blkuv(0, cntrun) = blkuv(0, cntrun) + slfeng
+       blockuv(1:numslv, cntrun) = aveuv(1:numslv)
+       blockuv(0, cntrun) = sum( blockuv(1:numslv, cntrun) )
+       if(slfslt == 'yes') blockuv(0, cntrun) = blockuv(0, cntrun) + slfeng
     endif
 
     return
@@ -628,13 +628,20 @@ contains
     call getslncv
     call getinscv
     !
-    if(prmcnt == 1) then
-       if(uvread /= 'yes') then
+    ! when uvread = 'not', aveuv is constructed only once at the finest mesh
+    !                      from the distribution function (edist) in solution
+    ! mesh error is then the same as the one at uvread = 'yes' (default)
+    ! see the datread subroutine for treatment of aveuv when uvread = 'yes'
+    ! aveuv at uvread = 'not' is constructed for each set of group and inft
+    !    when the next if line and the corresponding endif are commented out
+    if(prmcnt == 1) then       ! at the first call of the chmpot subroutine
+       if(uvread == 'not') then
           do pti = 1, numslv
              aveuv(pti) = sum( uvcrd * edist, mask = (uvspec == pti) )
           end do
        endif
-       if(ljlrc == 'yes') call ljcorrect(cntrun)   ! LJ long-range correction
+       ! LJ long-range correction
+       if(ljlrc == 'yes') call ljcorrect(cntrun)
     endif
     !
     cumu_process = .false.
@@ -1387,7 +1394,7 @@ module opwrite
   use sysvars, only: clcond, uvread, slfslt, infchk, &
        prmmax, numrun, numslv, zero, &
        pickgr, write_mesherror, msemin, msemax, mesherr, &
-       slfeng, chmpt, aveuv, blkuv, svgrp, svinf
+       slfeng, chmpt, aveuv, blockuv, svgrp, svinf
   implicit none
   integer :: grref
   real :: fe_stat_error     ! 95% error of the solvation free energy
@@ -1403,7 +1410,7 @@ contains
     !
     if((clcond == 'basic') .or. (clcond == 'range')) then
        write(6,*)
-       if((numslv > 1) .and. (uvread /= 'yes')) write(6, 331) aveuv(1:numslv)
+       if((numslv > 1) .and. (uvread == 'not')) write(6, 331) aveuv(1:numslv)
 331    format('  Solute-solvent energy       =   ', 9999f12.4)
        totuv = sum( aveuv(1:numslv) )
        if(slfslt == 'yes') totuv = totuv + slfeng
@@ -1513,8 +1520,8 @@ contains
     real, dimension(:,:), allocatable :: wrtdata
     !
     allocate( showcp(numrun), wrtdata(0:numslv, numrun) )
-    if(uvread == 'yes') then
-       wrtdata(0:numslv, 1:numrun) = blkuv(0:numslv, 1:numrun)
+    if(uvread /= 'not') then
+       wrtdata(0:numslv, 1:numrun) = blockuv(0:numslv, 1:numrun)
        write(6, *)
        write(6, *)
        write(6, "(A)") " cumulative average & 95% error for solvation energy"

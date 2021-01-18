@@ -70,7 +70,7 @@ module sysvars
   integer, dimension(:),  allocatable :: rdspec
   real, dimension(:,:,:), allocatable :: chmpt
   real, dimension(:),     allocatable :: aveuv
-  real, dimension(:,:),   allocatable :: uvene, blkuv
+  real, dimension(:,:),   allocatable :: uvene, blockuv
   integer, dimension(:),  allocatable :: svgrp, svinf
   real, dimension(:),     allocatable :: wgtsln, wgtref
   

@@ -83,7 +83,7 @@ module uvcorrect
 
 contains
   subroutine ljcorrect(cntrun)
-    use sysvars, only: uvread, clcond, numslv, aveuv, blkuv
+    use sysvars, only: uvread, clcond, numslv, aveuv, blockuv
     implicit none
     real, dimension(:), allocatable, save :: ljcorr
     integer, intent(in) :: cntrun
@@ -109,9 +109,9 @@ contains
        first_time = .false.
     endif
     aveuv(1:numslv) = aveuv(1:numslv) + ljcorr(1:numslv)
-    if((uvread == 'yes') .and. (clcond == 'merge')) then
-       blkuv(1:numslv, cntrun) = blkuv(1:numslv, cntrun) + ljcorr(1:numslv)
-       blkuv(0, cntrun) = blkuv(0, cntrun) + sum(ljcorr(1:numslv))
+    if((uvread /= 'not') .and. (clcond == 'merge')) then
+       blockuv(1:numslv, cntrun) = blockuv(1:numslv, cntrun) + ljcorr(1:numslv)
+       blockuv(0, cntrun) = blockuv(0, cntrun) + sum( ljcorr(1:numslv) )
     endif
     return
   end subroutine ljcorrect
