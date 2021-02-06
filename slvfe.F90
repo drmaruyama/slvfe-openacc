@@ -628,22 +628,28 @@ contains
     call getslncv
     call getinscv
     !
-    ! when uvread = 'not', aveuv is constructed only once at the finest mesh
+    ! when uvread = 'not', aveuv is constructed for each set of group and inft
     !                      from the distribution function (edist) in solution
-    ! mesh error is then the same as the one at uvread = 'yes' (default)
     ! see the datread subroutine for treatment of aveuv when uvread = 'yes'
-    ! aveuv at uvread = 'not' is constructed for each set of group and inft
-    !    when the next if line and the corresponding endif are commented out
-    if(prmcnt == 1) then       ! at the first call of the chmpot subroutine
-       if(uvread == 'not') then
-          do pti = 1, numslv
-             aveuv(pti) = sum( uvcrd * edist, mask = (uvspec == pti) )
-          end do
-       endif
-       ! LJ long-range correction
+    !    in this case, aveuv is common among all the sets of group and inft
+    ! aveuv at uvread = 'not' is constructed only once at the finest mesh
+    !    when the next if(prmcnt == 1) and corresponding endif are made active
+    !    mesh error is then the same as the one at uvread = 'yes' (default)
+    if(uvread == 'not') then
+    !  if(prmcnt == 1) then       ! at the first call of the chmpot subroutine
+       do pti = 1, numslv
+          aveuv(pti) = sum( uvcrd * edist, mask = (uvspec == pti) )
+       end do
+       ! LJ long-range correction at each construction of aveuv
        if(ljlrc == 'yes') call ljcorrect(cntrun)
+    !  endif
+    else  ! default setting with aveuv read in the datread subroutine 
+       ! LJ long-range correction at the first call of the chmpot subroutine
+       if(prmcnt == 1) then       ! at the first call of the chmpot subroutine
+          if(ljlrc == 'yes') call ljcorrect(cntrun)
+       endif
     endif
-    !
+
     cumu_process = .false.
     if((cumuint == 'yes') .and. (group == pickgr) .and. (inft == 0)) then
        cumu_process = .true.                  ! cumulative integral treated
@@ -663,7 +669,7 @@ contains
              uvpot = uvpot + uvcrd(iduv) * edist(iduv)
              slvfe = slvfe - kT * (edist(iduv) - edens(iduv))
 
-             ! kT*log(edist/edens)
+             ! kT * log(edist/edens)
              lcent = - (slncv(iduv) + zrsln(pti) + uvcrd(iduv))
              if((slncor == 'yes') .and. (edist(iduv) > soln_zero) &
                                   .and. (edens(iduv) <= refs_zero)) then
