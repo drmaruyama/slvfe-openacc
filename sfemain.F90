@@ -30,13 +30,22 @@ module sysvars
   character(len=3) :: normalize = 'yes', showdst= 'not'
   character(len=3) :: wrtzrsft = 'not',  readwgtfl = 'yes'
 
-  real :: inptemp = 300.0                 ! temperature in Kelvin
-  integer :: numprm_def_inf_yes = 11      ! default numprm at infchk = 'yes'
-  integer :: numprm_def_inf_not = 5       ! default numprm at infchk = 'not'
+  integer :: numprm = 0                           ! initialized to 0
+  integer :: numprm_def_inf_yes = 11   ! default numprm at infchk = 'yes'
+  integer :: numprm_def_inf_not = 5    ! default numprm at infchk = 'not'
+
+  integer :: numsln = 0, numref = 0, numdiv = 0   ! initialized to 0
+  integer :: maxsln, maxref, numrun, prmmax
+  integer :: numslv, ermax
+
+  real :: inptemp = 300.0              ! temperature in Kelvin, initialized
+  real :: temp, kT, slfeng
+  real :: avevolume = 0.0              ! average volume of system, initialized
+
   integer :: pickgr = 3
   integer :: msemin = 1, msemax = 5
-  real :: mesherr = 0.1                   ! allowed mesh error in kcal/mol
-  real :: avevolume = 0.0                 ! average volume of system
+  real :: mesherr = 0.1                ! allowed mesh error in kcal/mol
+
   integer :: extthres_soln = 1, extthres_refs = 1
   integer :: minthres_soln = 0, minthres_refs = 0
   real, parameter :: zero = 0.0
@@ -57,12 +66,6 @@ module sysvars
   character(len=1024) :: cumuintfl = 'cumsfe'
   character(len=10), parameter :: numbers='0123456789'
   
-  integer :: numprm = 0                   ! initialized to be 0
-  integer :: numsln, numref, numdiv
-  integer :: maxsln, maxref, numrun, prmmax
-  integer :: numslv, ermax
-  real :: temp, kT, slfeng
-
   real, dimension(:),     allocatable :: nummol
   integer, dimension(:),  allocatable :: rduvmax, rduvcore
   real, dimension(:),     allocatable :: rdcrd, rddst, rddns
