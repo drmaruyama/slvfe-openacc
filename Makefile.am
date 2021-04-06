@@ -79,3 +79,14 @@ slvfe_LINK = $(FC_CANONICAL) $(FCFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 slvfe.$(OBJEXT): slvfe.F90 sfemain.$(OBJEXT) sfecorrect.$(OBJEXT)
 sfemain.$(OBJEXT): sfemain.F90
 sfecorrect.$(OBJEXT): sfecorrect.F90 sfemain.$(OBJEXT)
+
+# these are necessary to compile slvfe's sources without mpi
+slvfe.$(OBJEXT): $(srcdir)/slvfe.F90
+	$(FC_CANONICAL) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(FCFLAGS) -c -o $@ $<
+sfemain.$(OBJEXT): $(srcdir)/sfemain.F90
+	$(FC_CANONICAL) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(FCFLAGS) -c -o $@ $<
+sfecorrect.$(OBJEXT): $(srcdir)/sfecorrect.F90
+	$(FC_CANONICAL) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(FCFLAGS) -c -o $@ $<
