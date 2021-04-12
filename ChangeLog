@@ -1,4 +1,4 @@
-version 0.3.7 (XX XXXX 2020)
+version 0.3.7 (12 April 2021)
 * Solvation Free Energy:
     * The output convention for the mesh error is regulated by
     write_mesherror.
