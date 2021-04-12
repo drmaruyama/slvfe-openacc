@@ -11,7 +11,7 @@ nobase_pkgdata_SCRIPTS = \
 	tools/CHARMM/gen_structure tools/CHARMM/gen_input \
 	tools/refs_converge tools/refs_converge_py2 tools/refs_converge_py3
 
-dist_pkglibexec_SCRIPTS = vmdplugins/libexec/*.so
+dist_pkglibexec_SCRIPTS = $(top_srcdir)/vmdplugins/libexec/*.so
 
 ersources = enganal.F90 engmain.F90 realcal.F90 spline.F90 fft_iface.F90 mpiproc.F90 engproc.F90 recpcal.F90 insertion.F90 setconf.F90 trajectory.F90 utility.F90 bestfit.F90
 
@@ -61,16 +61,47 @@ endif
 extra_flags = 
 
 # module dependencies
-ermod-enganal.$(OBJEXT): enganal.F90 ermod-engproc.$(OBJEXT) ermod-setconf.$(OBJEXT) ermod-insertion.$(OBJEXT) ermod-trajectory.$(OBJEXT) ermod-mpiproc.$(OBJEXT) ermod-engmain.$(OBJEXT)
-ermod-engproc.$(OBJEXT): engproc.F90 ermod-insertion.$(OBJEXT) ermod-realcal.$(OBJEXT) ermod-recpcal.$(OBJEXT) ermod-bestfit.$(OBJEXT) ermod-utility.$(OBJEXT) ermod-mpiproc.$(OBJEXT) ermod-engmain.$(OBJEXT)
-ermod-realcal.$(OBJEXT): realcal.F90 ermod-engmain.$(OBJEXT)
-ermod-recpcal.$(OBJEXT): recpcal.F90 ermod-spline.$(OBJEXT) ermod-fft_iface.$(OBJEXT) ermod-mpiproc.$(OBJEXT) ermod-engmain.$(OBJEXT)
-ermod-insertion.$(OBJEXT): insertion.F90 ermod-setconf.$(OBJEXT) ermod-bestfit.$(OBJEXT) ermod-trajectory.$(OBJEXT) ermod-mpiproc.$(OBJEXT) ermod-engmain.$(OBJEXT)
-ermod-setconf.$(OBJEXT): setconf.F90 ermod-utility.$(OBJEXT) ermod-trajectory.$(OBJEXT) ermod-mpiproc.$(OBJEXT) ermod-engmain.$(OBJEXT)
-ermod-bestfit.$(OBJEXT): bestfit.F90 ermod-mpiproc.$(OBJEXT)
-ermod-trajectory.$(OBJEXT): trajectory.F90 ermod-utility.$(OBJEXT)
-ermod-utility.$(OBJEXT): utility.F90 ermod-engmain.$(OBJEXT)
-ermod-mpiproc.$(OBJEXT): mpiproc.F90 ermod-engmain.$(OBJEXT)
+$(top_builddir)/ermod-enganal.$(OBJEXT): $(top_srcdir)/enganal.F90 \
+    $(top_builddir)/ermod-engproc.$(OBJEXT) \
+    $(top_builddir)/ermod-setconf.$(OBJEXT) \
+    $(top_builddir)/ermod-insertion.$(OBJEXT) \
+    $(top_builddir)/ermod-trajectory.$(OBJEXT) \
+    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
+    $(top_builddir)/ermod-engmain.$(OBJEXT)
+$(top_builddir)/ermod-engproc.$(OBJEXT): $(top_srcdir)/engproc.F90 \
+    $(top_builddir)/ermod-insertion.$(OBJEXT) \
+    $(top_builddir)/ermod-realcal.$(OBJEXT) \
+    $(top_builddir)/ermod-recpcal.$(OBJEXT) \
+    $(top_builddir)/ermod-bestfit.$(OBJEXT) \
+    $(top_builddir)/ermod-utility.$(OBJEXT) \
+    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
+    $(top_builddir)/ermod-engmain.$(OBJEXT)
+$(top_builddir)/ermod-realcal.$(OBJEXT): $(top_srcdir)/realcal.F90 \
+    $(top_builddir)/ermod-engmain.$(OBJEXT)
+$(top_builddir)/ermod-recpcal.$(OBJEXT): $(top_srcdir)/recpcal.F90 \
+    $(top_builddir)/ermod-spline.$(OBJEXT) \
+    $(top_builddir)/ermod-fft_iface.$(OBJEXT) \
+    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
+    $(top_builddir)/ermod-engmain.$(OBJEXT)
+$(top_builddir)/ermod-insertion.$(OBJEXT): $(top_srcdir)/insertion.F90 \
+    $(top_builddir)/ermod-setconf.$(OBJEXT) \
+    $(top_builddir)/ermod-bestfit.$(OBJEXT) \
+    $(top_builddir)/ermod-trajectory.$(OBJEXT) \
+    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
+    $(top_builddir)/ermod-engmain.$(OBJEXT)
+$(top_builddir)/ermod-setconf.$(OBJEXT): $(top_srcdir)/setconf.F90 \
+    $(top_builddir)/ermod-utility.$(OBJEXT) \
+    $(top_builddir)/ermod-trajectory.$(OBJEXT) \
+    $(top_builddir)/ermod-mpiproc.$(OBJEXT) \
+    $(top_builddir)/ermod-engmain.$(OBJEXT)
+$(top_builddir)/ermod-bestfit.$(OBJEXT): $(top_srcdir)/bestfit.F90 \
+    $(top_builddir)/ermod-mpiproc.$(OBJEXT)
+$(top_builddir)/ermod-trajectory.$(OBJEXT): $(top_srcdir)/trajectory.F90 \
+    $(top_builddir)/ermod-utility.$(OBJEXT)
+$(top_builddir)/ermod-utility.$(OBJEXT): $(top_srcdir)/utility.F90 \
+    $(top_builddir)/ermod-engmain.$(OBJEXT)
+$(top_builddir)/ermod-mpiproc.$(OBJEXT): $(top_srcdir)/mpiproc.F90 \
+    $(top_builddir)/ermod-engmain.$(OBJEXT)
 
 # slvfe part
 slvfe_SOURCES = slvfe.F90 sfemain.F90 sfecorrect.F90
@@ -81,12 +112,12 @@ sfemain.$(OBJEXT): sfemain.F90
 sfecorrect.$(OBJEXT): sfecorrect.F90 sfemain.$(OBJEXT)
 
 # these are necessary to compile slvfe's sources without mpi
-slvfe.$(OBJEXT): $(srcdir)/slvfe.F90
+$(top_builddir)/slvfe.$(OBJEXT): $(top_srcdir)/slvfe.F90
 	$(FC_CANONICAL) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(FCFLAGS) -c -o $@ $<
-sfemain.$(OBJEXT): $(srcdir)/sfemain.F90
+	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(slvfe_FCFLAGS) -c -o $@ $<
+$(top_builddir)/sfemain.$(OBJEXT): $(top_srcdir)/sfemain.F90
 	$(FC_CANONICAL) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(FCFLAGS) -c -o $@ $<
-sfecorrect.$(OBJEXT): $(srcdir)/sfecorrect.F90
+	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(slvfe_FCFLAGS) -c -o $@ $<
+$(top_builddir)/sfecorrect.$(OBJEXT): $(top_srcdir)/sfecorrect.F90
 	$(FC_CANONICAL) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(FCFLAGS) -c -o $@ $<
+	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(slvfe_FCFLAGS) -c -o $@ $<

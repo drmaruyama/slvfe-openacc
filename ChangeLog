@@ -4,6 +4,10 @@ version 0.3.7 (XX XXXX 2020)
     write_mesherror.
     * The energy coordinates need not be the same among all the solvent
     species when the running integrals are calculated.
+* Build System:
+    * Whole slvfe source codes are now compiled with a non-MPI fortran compiler.
+    * You can now build programs outside the top directory of the archive,
+    i.e., "mkdir build; cd build; ../configure && make && make install" works.
 
 version 0.3.6 (28 June 2019)
 * Energy Histogram Computation:
