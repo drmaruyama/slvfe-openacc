@@ -332,7 +332,7 @@ class topology:
         moltype2composition={}
         moltype2charges={}
         moltype2types={}
-        for root, atoms in root2atoms.items():
+        for root, atoms in sorted(root2atoms.items(), key=lambda x:x[0]):
             charges = [self.atom2charge[str(a)] for a in atoms]
             types   = [self.atom2type  [str(a)] for a in atoms]
             composition = atomtypes2molname([atomtype_of_mass(self.atomtype2mass[self.atom2type[str(a)]]) for a in atoms])
