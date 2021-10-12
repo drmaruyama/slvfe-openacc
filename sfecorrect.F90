@@ -124,6 +124,23 @@ contains
     real, parameter :: volm_min = 1.40e4
     integer :: stat
 
+    ! Initialization of the variables
+    !       that are the ene_param namelist but are not used in this program
+    iseed = 0 ; skpcnf = 1 ; corrcal = 0 ; selfcal = 0
+    slttype = 1 ; wgtslf = 0 ; wgtsys = 0 ; wgtins = 0
+    boxshp = 1 ; estype = 1
+    sltspec = 1 ; hostspec(:) = 0 ; refspec(:) = 0
+    lwreg = 0 ; upreg = lwreg ; lwstr = 0 ; upstr = lwstr
+    insposition = 0 ; insorient = 0 ; insstructure = 0
+    sltpick = sltspec ; refpick = 0 ; inscnd = 0 ; inscfg = 0
+    inptemp = 300 ; temp = 0.592 ; engdiv = 1 ; maxins = 0
+    intprm = 1 ; elecut = 12.0
+    cltype = 2 ; screen = 0 ; ewtoler = 1.0e-5 ; splodr = 6
+    ew1max = 0 ; ew2max = 0 ; ew3max = 0 ; ms1max = 0 ; ms2max = 0 ; ms3max = 0
+    ermax_limit = 15000 ; block_threshold = 4.0 ; force_calculation = .false.
+    ! The above initialization is done
+    !       to prevent possible errors due to memory allocation
+
     ljformat = LJFMT_EPS_Rminh                    ! default setting
     ljswitch = LJSWT_POT_CHM                      ! default setting
     cmbrule = LJCMB_ARITH                         ! default setting
