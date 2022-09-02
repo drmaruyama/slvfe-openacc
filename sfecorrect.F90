@@ -125,7 +125,7 @@ contains
     integer :: stat
 
     ! Initialization of the variables
-    !       that are the ene_param namelist but are not used in this program
+    !    that are in the ene_param namelist but are not used in this program
     iseed = 0 ; skpcnf = 1 ; corrcal = 0 ; selfcal = 0
     slttype = 1 ; wgtslf = 0 ; wgtsys = 0 ; wgtins = 0
     boxshp = 1 ; estype = 1
@@ -139,7 +139,7 @@ contains
     ew1max = 0 ; ew2max = 0 ; ew3max = 0 ; ms1max = 0 ; ms2max = 0 ; ms3max = 0
     ermax_limit = 15000 ; block_threshold = 4.0 ; force_calculation = .false.
     ! The above initialization is done
-    !       to prevent possible errors due to memory allocation
+    !    to prevent possible errors due to memory allocation
 
     ljformat = LJFMT_EPS_Rminh                    ! default setting
     ljswitch = LJSWT_POT_CHM                      ! default setting
