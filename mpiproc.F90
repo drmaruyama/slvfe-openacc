@@ -276,8 +276,8 @@ contains
     implicit none
     character(len=4), intent(in) :: typ
     if(typ == 'mbin') write(stdout, '(A)') " Warning: the maximum binning energy is too low for this species"
-    if(typ == 'emax') write(stdout, '(A)') " Warning: number of total bins in distribution function is too large",&
-         " and requiring too much memory"
+    if(typ == 'emax') write(stdout, '(A)') " Warning: number of total bins in distribution function is too large" // &
+         " (and will presumably require large memory)"
     if(force_calculation) return
     write(stdout, '(A)') "The program aborts because there is a warning"
     write(stdout, '(A,A)') "If you wish to force program running, specify 'force_calculation = .true.' in parameters_er, ", &

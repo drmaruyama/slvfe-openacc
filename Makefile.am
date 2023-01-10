@@ -9,7 +9,11 @@ nobase_pkgdata_SCRIPTS = \
 	tools/MODYLAS/gen_structure tools/MODYLAS/gen_input \
 	tools/LAMMPS/gen_structure tools/LAMMPS/gen_input \
 	tools/CHARMM/gen_structure tools/CHARMM/gen_input \
+	tools/GENESIS/gen_structure tools/GENESIS/gen_input \
+	tools/GENESIS/gen_structure_AMBER tools/GENESIS/gen_structure_CHARMM \
 	tools/refs_converge tools/refs_converge_py2 tools/refs_converge_py3
+
+#	tools/GENESIS/gen_structure_GROMACS # <- In GENESIS, GROMACS is unsupported officially so not included in SCRIPTS
 
 dist_pkglibexec_SCRIPTS = $(top_srcdir)/vmdplugins/libexec/*.so
 
