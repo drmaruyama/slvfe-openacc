@@ -29,6 +29,7 @@ EXTRA_DIST += tools/MARBLE/*
 EXTRA_DIST += tools/MODYLAS/*
 EXTRA_DIST += tools/LAMMPS/*
 EXTRA_DIST += tools/CHARMM/*
+EXTRA_DIST += tools/GENESIS/*
 EXTRA_DIST += tools/mol_dissection
 EXTRA_DIST += tools/refs_converge tools/refs_converge_py2 tools/refs_converge_py3
 EXTRA_DIST += vmdplugins/*.C vmdplugins/*.c vmdplugins/*.h vmdplugins/*.cxx vmdplugins/*.hxx vmdplugins/Makefile vmdplugins/LICENSE
