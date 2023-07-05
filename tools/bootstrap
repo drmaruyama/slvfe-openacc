@@ -473,14 +473,14 @@ def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr
         i_pre_fene = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line][0]
         fene = float(lines[i_pre_fene+1].split()[1])
 
-        i = [i for i, line in enumerate(lines) if 'solvation free energy     error' in line][0]
+        i = [i for i, line in enumerate(lines) if 'solvation free energy' in line and 'difference' in line][0]
         vals = []
         while True:
             i += 1
             if len(lines[i].strip()) == 0:
                 break
 
-            val = abs(float(lines[i].split()[3]))
+            val = abs(float(lines[i].split()[-1]))
             vals.append(val)
         merr = max(vals)
         return fene, merr
