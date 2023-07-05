@@ -1,0 +1,664 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Bootstrap statistics for solvation free energy
+
+    Copyright (C) 2023 Hidekazu KOJIMA
+
+    Requirement: 
+        - Python3.8 or higher
+        - NumPy
+        - SciPy
+"""
+import os
+import argparse
+import json
+import random
+import shutil
+import subprocess as sp
+try:
+    import numpy as np
+except ModuleNotFoundError:
+    print('Install numpy to run this program')
+    exit(1)
+try:
+    from scipy.io import FortranFile
+except ModuleNotFoundError:
+    print('Install scipy to run this program')
+    exit(1)
+
+
+class ERmodDataAverager:
+    def __init__(self):
+        self.short_type_name_dct = {'soln': 'sln', 'refs': 'ref'}
+
+    def make_sample_list(self, dir_lst, sys_type):
+        smpl_lst = []
+        for i_dir, dir_path in enumerate(dir_lst):
+            n_blk = self.get_n_block(dir_path, sys_type)
+            smpl_lst.extend([[i_dir, i] for i in range(n_blk)])
+        return smpl_lst
+
+    def get_n_block(self, dir_path, sys_type):
+        file_path = os.path.join(dir_path, 'weight_{}'.format(sys_type))
+        with open(file_path, 'r') as f:
+            n_blk = len(f.readlines())
+        return n_blk
+
+    def average_data(self, sys_type, dir_lst, sel_ids, dst_dir):
+        self.dir_lst = dir_lst
+        self.sys_type = sys_type
+        self.sel_ids = sel_ids
+        self.dst_dir = dst_dir
+
+        if self.__is_end():
+            return False
+
+        ws = self.__get_weight()
+
+        self.__average_weight(ws)
+        self.__average_eng(ws)
+        if sys_type == 'soln':
+            self.__average_aveuv(ws)
+        elif sys_type == 'refs':
+            self.__average_cor(ws)
+        return True
+
+    def __is_end(self):
+        if self.sys_type == 'soln':
+            dst = os.path.join(self.dst_dir, 'aveuv.tt')
+            if os.path.exists(dst):
+                return True
+        elif self.sys_type == 'refs':
+            file_stem = 'cor{}'.format(self.short_type_name_dct[self.sys_type])
+            dst = self.__get_engcor_filepath(self.dst_dir, 1, file_stem, is_input=False)
+            if os.path.exists(dst):
+                return True
+        return False
+
+    def __average_cor(self, ws):
+
+        def get_dist_info():
+            file_stem = 'eng{}'.format(self.short_type_name_dct[self.sys_type])
+            file_path = self.__get_engcor_filepath(self.dir_lst[0], 1, file_stem)
+
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+
+            n_bin = 0
+            for line in lines:
+                items = line.split()
+                i_mol = int(items[1])
+                if i_mol != 1:
+                    break
+                n_bin += 1
+
+            n_mol_spec = int(lines[-1].split()[1])
+
+            return n_bin, n_mol_spec
+
+        def read_cor(file_path, n_bin, n_mol_spec, corr):
+            with FortranFile(file_path, 'r') as f:
+                if corr is None:
+                    corr = f.read_reals().reshape((n_mol_spec*n_mol_spec, n_bin, n_bin))
+                else:
+                    corr[:,:,:] = f.read_reals().reshape((n_mol_spec*n_mol_spec, n_bin, n_bin))
+            return corr
+
+        def write_cor(file_path, corr):
+            with FortranFile(file_path, 'w') as f:
+                f.write_record(corr)
+            return
+
+
+        n_bin, n_mol_spec = get_dist_info()
+        file_stem = 'cor{}'.format(self.short_type_name_dct[self.sys_type])
+
+        # read data
+        corr = None
+        sum_corr = None
+        for i, sel_id in enumerate(self.sel_ids):
+            dir_path = self.dir_lst[sel_id[0]]
+            blk_id = sel_id[1] + 1
+            file_path = self.__get_engcor_filepath(dir_path, blk_id, file_stem)
+
+            corr = read_cor(file_path, n_bin, n_mol_spec, corr)
+            if sum_corr is None:
+                sum_corr = np.zeros_like(corr)
+            sum_corr += corr * ws[i]
+
+        # output
+        dst = self.__get_engcor_filepath(self.dst_dir, 1, file_stem, is_input=False)
+        ave_corr = sum_corr / np.sum(ws)
+        write_cor(dst, ave_corr)
+        return
+
+    def __average_aveuv(self, ws):
+        vals_lst = []
+
+        #read data
+        for sel_id in self.sel_ids:
+            dir_path = self.dir_lst[sel_id[0]]
+            file_path = os.path.join(dir_path, 'aveuv.tt')
+            with open(file_path, 'r') as f:
+                with open(file_path, 'r') as f:
+                    lines = f.readlines()
+                vals = lines[sel_id[1]][5:].split()
+            
+                if not vals_lst:
+                    vals_lst = [[float(val)] for val in vals]
+                else:
+                    for i, val in enumerate(vals):
+                        vals_lst[i].append(float(val))
+
+        # output
+        dst = os.path.join(self.dst_dir, 'aveuv.tt')
+        with open(dst, 'w') as f:
+            f.write('{:>5}'.format(1))
+            for vals in vals_lst:
+                vals = np.array(vals, dtype=np.float64)
+                ave = np.sum(vals * ws) / np.sum(ws)
+                f.write('{:>15.5f}'.format(ave))
+            f.write('\n')
+        return
+
+    def __average_eng(self, ws):
+        file_stem = 'eng{}'.format(self.short_type_name_dct[self.sys_type])
+
+        # read data
+        vals_lst = None
+        for i_smpl, sel_id in enumerate(self.sel_ids):
+            dir_path = self.dir_lst[sel_id[0]]
+            blk_id = sel_id[1] + 1
+
+            file_path = self.__get_engcor_filepath(dir_path, blk_id, file_stem)
+            with open(file_path, 'r') as f:
+                lines = f.read().splitlines()
+            
+            if vals_lst is None:
+                vals_lst = np.zeros((len(self.sel_ids), len(lines)), dtype=np.float64)
+
+            vals = [float(line.split()[2]) for line in lines]
+            vals_lst[i_smpl, :] = vals[:]
+
+        # output
+        src = self.__get_engcor_filepath(self.dir_lst[0], 1, file_stem)
+        dst = self.__get_engcor_filepath(self.dst_dir, 1, file_stem, is_input=False)
+        ws_sum = np.sum(ws)
+        with open(src, 'r') as fs, open(dst, 'w') as fd:
+            for i, line in enumerate(fs):
+                ave = np.sum(vals_lst[:, i] * ws[:]) / ws_sum
+                fd.write('{}{:>24.15E}\n'.format(line[:21], ave))
+        return
+
+    def __get_engcor_filepath(self, dir_path, blk_id, file_stem, is_input=True):
+        file_path = os.path.join(dir_path, '{}.{:02}'.format(file_stem, blk_id))
+        if is_input:
+            if not os.path.exists(file_path):
+                file_path = os.path.join(dir_path, '{}.tt'.format(file_stem))
+                if not os.path.exists(file_path):
+                    print('file {} is not found'.format(file_path))
+                    exit(1)
+        return file_path
+
+    def __average_weight(self, ws):
+        # get self energy
+        self_ene = ''
+        if self.sys_type == 'refs':
+            vals = []
+            for sel_id in self.sel_ids:
+                dir_path = self.dir_lst[sel_id[0]]
+                file_path = os.path.join(dir_path, 'weight_{}'.format(self.sys_type))
+                with open(file_path, 'r') as f:
+                    lines = f.readlines()
+                val = float(lines[sel_id[1]].split()[2])
+                vals.append(val)
+            vals = np.array(vals, dtype=np.float64)
+
+            ave = np.sum(vals * ws) / np.sum(ws)
+            self_ene = '{:>20.7E}'.format(ave)
+
+        # output
+        dst = os.path.join(self.dst_dir, 'weight_{}'.format(self.sys_type))
+        with open(dst, 'w') as f:
+            f.write('{:>5}{:>20.8E}{}\n'.format(1, np.mean(ws), self_ene))
+        return
+
+    def __get_weight(self):
+        ws = []
+        for sel_id in self.sel_ids:
+            dir_path = self.dir_lst[sel_id[0]]
+            file_path = os.path.join(dir_path, 'weight_{}'.format(self.sys_type))
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+            w = float(lines[sel_id[1]].split()[1])
+            ws.append(w)
+
+        ws = np.array(ws, dtype=np.float64)
+        return ws
+
+
+class BSManager:
+    def __init__(self, intr_file, n_bs, mode):
+        self.intr_file = intr_file 
+        self.n_bs = n_bs
+        if os.path.exists(intr_file):
+            self.bs_info = read_json(intr_file)
+            self.__check_condition(mode)
+        else:
+            self.bs_info = {}
+            self.bs_info['cnd'] = {'mode': mode}
+            self.bs_info['bs_lst'] = []
+        self.bs_info['bs_lst'] = self.__initialize_bs_data_list(self.bs_info['bs_lst'], n_bs)
+
+    def __initialize_bs_data_list(self, lst, n_bs):
+        """
+        make list to store data of each bootstrap sample
+        """
+        for i in range(n_bs-len(lst)):
+            d = {}
+            d['fene'] = None # solvation free energy
+            d['merr'] = None # mesh error
+            d['soln'] = None # sample ID list of soln
+            d['refs'] = None # sample ID list of refs
+            lst.append(d)
+        return lst
+
+    def __check_condition(self, mode):
+        if self.bs_info['cnd']['mode'] != mode:
+            print('The mode argument of thie program is not the same as that in the intermediate data file {}.'.format(self.intr_file))
+            print('Remove the intermediate data file if the mode argument is changed.')
+            exit(1)
+        return
+
+    def get_n_bs(self):
+        return self.n_bs
+
+    def is_not_end(self, i_bs):
+        if self.bs_info['bs_lst'][i_bs]['fene'] is None:
+            return True
+        else:
+            return False
+
+    def choose_sample(self, sys_type, i_bs, smpl_lst):
+        sel_ids = random.choices(smpl_lst, k=len(smpl_lst))
+        self.bs_info['bs_lst'][i_bs][sys_type] = sel_ids
+        return sel_ids
+
+    def store_slvfe_output(self, i_bs, fene, merr):
+        self.bs_info['bs_lst'][i_bs]['fene'] = fene
+        self.bs_info['bs_lst'][i_bs]['merr'] = merr
+        return
+
+    def save_data(self):
+        dump_json(self.intr_file, self.bs_info)
+        return
+
+    def show_statistics(self, pfe_d):
+        fenes = np.array([lst['fene'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs])
+        fene_ave = np.mean(fenes)
+        fene_err = fenes.std(ddof=1) * 1.96
+        merr_ave = np.mean([lst['merr'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs])
+
+        print('{:^10} {:^10} (in kcal/mol)'.format('average', '95% error'))
+        print('{:^10.3f} {:^10.3f}'.format(fene_ave, fene_err))
+        print()
+        if pfe_d['write_mesherror'] == 'not':
+            print()
+        elif pfe_d['write_mesherror'] == 'yes':
+            print('Average mesh error is {:.3f} kcal/mol'.format(merr_ave))
+        elif merr_ave < float(pfe_d['mesherr']):
+            print()
+        elif pfe_d['clcond'] == 'merge' and merr_ave > fene_err:
+            print('Warning: average mesh error is {:.3f} kcal/mol and is larger than the 95% error of {} kcal/mol'.format(merr_ave, fene_err))
+        elif float(pfe_d['mesherr']) > 0.0 and merr_ave > float(pfe_d['mesherr']):
+            print('Warning: average mesh error is {:.3f} kcal/mol and is larger than the threshold value of {} kcal/mol'.format(merr_ave, pfe_d['mesherr']))
+
+        return
+
+    def dump_each_bs(self, bs_file):
+        fenes = [lst['fene'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs]
+        merrs = [lst['merr'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs]
+
+        with open(bs_file, 'w') as f:
+            f.write('#{:^21} {:^21}\n'.format('solvation free energy', 'mesh error'))
+            for fene, merr in zip(fenes, merrs):
+                f.write(' {:^21.3f} {:^21.3f}\n'.format(fene, merr))
+        return
+
+
+class ParmFEManager:
+    def __init__(self, pfe_file):
+        self.pfe_file = pfe_file
+        self.__check_condition()
+        self.parm_d = self.__make_parm_dict(pfe_file)
+        self.exc_lst = ['write_mesherror']
+
+    def __check_condition(self):
+        if not os.path.exists(self.pfe_file):
+            print('Error: {} is not found.'.format(self.pfe_file))
+            exit(1)
+        return
+
+    def __make_parm_dict(self, pfe_file):
+        d = {}
+        with open(pfe_file, 'r') as f:
+            for line in f:
+                if '=' in line:
+                    items = line.strip().split('=')
+                    d[items[0]] = items[1]
+
+        # set default values
+        if 'solndirec' not in d:
+            d['solndirec'] = '\"soln\"'
+        if 'refsdirec' not in d:
+            d['refsdirec'] = '\"refs\"'
+        if 'write_mesherror' not in d:
+            d['write_mesherror'] = ''
+        if 'mesherr' not in d:
+            d['mesherr'] = 0.1
+        if 'clcond' not in d:
+            d['clcond'] = 'merge'
+
+        # set values
+        d['numsln'] = 1
+        d['numref'] = 1
+        d['numdiv'] = 1
+        return d
+
+    def get_parm(self, key):
+        return self.parm_d[key].replace('\"', '')
+
+    def get_parm_dict(self):
+        return self.parm_d
+
+    def make_parameters_fe(self, file_name='parameters_fe'):
+        with open(file_name, 'w') as f:
+            f.write('&fevars\n')
+            for key, val in self.parm_d.items():
+                if key in self.exc_lst:
+                    continue
+                f.write('{} = {},\n'.format(key, val))
+            f.write('/\n')
+        return
+
+
+def make_directory_list(soln_dir_list_file, refs_dir_list_file, pfe_mngr):
+    d = {}
+
+    tmp_dct = {}
+    tmp_dct['soln'] = {'dir_list_file': soln_dir_list_file, 'dir_key': 'solndirec'}
+    tmp_dct['refs'] = {'dir_list_file': refs_dir_list_file, 'dir_key': 'refsdirec'}
+    for sys_type, tmp_d in tmp_dct.items():
+        dir_list_file = tmp_d['dir_list_file']
+        if dir_list_file:
+            with open(dir_list_file, 'r') as f:
+                lst = []
+                for line in f.read().splitlines():
+                    if line[-1] == '/':
+                        line = line[:-1]
+                    lst.append(line)
+        else:
+            lst = [pfe_mngr.get_parm(tmp_d['dir_key'])]
+        d[sys_type] = lst
+
+    return d
+
+
+def make_average_data_directory(orig_dir_lst_dct, er_avgr, notify_freq):
+    """
+    Averaging the data in each of the soln and refs directories
+    and creating a directory which stores the averaged data.
+    """
+
+    work_dir_lst_dct = {}
+    for sys_type, orig_dir_lst in orig_dir_lst_dct.items():
+        print('  {}: '.format(sys_type), end='', flush=True)
+
+        work_dir_lst = []
+        n_dir = len(orig_dir_lst)
+        cnt = 0
+        cnt_note = 0
+        for orig_dir in orig_dir_lst:
+            cnt += 1
+
+            dir_lst = [orig_dir]
+            smpl_lst = er_avgr.make_sample_list(dir_lst, sys_type)
+            if len(smpl_lst) == 1:
+                work_dir = orig_dir
+                done_average = False
+            else:
+                work_dir = '{}.ave'.format(orig_dir)
+                mkdir(work_dir)
+                done_average = er_avgr.average_data(sys_type, dir_lst, smpl_lst, work_dir)
+            work_dir_lst.append(work_dir)
+
+            if cnt%notify_freq == 0 or (cnt) == n_dir:
+                cnt_note += 1
+                if done_average:
+                    print('{:<6} {:<3}   '.format('sample', cnt), end='', flush=True)
+                else:
+                    print('{:<6} {:<3}   '.format('done', cnt), end='', flush=True)
+
+                if cnt < n_dir and cnt_note%10 == 0:
+                    print('\n        ', end='', flush=True)
+
+        work_dir_lst_dct[sys_type] = work_dir_lst
+        print()
+
+    print()
+    return work_dir_lst_dct
+
+
+def make_sample_list(work_dir_lst_dct, er_avgr):
+    """
+    Make list of ID [i, j] of samples:
+        i: the directory number in the soln/refs directory list
+        j: the block number in the directory
+    """
+    d = {}
+
+    for sys_type, dir_lst in work_dir_lst_dct.items():
+        d[sys_type] = er_avgr.make_sample_list(dir_lst, sys_type)
+
+    return  d
+
+
+def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr, er_avgr, n_sp, cmd_slvfe, notify_freq):
+
+    def get_slvfe_output(proc):
+        stdout, stderr = proc.communicate()
+        lines = stdout.decode().split('\n')
+
+        i_pre_fene = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line][0]
+        fene = float(lines[i_pre_fene+1].split()[1])
+
+        i = [i for i, line in enumerate(lines) if 'solvation free energy     error' in line][0]
+        vals = []
+        while True:
+            i += 1
+            if len(lines[i].strip()) == 0:
+                break
+
+            val = abs(float(lines[i].split()[3]))
+            vals.append(val)
+        merr = max(vals)
+        return fene, merr
+
+
+    n_bs = bs_mngr.get_n_bs()
+
+    cnt_proc = 0
+    cnt_note = 0
+    work_dirs = []
+    bs_ids = []
+    procs = []
+    print('  ', end='', flush=True)
+    for i_bs in range(n_bs):
+        i_bsp = i_bs + 1
+        done_anal = False
+
+        if bs_mngr.is_not_end(i_bs):
+            done_anal = True
+
+            cnt_proc += 1
+            work_dir = 'tmp.bs.sp{}'.format(i_bs)
+            
+            # perform sampling with replacement, and create the average data from those samples.
+            for sys_type, smpl_lst in smpl_lst_dct.items():
+                dir_lst = work_dir_lst_dct[sys_type]
+                ave_dir = os.path.join(work_dir, sys_type)
+                mkdir(ave_dir)
+
+                sel_ids = bs_mngr.choose_sample(sys_type, i_bs, smpl_lst)
+                er_avgr.average_data(sys_type, dir_lst, sel_ids, ave_dir)
+
+            # run slvfe
+            os.chdir(work_dir)
+            if True:
+                pfe_mngr.make_parameters_fe()
+                proc = sp.Popen([cmd_slvfe], stdout=sp.PIPE, stderr=sp.PIPE)
+            os.chdir('..')
+
+            work_dirs.append(work_dir)
+            bs_ids.append(i_bs)
+            procs.append(proc)
+
+        if i_bsp%notify_freq == 0 or (i_bsp) == n_bs:
+            cnt_note += 1
+            if done_anal:
+                print('{:<6} {:<4}     '.format('sample', i_bsp), end='', flush=True)
+            else:
+                print('{:<6} {:<4}     '.format('done', i_bsp), end='', flush=True)
+
+            if i_bsp < n_bs and cnt_note%5 == 0:
+                print('\n  ', end='', flush=True)
+
+        # If the number of concurrent executions has reached the limit or the last was executed,
+        # wait for the executions to finish and then save the results.
+        if cnt_proc%n_sp == 0 or (i_bsp) == n_bs:
+            for i in range(len(bs_ids)):
+                fene, merr = get_slvfe_output(procs[i])
+                bs_mngr.store_slvfe_output(bs_ids[i], fene, merr)
+                shutil.rmtree(work_dirs[i])
+                
+            bs_mngr.save_data()
+            work_dirs = []
+            bs_ids = []
+            procs = []
+
+    print('\n')
+    return
+
+
+def work(mode, soln_dir_list_file, refs_dir_list_file, n_bs, pfe_file, n_sp, intr_file, bs_file, cmd_slvfe, notify_freq):
+    bs_mngr = BSManager(intr_file, n_bs, mode)
+    pfe_mngr = ParmFEManager(pfe_file)
+    er_avgr = ERmodDataAverager()
+
+    # make list of directory where original files are located
+    orig_dir_lst_dct = make_directory_list(soln_dir_list_file, refs_dir_list_file, pfe_mngr)
+
+    # make list of directory where sample files are located
+    if mode == 'block':
+        work_dir_lst_dct = orig_dir_lst_dct
+    elif mode == 'traj':
+        print('data averaging of soln and refs')
+        work_dir_lst_dct = make_average_data_directory(orig_dir_lst_dct, er_avgr, notify_freq)
+
+    # make list of samples
+    smpl_lst_dct = make_sample_list(work_dir_lst_dct, er_avgr)
+
+    # run bootstrap sampling
+    print('bootstrap sampling')
+    perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr, er_avgr, n_sp, cmd_slvfe, notify_freq)
+
+    # result
+    bs_mngr.show_statistics(pfe_mngr.get_parm_dict())
+    if bs_file:
+        bs_mngr.dump_each_bs(bs_file)
+    return
+
+
+def main():
+    args = get_args()
+    cmd_slvfe_work, notify_freq = check_condition(args.cmd_slvfe, args.notify_freq)
+    work(args.mode, args.soln_dir_list_file, args.refs_dir_list_file, args.n_bs, args.pfe_file, args.n_sp, args.intr_file, args.bs_file, cmd_slvfe_work, notify_freq)
+    return
+
+
+def check_condition(cmd_slvfe, notify_freq):
+    if 'OMP_NUM_THREADS' not in os.environ:
+        print('Set the environment variable OMP_NUM_THREADS before running this program to control the CPU usage')
+        exit(1)
+
+    if cmd_slvfe:
+        if shutil.which(cmd_slvfe) is None:
+            print('slvfe executable is not found')
+            exit(1)
+    elif shutil.which('slvfe') is None:
+        print('no path to slvfe')
+        exit(1)
+    if cmd_slvfe:
+        cmd_slvfe_work = cmd_slvfe
+    else:
+        cmd_slvfe_work = 'slvfe'
+
+    if notify_freq <= 0:
+        notify_freq = 1000000
+
+    return cmd_slvfe_work, notify_freq
+
+
+def get_args():
+    message = ''
+    parser = argparse.ArgumentParser(description=message, formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument('-nb', '--n_bs', type=int, required=True,
+                        help='number of bootstrap samples')
+    parser.add_argument('-m', '--mode', type=str, default='block',
+                        choices=['block', 'traj'],
+                        help='block: a single block within a trajectory as a single sample\ntraj:  a signle trajectory (all the divided blocks in a soln or refs directory) as a single sample')
+    parser.add_argument('-s', '--soln_dir_list_file', type=str, default='',
+                        help='filename to list the solnution directories to be read')
+    parser.add_argument('-r', '--refs_dir_list_file', type=str, default='',
+                        help='filename to list the reference-solvent directories to be read')
+
+    parser.add_argument('-np', '--n_sp', type=int, default=1,
+                        help='number of subprocesses to run slvfe concurrently')
+    parser.add_argument('-nf', '--notify_freq', type=int, default=5,
+                        help='frequency of notification of processing sample ID')
+
+    parser.add_argument('-fp', '--pfe_file', type=str, default='./parameters_fe',
+                        help='file corresponding to parameters_fe')
+    parser.add_argument('-fi', '--intr_file', type=str, default='./.bs.data.json',
+                        help='intermediate data file of bootstrap sampling (json)')
+    parser.add_argument('-fb', '--bs_file', type=str, default='',
+                        help='filename to store result of bootstrap samples')
+
+    parser.add_argument('-cs', '--cmd_slvfe', type=str, default='',
+                        help='command or executable binary file of slvfe')
+
+    return parser.parse_args()
+
+    
+def mkdir(dir_path):
+    os.makedirs(dir_path, exist_ok=True)
+    return
+
+
+def read_json(input_file):
+    with open(input_file, 'r') as f:
+        data_dict = json.load(f)
+    return data_dict
+
+
+def dump_json(output_file, d, width=0):
+    with open(output_file, 'w') as f:
+        json.dump(d, f, indent=width)
+    return
+
+
+if __name__ == '__main__':
+    main()
+
