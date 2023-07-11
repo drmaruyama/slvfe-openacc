@@ -18,19 +18,18 @@ import shutil
 import subprocess as sp
 try:
     import numpy as np
-except ModuleNotFoundError:
-    print('Install numpy to run this program')
-    exit(1)
-try:
     from scipy.io import FortranFile
 except ModuleNotFoundError:
     print('Install scipy to run this program')
     exit(1)
 
+# rem
+#   bs file format
+#   multi mesh_error
 
 class ERmodDataAverager:
     def __init__(self):
-        self.short_type_name_dct = {'soln': 'sln', 'refs': 'ref'}
+        self.short_name_dct = {'soln': 'sln', 'refs': 'ref'}
 
     def make_sample_list(self, dir_lst, sys_type):
         smpl_lst = []
@@ -70,7 +69,7 @@ class ERmodDataAverager:
             if os.path.exists(dst):
                 return True
         elif self.sys_type == 'refs':
-            file_stem = 'cor{}'.format(self.short_type_name_dct[self.sys_type])
+            file_stem = 'cor{}'.format(self.short_name_dct[self.sys_type])
             dst = self.__get_engcor_filepath(self.dst_dir, 1, file_stem, is_input=False)
             if os.path.exists(dst):
                 return True
@@ -79,7 +78,7 @@ class ERmodDataAverager:
     def __average_cor(self, ws):
 
         def get_dist_info():
-            file_stem = 'eng{}'.format(self.short_type_name_dct[self.sys_type])
+            file_stem = 'eng{}'.format(self.short_name_dct[self.sys_type])
             file_path = self.__get_engcor_filepath(self.dir_lst[0], 1, file_stem)
 
             with open(file_path, 'r') as f:
@@ -112,7 +111,7 @@ class ERmodDataAverager:
 
 
         n_bin, n_mol_spec = get_dist_info()
-        file_stem = 'cor{}'.format(self.short_type_name_dct[self.sys_type])
+        file_stem = 'cor{}'.format(self.short_name_dct[self.sys_type])
 
         # read data
         corr = None
@@ -163,7 +162,7 @@ class ERmodDataAverager:
         return
 
     def __average_eng(self, ws):
-        file_stem = 'eng{}'.format(self.short_type_name_dct[self.sys_type])
+        file_stem = 'eng{}'.format(self.short_name_dct[self.sys_type])
 
         # read data
         vals_lst = None
@@ -257,10 +256,10 @@ class BSManager:
         """
         for i in range(n_bs-len(lst)):
             d = {}
-            d['fene'] = None # solvation free energy
-            d['merr'] = None # mesh error
-            d['soln'] = None # sample ID list of soln
-            d['refs'] = None # sample ID list of refs
+            d['fenes'] = None # solvation free energy
+            d['merrs'] = None  # mesh error
+            d['soln'] = None  # sample ID list of soln
+            d['refs'] = None  # sample ID list of refs
             lst.append(d)
         return lst
 
@@ -275,7 +274,7 @@ class BSManager:
         return self.n_bs
 
     def is_not_end(self, i_bs):
-        if self.bs_info['bs_lst'][i_bs]['fene'] is None:
+        if self.bs_info['bs_lst'][i_bs]['fenes'] is None:
             return True
         else:
             return False
@@ -285,9 +284,9 @@ class BSManager:
         self.bs_info['bs_lst'][i_bs][sys_type] = sel_ids
         return sel_ids
 
-    def store_slvfe_output(self, i_bs, fene, merr):
-        self.bs_info['bs_lst'][i_bs]['fene'] = fene
-        self.bs_info['bs_lst'][i_bs]['merr'] = merr
+    def store_slvfe_output(self, i_bs, fenes, merrs):
+        self.bs_info['bs_lst'][i_bs]['fenes'] = fenes
+        self.bs_info['bs_lst'][i_bs]['merrs'] = merrs
         return
 
     def save_data(self):
@@ -295,35 +294,69 @@ class BSManager:
         return
 
     def show_statistics(self, pfe_d):
-        fenes = np.array([lst['fene'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs])
-        fene_ave = np.mean(fenes)
-        fene_err = fenes.std(ddof=1) * 1.96
-        merr_ave = np.mean([lst['merr'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs])
+        n_type = len(self.bs_info['bs_lst'][0]['fenes'])
+        fene_errs = []
+        val_types = []
+        print('{:^11} {:^14} {:^14} (in kcal/mol)'.format('', '   average', '  95% error'))
+        for i_type in range(n_type):
+            vals = np.array([lst['fenes'][i_type] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs])
+            fene_ave = np.mean(vals)
+            fene_err = vals.std(ddof=1) * 1.96
+            if i_type == 0:
+                if n_type == 1:
+                    val_type = ''
+                else:
+                    val_type = 'total value'
+            else:
+                val_type = 'component {:<2}'.format(i_type)
+            print('{:<12} {:^14.3f} {:^14.3f}'.format(val_type, fene_ave, fene_err))
 
-        print('{:^10} {:^10} (in kcal/mol)'.format('average', '95% error'))
-        print('{:^10.3f} {:^10.3f}'.format(fene_ave, fene_err))
+            fene_errs.append(fene_err)
+            val_types.append(val_type)
         print()
-        if pfe_d['write_mesherror'] == 'not':
-            print()
-        elif pfe_d['write_mesherror'] == 'yes':
-            print('Average mesh error is {:.3f} kcal/mol'.format(merr_ave))
-        elif merr_ave < float(pfe_d['mesherr']):
-            print()
-        elif pfe_d['clcond'] == 'merge' and merr_ave > fene_err:
-            print('Warning: average mesh error is {:.3f} kcal/mol and is larger than the 95% error of {} kcal/mol'.format(merr_ave, fene_err))
-        elif float(pfe_d['mesherr']) > 0.0 and merr_ave > float(pfe_d['mesherr']):
-            print('Warning: average mesh error is {:.3f} kcal/mol and is larger than the threshold value of {} kcal/mol'.format(merr_ave, pfe_d['mesherr']))
 
+        for i_type in range(n_type):
+            fene_err = fene_errs[i_type]
+            val_type = val_types[i_type]
+
+            if n_type == 1:
+                type_str = ''
+            else:
+                if i_type == 0:
+                    type_str = 'for the total '
+                else:
+                    type_str = 'for {} '.format(val_type)
+
+            merr_ave = np.mean([lst['merrs'][i_type] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs])
+            if pfe_d['write_mesherror'] == 'not':
+                pass
+            elif pfe_d['write_mesherror'] == 'yes':
+                print('Average mesh error is {:.3f} kcal/mol {}'.format(merr_ave, type_str))
+            elif merr_ave < float(pfe_d['mesherr']):
+                pass
+            elif pfe_d['clcond'] == 'merge' and merr_ave > fene_err:
+                print('Warning: average mesh error is {:.3f} kcal/mol {}and is larger than the 95% error of {:.3f} kcal/mol'.format(merr_ave, type_str, fene_err))
+            elif float(pfe_d['mesherr']) > 0.0 and merr_ave > float(pfe_d['mesherr']):
+                print('Warning: average mesh error is {:.3f} kcal/mol {}and is larger than the threshold value of {} kcal/mol'.format(merr_ave, type_str, pfe_d['mesherr']))
+
+        self.val_types = val_types
         return
 
     def dump_each_bs(self, bs_file):
-        fenes = [lst['fene'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs]
-        merrs = [lst['merr'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs]
+        fenes_lst = [lst['fenes'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs]
+        merrs_lst = [lst['merrs'] for i, lst in enumerate(self.bs_info['bs_lst']) if i < self.n_bs]
+        n_type = len(self.val_types)
 
         with open(bs_file, 'w') as f:
-            f.write('#{:^21} {:^21}\n'.format('solvation free energy', 'mesh error'))
-            for fene, merr in zip(fenes, merrs):
-                f.write(' {:^21.3f} {:^21.3f}\n'.format(fene, merr))
+            line = ''.join(['    {:=^34}    '.format(item) for item in self.val_types])
+            f.write('#{}\n'.format(line[1:]))
+            line = ''.join([' {:^21} {:^21}'.format('solvation free energy', 'mesh error') for _ in range(n_type)])
+            f.write('#{}\n'.format(line[1:]))
+            #f.write('#{:^21} {:^21}\n'.format('solvation free energy', 'mesh error'))
+            for fenes, merrs in zip(fenes_lst, merrs_lst):
+                for fene, merr in zip(fenes, merrs):
+                    f.write(' {:^21.3f} {:^21.3f}'.format(fene, merr))
+                f.write('\n')
         return
 
 
@@ -453,8 +486,8 @@ def make_average_data_directory(orig_dir_lst_dct, er_avgr, notify_freq):
 def make_sample_list(work_dir_lst_dct, er_avgr):
     """
     Make list of ID [i, j] of samples:
-        i: the directory number in the soln/refs directory list
-        j: the block number in the directory
+        i: directory number in a soln or refs directory list
+        j: block number in a directory
     """
     d = {}
 
@@ -464,28 +497,41 @@ def make_sample_list(work_dir_lst_dct, er_avgr):
     return  d
 
 
-def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr, er_avgr, n_sp, cmd_slvfe, notify_freq):
+def get_slvfe_output(proc=None, file_path=None):
 
-    def get_slvfe_output(proc):
+    if proc:
         stdout, stderr = proc.communicate()
         lines = stdout.decode().split('\n')
+    else:
+        with open(file_path, 'r') as f:
+            lines = f.read().splitlines()
 
-        i_pre_fene = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line][0]
-        fene = float(lines[i_pre_fene+1].split()[1])
+    # free energy
+    i_pre_fene = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line][0]
+    if 'component' in lines[i_pre_fene+1]:
+        i_pre_fene += 1
+    fenes = list(map(float, lines[i_pre_fene+1].split()[1:]))
 
-        i = [i for i, line in enumerate(lines) if 'solvation free energy' in line and 'difference' in line][0]
-        vals = []
-        while True:
-            i += 1
-            if len(lines[i].strip()) == 0:
-                break
+    # mesh error
+    i = [i for i, line in enumerate(lines) if 'solvation free energy' in line and 'difference' in line][0]
+    vals = []
+    merrs = []
+    while True:
+        i += 1
+        if '95% error for' in lines[i]:
+            break
+        
+        items = lines[i].split()
+        if len(lines[i].strip()) == 0:
+            if vals:
+                merrs.append(max(vals))
+                vals = []
+        elif items[0].isdigit():
+            vals.append(abs(float(items[-1])))
+    return fenes, merrs
 
-            val = abs(float(lines[i].split()[-1]))
-            vals.append(val)
-        merr = max(vals)
-        return fene, merr
 
-
+def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr, er_avgr, n_sp, cmd_slvfe, notify_freq):
     n_bs = bs_mngr.get_n_bs()
 
     cnt_proc = 0
@@ -538,8 +584,8 @@ def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr
         # wait for the executions to finish and then save the results.
         if cnt_proc%n_sp == 0 or (i_bsp) == n_bs:
             for i in range(len(bs_ids)):
-                fene, merr = get_slvfe_output(procs[i])
-                bs_mngr.store_slvfe_output(bs_ids[i], fene, merr)
+                fenes, merrs = get_slvfe_output(procs[i])
+                bs_mngr.store_slvfe_output(bs_ids[i], fenes, merrs)
                 shutil.rmtree(work_dirs[i])
                 
             bs_mngr.save_data()
@@ -583,7 +629,8 @@ def work(mode, soln_dir_list_file, refs_dir_list_file, n_bs, pfe_file, n_sp, int
 def main():
     args = get_args()
     cmd_slvfe_work, notify_freq = check_condition(args.cmd_slvfe, args.notify_freq)
-    work(args.mode, args.soln_dir_list_file, args.refs_dir_list_file, args.n_bs, args.pfe_file, args.n_sp, args.intr_file, args.bs_file, cmd_slvfe_work, notify_freq)
+    work(args.mode, args.soln_dir_list_file, args.refs_dir_list_file, args.n_bs, args.pfe_file, \
+         args.n_sp, args.intr_file, args.bs_file, cmd_slvfe_work, notify_freq)
     return
 
 
@@ -618,7 +665,8 @@ def get_args():
                         help='number of bootstrap samples')
     parser.add_argument('-m', '--mode', type=str, default='block',
                         choices=['block', 'traj'],
-                        help='block: a single block within a trajectory as a single sample\ntraj:  a signle trajectory (all the divided blocks in a soln or refs directory) as a single sample')
+                        help='block: a single block within a trajectory as a single sample\n' \
+                           + 'traj:  a signle trajectory (all the divided blocks in a soln or refs directory) as a single sample')
     parser.add_argument('-s', '--soln_dir_list_file', type=str, default='',
                         help='filename to list the solnution directories to be read')
     parser.add_argument('-r', '--refs_dir_list_file', type=str, default='',
