@@ -23,9 +23,6 @@ except ModuleNotFoundError:
     print('Install scipy to run this program')
     exit(1)
 
-# rem
-#   bs file format
-#   multi mesh_error
 
 class ERmodDataAverager:
     def __init__(self):
@@ -352,7 +349,6 @@ class BSManager:
             f.write('#{}\n'.format(line[1:]))
             line = ''.join([' {:^21} {:^21}'.format('solvation free energy', 'mesh error') for _ in range(n_type)])
             f.write('#{}\n'.format(line[1:]))
-            #f.write('#{:^21} {:^21}\n'.format('solvation free energy', 'mesh error'))
             for fenes, merrs in zip(fenes_lst, merrs_lst):
                 for fene, merr in zip(fenes, merrs):
                     f.write(' {:^21.3f} {:^21.3f}'.format(fene, merr))
