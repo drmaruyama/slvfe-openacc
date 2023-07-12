@@ -24,7 +24,7 @@ except ModuleNotFoundError:
     exit(1)
 
 
-class ERmodDataAverager:
+class ERmodDataAverage:
     def __init__(self):
         self.short_name_dct = {'soln': 'sln', 'refs': 'ref'}
 
@@ -482,7 +482,7 @@ def make_average_data_directory(orig_dir_lst_dct, er_avgr, notify_freq):
 def make_sample_list(work_dir_lst_dct, er_avgr):
     """
     Make list of ID [i, j] of samples:
-        i: directory number in a soln or refs directory list
+        i: directory number in the list of soln or refs
         j: block number in a directory
     """
     d = {}
@@ -546,7 +546,7 @@ def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr
             cnt_proc += 1
             work_dir = 'tmp.bs.sp{}'.format(i_bs)
             
-            # perform sampling with replacement, and create the average data from those samples.
+            # perform sampling with replacement and create the average data from those samples.
             for sys_type, smpl_lst in smpl_lst_dct.items():
                 dir_lst = work_dir_lst_dct[sys_type]
                 ave_dir = os.path.join(work_dir, sys_type)
@@ -576,7 +576,7 @@ def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr
             if i_bsp < n_bs and cnt_note%5 == 0:
                 print('\n  ', end='', flush=True)
 
-        # If the number of concurrent executions has reached the limit or the last was executed,
+        # If the number of concurrent executions has reached the limit or the last execution has been done,
         # wait for the executions to finish and then save the results.
         if cnt_proc%n_sp == 0 or (i_bsp) == n_bs:
             for i in range(len(bs_ids)):
@@ -596,12 +596,12 @@ def perform_bootstrap_sampling(smpl_lst_dct, work_dir_lst_dct, bs_mngr, pfe_mngr
 def work(mode, soln_dir_list_file, refs_dir_list_file, n_bs, pfe_file, n_sp, intr_file, bs_file, cmd_slvfe, notify_freq):
     bs_mngr = BSManager(intr_file, n_bs, mode)
     pfe_mngr = ParmFEManager(pfe_file)
-    er_avgr = ERmodDataAverager()
+    er_avgr = ERmodDataAverage()
 
-    # make list of directory where original files are located
+    # make list of directories where original files are located
     orig_dir_lst_dct = make_directory_list(soln_dir_list_file, refs_dir_list_file, pfe_mngr)
 
-    # make list of directory where sample files are located
+    # make list of directories where sample files are located
     if mode == 'block':
         work_dir_lst_dct = orig_dir_lst_dct
     elif mode == 'traj':
@@ -671,14 +671,14 @@ def get_args():
     parser.add_argument('-np', '--n_sp', type=int, default=1,
                         help='number of subprocesses to run slvfe concurrently')
     parser.add_argument('-nf', '--notify_freq', type=int, default=5,
-                        help='frequency of notification of processing sample ID')
+                        help='frequency to notify the sampling')
 
     parser.add_argument('-fp', '--pfe_file', type=str, default='./parameters_fe',
                         help='file corresponding to parameters_fe')
     parser.add_argument('-fi', '--intr_file', type=str, default='./.bs.data.json',
                         help='intermediate data file of bootstrap sampling (json)')
     parser.add_argument('-fb', '--bs_file', type=str, default='',
-                        help='filename to store result of bootstrap samples')
+                        help='filename to store results of bootstrap samples')
 
     parser.add_argument('-cs', '--cmd_slvfe', type=str, default='',
                         help='command or executable binary file of slvfe')
