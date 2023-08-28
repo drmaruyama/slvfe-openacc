@@ -1,22 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os.path
 import sys
 import re
 import copy
 import pickle
-from optparse import OptionParser
-
-# Some routines are used for 2.3 compatibility
-import warnings
-warnings.simplefilter("ignore", DeprecationWarning)
+from argparse import ArgumentParser
 
 ################################################################
 # Common modules, functions
-
-if sys.version_info < (2, 6):
-    from sets import Set
-    set = Set
 
 class union_find:
     """Tarjan's famous disjoint-set data structure.
@@ -51,7 +43,7 @@ class union_find:
 
 def log(x):
     if options.verbose:
-        print >> sys.stderr, x
+        print(x, file=sys.stderr)
 
 def warn_or_error(x, col):
     prefix = ""
@@ -59,7 +51,7 @@ def warn_or_error(x, col):
     if os.isatty(sys.stderr.fileno()):
         prefix = "\x1b[" + str(col) + ";1m"
         suffix = "\x1b[0m"
-    print >> sys.stderr, prefix + x + suffix
+    print(prefix + x + suffix, file=sys.stderr)
 
 def warn(x):
     warn_or_error("Warning: " + x, 33)
@@ -110,26 +102,26 @@ def atomtype_of_mass(mass):
 # End of common components
 ################################################################
 
-parser = OptionParser()
+parser = ArgumentParser()
 
 # topology
-parser.add_option("-t", "--top", dest = "topology",
+parser.add_argument("-t", "--top", dest = "topology",
                   help="topology (.top) file name")
 
 # can be specified as string; otherwise specify interactively
-parser.add_option("-s", "--solute", dest = "solute",
+parser.add_argument("-s", "--solute", dest = "solute",
                   help = "Segment name of solute molecule",
                   default = None)
 
-parser.add_option("-m", "--merge", dest = "merge",
+parser.add_argument("-m", "--merge", dest = "merge",
                   help = "Merge these residues by name, not just the order",
                   default = "Na+,K+,Cl-,IP,IM,WAT")
 
-parser.add_option("-v", "--verbose", dest = "verbose", action="store_true",
+parser.add_argument("-v", "--verbose", dest = "verbose", action="store_true",
                   help = "Be more verbose",
                   default = False)
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 
 if options.topology == None:
@@ -175,7 +167,7 @@ def read_topology():
     lines = []
     try:
         while True:
-            l = fh.next()
+            l = next(fh)
             if l[0] != '%':
                 error("unknown topology format")
             if l[0:6] == '%FLAG ':
@@ -183,10 +175,10 @@ def read_topology():
                 break
 
         while True:
-            format = fh.next()
+            format = next(fh)
             try:
                 while True:
-                    l = fh.next()
+                    l = next(fh)
                     if l[0] == '%':
                         newflag = l
                         break
@@ -333,15 +325,15 @@ if options.solute:
     solute = options.solute.split(',')
 else:
     # interactive input
-    print "Segment names in topology file:"
-    print 
+    print("Segment names in topology file:")
+    print() 
     for i in range(len(merged)):
-        print "%d: %s" % (i + 1, merged[i]["segname"])
-    print
-    l = raw_input("""Which segments are solutes?
+        print("%d: %s" % (i + 1, merged[i]["segname"]))
+    print()
+    l = input("""Which segments are solutes?
 Specify as numbers or residue names:
 (for multiple choice please specify as comma-separated list) """).split(',')
-    print
+    print()
     solute = [x.strip() for x in l]
 
 if solute == []:
@@ -411,7 +403,7 @@ for mode in ["soln", "refs"]:
     # Output MDinfo
     if not os.path.exists(mode):
         os.mkdir(mode)
-    mdifh = file(mode + "/MDinfo", "wt")
+    mdifh = open(mode + "/MDinfo", "wt")
 
     mols = copy.deepcopy(merged)
     nmol = []
@@ -425,9 +417,9 @@ for mode in ["soln", "refs"]:
         if nm != 0:
             nmol.append(nm)
             natoms.append(na)
-    print >> mdifh, "FRAMES %d" % len(nmol)
-    print >> mdifh, " ".join([str(x) for x in nmol])
-    print >> mdifh, " ".join([str(x) for x in natoms])
+    print("FRAMES %d" % len(nmol), file=mdifh)
+    print(" ".join([str(x) for x in nmol]), file=mdifh)
+    print(" ".join([str(x) for x in natoms]), file=mdifh)
     safe_close(mdifh)
 
     log("Output MolPrm")
@@ -446,8 +438,8 @@ for mode in ["soln", "refs"]:
             atom = atomtype_of_mass(topology["MASS"][j])
             charge = topology["CHARGE"][j] * charge_convert
             ljtype = topology["ATOM_TYPE_INDEX"][j]
-            print >> ofh, ("%7d %3s %10.5f %4d 0" %
-                           (j + 1, atom, charge, ljtype))
+            print(("%7d %3s %10.5f %4d 0" %
+                           (j + 1, atom, charge, ljtype)), file=ofh)
         safe_close(ofh)
     
     log("Output LJ table")
@@ -473,13 +465,13 @@ for mode in ["soln", "refs"]:
                 lentable[i][j] = r ** (1. / 6.)
                 enetable[i][j] = bcoeff / (4.0 * r)
     
-    print >> fh, ntypes
+    print(ntypes, file=fh)
     for i in range(ntypes):
-        print >> fh, " ".join(["%11.5E" % lentable[i][j]
-                               for j in range(ntypes)])
+        print(" ".join(["%11.5E" % lentable[i][j]
+                               for j in range(ntypes)]), file=fh)
     for i in range(ntypes):
-        print >> fh, " ".join(["%11.5E" % enetable[i][j]
-                               for j in range(ntypes)])
+        print(" ".join(["%11.5E" % enetable[i][j]
+                               for j in range(ntypes)]), file=fh)
     safe_close(fh)
 
     # Output Extraparam
@@ -521,7 +513,7 @@ for mode in ["soln", "refs"]:
         log(perm)
 
     fn = mode + "/PermIndex"
-    if perm == range(len(perm)):
+    if perm == list(range(len(perm))):
         # yay, not necessary!
         if os.path.exists(fn):
             os.unlink(fn)
@@ -529,6 +521,6 @@ for mode in ["soln", "refs"]:
 
     fh = open(fn, "wt")
     for s in perm:
-        print >> fh, s + 1
+        print(s + 1, file=fh)
     safe_close(fh)
 
