@@ -203,9 +203,8 @@ typedef struct vmdpluginio_t {
   int natoms;
 } vmdpluginio;
 
-int vmdfio_open_traj(void **handle, char *fname, int fnamelen)
+int vmdfio_open_traj(void **handle, char *fname)
 {
-  char* buf;
   char* abspath;
   size_t buflen = 8192;
   ssize_t r;
@@ -214,25 +213,16 @@ int vmdfio_open_traj(void **handle, char *fname, int fnamelen)
   int i;
   int retstatus;
 
-  buf = malloc(sizeof(char) * buflen + 1);
-  if(buf == NULL) {
-    fprintf(stderr, "vmdfio_open_traj: Out of memory (1)\n");
-    exit(1);
-  }
-  strncpy(buf, fname, fnamelen);
-  buf[fnamelen] = '\0';
-
-  abspath = realpath(buf, NULL);
+  abspath = realpath(fname, NULL);
   if(abspath == NULL) {
-    fprintf(stderr, "Error: vmdfio.c: failed to open with vmdfio_open_traj. (filename = \"%s\".) The symlink may be dead?\n", buf);
+    fprintf(stderr, "Error: vmdfio.c: failed to open with vmdfio_open_traj. (filename = \"%s\".) The symlink may be dead?\n", fname);
     retstatus = -1;
     goto cleanup;
   }
-  free(buf);
 
-  if(fnamelen == strlen(abspath) && strncmp(fname, abspath, fnamelen) == 0){
+  if(strlen(fname) == strlen(abspath) && strncmp(fname, abspath, strlen(fname)) == 0){
     /* not a symbolic link? */
-    fprintf(stderr, "Error: vmdfio.c: failed to open with vmdfio_open_traj. (filename = \"%s\".) Perhaps it's not a symbolic link?\n", buf);
+    fprintf(stderr, "Error: vmdfio.c: failed to open with vmdfio_open_traj. (filename = \"%s\".) Perhaps it's not a symbolic link?\n", fname);
     retstatus = -1;
     goto cleanup;
   }

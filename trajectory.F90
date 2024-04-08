@@ -32,11 +32,10 @@ module trajectory
     subroutine vmdfio_fini_traj() bind(C)
     end subroutine
 
-    function vmdfio_open_traj(handle, fname, fnamelen) bind(C) result(retstatus)
+    function vmdfio_open_traj(handle, fname) bind(C) result(retstatus)
       use, intrinsic :: iso_c_binding
       type(c_ptr), intent(out) :: handle
       character(kind=c_char), dimension(*), intent(in) :: fname
-      integer(kind=c_int), value, intent(in) :: fnamelen
       integer(kind=c_int) :: retstatus
     end function
 
@@ -69,13 +68,14 @@ contains
   ! Open trajectory and returns handle as htraj. 
   ! Should open fail, the program abends.
   subroutine open_trajectory(htraj, fname)
+    use, intrinsic :: iso_c_binding
     implicit none
     type(handle), intent(inout) :: htraj
     character(len=*), intent(in) :: fname
 
     integer :: status
 
-    status = vmdfio_open_traj(htraj%vmdhandle, fname, len_trim(fname))
+    status = vmdfio_open_traj(htraj%vmdhandle, trim(fname) // c_null_char)
     if(status /= 0) then
        stop "vmdfio_open_traj: unable to open trajectory. HISTORY must be a symlink"
     endif
