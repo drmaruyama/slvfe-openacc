@@ -203,9 +203,10 @@ contains
              if(is_cuboid) then
                 xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
              else
-                xst(:) = xst(:) - matmul(cell_normal, anint(matmul(invcell, xst)))
+                xst(:) = xst(:) - cell_normal(:, 3) * anint(xst(3) * invcell(3,3))
+                xst(:) = xst(:) - cell_normal(:, 2) * anint(xst(2) * invcell(2,2))
+                xst(:) = xst(:) - cell_normal(:, 1) * anint(xst(1) * invcell(1,1))
              end if
-             
           endif
           dis2 = sum(xst(1:3) ** 2)
           rst = sqrt(dis2)
@@ -313,7 +314,9 @@ contains
           if(is_cuboid) then
              xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
           else
-             xst(:) = xst(:) - matmul(cell_normal, anint(matmul(invcell, xst)))
+             xst(:) = xst(:) - cell_normal(:, 3) * anint(xst(3) * invcell(3,3))
+             xst(:) = xst(:) - cell_normal(:, 2) * anint(xst(2) * invcell(2,2))
+             xst(:) = xst(:) - cell_normal(:, 1) * anint(xst(1) * invcell(1,1))
           end if
 
           dis2 = sum(xst(1:3) ** 2)
@@ -863,7 +866,6 @@ contains
        abs(cell(1, 3)) > cuboid_thres .or. &
        abs(cell(2, 3)) > cuboid_thres ) then
        is_cuboid = .false.
-       stop "A non-cuboidal cell is not supported. Wait for ver 0.4"
     else
        is_cuboid = .true.
     end if
