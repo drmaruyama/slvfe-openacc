@@ -27,20 +27,22 @@
 module utility
   implicit none
 
-contains
+  interface
+    function hash_double(arr, n) bind(C) result(hashed)
+      use, intrinsic :: iso_c_binding
+      type(c_ptr), intent(in) :: arr
+      integer(kind=c_size_t), value, intent(in) :: n
+      integer(kind=c_int64_t) :: hashed
+    end function
+    function hash_float(arr, n) bind(C) result(hashed)
+      use, intrinsic :: iso_c_binding
+      type(c_ptr), intent(in) :: arr
+      integer(kind=c_size_t), value, intent(in) :: n
+      integer(kind=c_int64_t) :: hashed
+    end function
+  end interface
 
-function hash_double(arr, n) bind(C) result(hashed)
-  use, intrinsic :: iso_c_binding
-  type(c_ptr), intent(in) :: arr
-  integer(kind=c_size_t), value, intent(in) :: n
-  integer(8) :: hashed
-end function
-function hash_float(arr, n) bind(C) result(hashed)
-  use, intrinsic :: iso_c_binding
-  type(c_ptr), intent(in) :: arr
-  integer(kind=c_size_t), value, intent(in) :: n
-  integer(8) :: hashed
-end function
+contains
 
 #ifdef HAVE_TRANSFER
   integer(8) function hash(arr, size) 
