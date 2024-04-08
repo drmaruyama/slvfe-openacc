@@ -790,12 +790,14 @@ contains
   ! cell(2, 1) = cell(3, 1) = cell(3, 2) = 0
   ! (1st axis to be aligned to x-axis, 2nd axis to be within xy-plane)
   subroutine normalize_periodic
-    use engmain, only: cell, sitepos
+    use engmain, only: cell, sitepos, elecut, upljcut
     implicit none
     integer :: n, i, perm(3), info, lwork
     real :: qr(3,3), scale(3), newcell(3, 3)
     real, allocatable :: work(:)
     real :: dummy
+    real :: cutoff
+    real, parameter :: cutoff_buffer = 1.0d-4
 
     n = size(sitepos, 2)
     lwork = max(3 * 3 + 1, n)
@@ -885,6 +887,24 @@ contains
             cell_normal(1:3, 2) * floor(dot_product(invcell(1:3, 2), sitepos_normal(1:3, i)))
        sitepos_normal(1, i) = sitepos_normal(1, i) - &
             cell_normal(1, 1) * floor(invcell(1, 1) * sitepos_normal(1, i))
+    end do
+
+    ! check cell size restrictions (TODO: ensure this by cell operations)
+    if (abs(cell(1, 2)) > 0.5 * cell(1, 1) + cutoff_buffer .or. &
+        abs(cell(1, 3)) > 0.5 * cell(1, 1) + cutoff_buffer .or. &
+        abs(cell(2, 3)) > 0.5 * cell(2, 2) + cutoff_buffer) then
+       print *, cell
+       stop "cell unit needs to be renormalized"
+    end if
+
+
+    ! check cutoff restrictions
+    cutoff = min(elecut, upljcut)
+    do i = 1, 3
+       if (cutoff > cell(i, i) * 0.5) then
+          stop "One of axis in periodic cell is too small. This is either the box is too small compared to the cell, " // &
+          "or the periodic cell is too skewed."
+       endif
     end do
   end subroutine normalize_periodic
 

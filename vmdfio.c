@@ -57,6 +57,11 @@
 
 #define ERMOD_FORCE_PLUGIN "ERMOD_FORCE_PLUGIN_TYPE"
 
+/* M_PI is not part of standard C */
+#ifndef M_PI
+#define M_PI 3.141592653589793238462
+#endif
+
 /* lazy */
 #define MAXTYPES 1000
 static int typecounts = 0;
@@ -316,6 +321,19 @@ void vmdfio_open_traj_(void **handle, char *fname, int *fnamelen, int *status)
   return;
 }
 
+static void calc_sincos_angle(double angle, double *sinx, double *cosx)
+{
+  if(angle == 90.0) {
+    *sinx = 1.0;
+    *cosx = 0.0;
+  }else{
+    double radian = angle * M_PI / 180.0;
+
+    *sinx = sin(radian);
+    *cosx = cos(radian);
+  }
+}
+
 void vmdfio_read_traj_step_(void **handle, double* xout, double* box, int *natoms_aux, int *status)
 {
   vmdpluginio *p = *handle;
@@ -345,6 +363,7 @@ void vmdfio_read_traj_step_(void **handle, double* xout, double* box, int *natom
   do{
     int i;
     double x, y, u, v, w;
+    double sina, cosa, sinb, cosb, sing, cosg;
 
     if(r == MOLFILE_EOF){
       *status = -1;
@@ -365,11 +384,15 @@ void vmdfio_read_traj_step_(void **handle, double* xout, double* box, int *natom
       ~b.~c = xu + yv = cos alpha
     */
 
-    x = cos(snapshot.gamma * M_PI / 180.0);
-    y = sin(snapshot.gamma * M_PI / 180.0);
-    u = cos(snapshot.beta * M_PI / 180.0);
-    v = (cos(snapshot.alpha * M_PI / 180.0) - x * u) / y; /* FIXME: potential underflow risk */
-    w = sqrt(1 - u * u - v * v);  /* FIXME: same above */
+    calc_sincos_angle(snapshot.alpha, &sina, &cosa);
+    calc_sincos_angle(snapshot.beta, &sinb, &cosb);
+    calc_sincos_angle(snapshot.gamma, &sing, &cosg);
+
+    x = cosg;
+    y = sing;
+    u = cosb;
+    v = (cosa - x * u) / y;
+    w = sqrt(1 - u * u - v * v);
 
     box[0] = snapshot.A;
     box[3] = snapshot.B * x; 

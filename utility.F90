@@ -100,11 +100,15 @@ contains
     real, intent(in) :: cell_len(3)
     real, intent(in) :: angles(3)
     real, intent(out) :: out_cell_vectors(3, 3)
-    real :: alpha, beta, gamma, x, y, u, v, w
+    real(8) :: x, y, u, v, w
+    real(8) :: sina, cosa, sinb, cosb, sing, cosg
+    real(8) :: blen, clen
 
-    alpha = angles(1) * PI / 180.0 ! for b-c axes
-    beta  = angles(2) * PI / 180.0 ! for a-c axes
-    gamma = angles(3) * PI / 180.0 ! for a-b axes
+    ! all calculations are done in double precision irrespective to the real precisions
+
+    call calc_exact_sincos(real(angles(1), 8), sina, cosa) ! alpha for b-c axes
+    call calc_exact_sincos(real(angles(2), 8), sinb, cosb) ! beta for a-c axes
+    call calc_exact_sincos(real(angles(3), 8), sing, cosg) ! gamma for a-b axes
 
     ! ~a = (1, 0, 0)
     ! ~b = (x, y, 0)
@@ -114,24 +118,41 @@ contains
     ! ~a.~c = u = cos beta
     ! ~b.~c = xu + yv = cos alpha
 
-    x = cos(gamma)
-    y = sin(gamma)
-    u = cos(beta)
-    v = (cos(alpha) - x * u) / y ! FIXME: potential underflow risk
-    w = sqrt(1 - u * u - v * v)  ! FIXME: same above
+    x = cosg
+    y = sing
+    u = cosb
+    v = (cosa - x * u) / y
+    w = sqrt(1.0d0 - u * u - v * v)
     
     out_cell_vectors(1, 1) = cell_len(1)
     out_cell_vectors(2, 1) = 0.0
     out_cell_vectors(3, 1) = 0.0
 
-    out_cell_vectors(1, 2) = cell_len(2) * x
-    out_cell_vectors(2, 2) = cell_len(2) * y
+    blen = real(cell_len(2), 8)
+    out_cell_vectors(1, 2) = real(blen * x)
+    out_cell_vectors(2, 2) = real(blen * y)
     out_cell_vectors(3, 2) = 0.0
 
-    out_cell_vectors(1, 3) = cell_len(3) * u
-    out_cell_vectors(2, 3) = cell_len(3) * v
-    out_cell_vectors(3, 3) = cell_len(3) * w
+    clen = real(cell_len(3), 8)
+    out_cell_vectors(1, 3) = real(clen * u)
+    out_cell_vectors(2, 3) = real(clen * v)
+    out_cell_vectors(3, 3) = real(clen * w)
 
+    contains
+      subroutine calc_exact_sincos(angle_in_degree, sinres, cosres)
+        real(8), intent(in) :: angle_in_degree
+        real(8), intent(out) :: sinres, cosres
+        real(8) :: angle_in_radian
+
+        if (angle_in_degree == 90.0) then
+          sinres = 1.0
+          cosres = 0.0
+        else
+          angle_in_radian = angle_in_degree * PI / 180.0d0
+          sinres = sin(angle_in_degree)
+          cosres = cos(angle_in_degree)
+        end if
+      end subroutine
   end subroutine angles_to_cell_vector
 
   character(len=16) function itoa(x)
