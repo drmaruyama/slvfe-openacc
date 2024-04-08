@@ -247,7 +247,7 @@ def parse_log():
 
     steps = int(control["nstlim"])
     steps_per_output = int(control["ntwx"])
-    frames = steps / steps_per_output
+    frames = steps // steps_per_output
     return frames
 
 frames = parse_log()
