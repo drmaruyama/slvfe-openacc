@@ -71,7 +71,7 @@ AC_PREREQ(2.50)
 acx_blas_ok=no
 
 AC_ARG_WITH(blas,
-	[AC_HELP_STRING([--with-blas=<lib>], [use BLAS library <lib>])])
+	[AS_HELP_STRING([--with-blas=<lib>], [use BLAS library <lib>])])
 case $with_blas in
 	yes | "") ;;
 	no) acx_blas_ok=disable ;;

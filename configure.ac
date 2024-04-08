@@ -1,9 +1,9 @@
 #                                               -*- Autoconf -*-
 
 # autoconf <= 2.64 has a bug in AC_OPENMP
-AC_PREREQ([2.65])
-#AC_INIT(ermod, 0.3.%rev%, Matubayasi Laboratory)
-AC_INIT(ermod, 0.3.8, Matubayasi Laboratory)
+AC_PREREQ([2.71])
+#AC_INIT([ermod],[0.3.%rev%],[Matubayasi Laboratory])
+AC_INIT([ermod],[1.0.0-alpha1],[Matubayasi Laboratory])
 AC_CONFIG_MACRO_DIR(m4)
 AC_CONFIG_SRCDIR([vmdfio.c])
 AM_INIT_AUTOMAKE
@@ -388,5 +388,5 @@ FC(for ermod)=$FC
 FC_CANONICAL(for slvfe)=$FC_CANONICAL
 FCFLAGS=$FCFLAGS
 
-Configuration complete; type \"make\" to start compiling])
+Configuration complete; type "make" to start compiling])
 

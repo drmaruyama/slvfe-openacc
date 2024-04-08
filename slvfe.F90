@@ -493,11 +493,11 @@ contains
     case(8)
        call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
                    dummyi, dummyi, abstol, dummyi, eigval, &
-                   z, n, isuppz, work, lwork, iwork, liwork, info)
+                   z, n, isuppz, work(1), lwork, iwork, liwork, info)
     case(4)
        call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
                    dummyi, dummyi, abstol, dummyi, eigval, &
-                   z, n, isuppz, work, lwork, iwork, liwork, info)
+                   z, n, isuppz, work(1), lwork, iwork, liwork, info)
     end select
 
     mat(:, :) = z(:, :)
