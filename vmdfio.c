@@ -206,6 +206,7 @@ typedef struct vmdpluginio_t {
 int vmdfio_open_traj(void **handle, char *fname, int fnamelen)
 {
   char* buf;
+  char* abspath;
   size_t buflen = 8192;
   ssize_t r;
   int fp;
@@ -214,16 +215,22 @@ int vmdfio_open_traj(void **handle, char *fname, int fnamelen)
   int retstatus;
 
   buf = malloc(sizeof(char) * buflen + 1);
+  if(buf == NULL) {
+    fprintf(stderr, "vmdfio_open_traj: Out of memory (1)\n");
+    exit(1);
+  }
   strncpy(buf, fname, fnamelen);
   buf[fnamelen] = '\0';
 
-  while(1){
-    r = readlink(buf, buf, buflen);
-    if(r == -1) break;
-    buf[r] = '\0';
+  abspath = realpath(buf, NULL);
+  if(abspath == NULL) {
+    fprintf(stderr, "Error: vmdfio.c: failed to open with vmdfio_open_traj. (filename = \"%s\".) The symlink may be dead?\n", buf);
+    retstatus = -1;
+    goto cleanup;
   }
+  free(buf);
 
-  if(fnamelen == strlen(buf) && strncmp(fname, buf, fnamelen) == 0){
+  if(fnamelen == strlen(abspath) && strncmp(fname, abspath, fnamelen) == 0){
     /* not a symbolic link? */
     fprintf(stderr, "Error: vmdfio.c: failed to open with vmdfio_open_traj. (filename = \"%s\".) Perhaps it's not a symbolic link?\n", buf);
     retstatus = -1;
@@ -238,12 +245,12 @@ int vmdfio_open_traj(void **handle, char *fname, int fnamelen)
   *handle = NULL;
   {
     /* get filename extension */
-    char* lastdot = strrchr(buf, '.');
+    char* lastdot = strrchr(abspath, '.');
 
     if(lastdot == NULL) goto cleanup;
     ext = lastdot + 1;
   }
-  fprintf(stderr, "Opening: \"%s\"...\n", buf);
+  fprintf(stderr, "Opening: \"%s\"...\n", abspath);
 
   if(getenv(ERMOD_FORCE_PLUGIN) != NULL && 
      strlen(getenv(ERMOD_FORCE_PLUGIN)) > 0) {
@@ -283,14 +290,14 @@ int vmdfio_open_traj(void **handle, char *fname, int fnamelen)
 
 	/* Found, open with this plugin */
 	pp -> natoms = MOLFILE_NUMATOMS_UNKNOWN;
-	fh = (p -> open_file_read)(buf, ext, &(pp->natoms));
+	fh = (p -> open_file_read)(abspath, ext, &(pp->natoms));
 	if(fh == NULL){
 	  fprintf(stderr,
 		  "Error!\n"
 		  "Plugin supports file format \"%s\", estimated from the extension \"%s\".\n"
 		  "But the file format of \"%s\" does not match to the estimated format.\n"
 		  "This is possibly that the file has an incorrect extension, the file is a nested symbolic link (which is unsupported), or the trajectory file header is corrupt.\n",
-		  p -> prettyname, ext, buf);
+		  p -> prettyname, ext, abspath);
 	  /* Special error message for AMBER */
 	  if(strcmp(ext, "nc") == 0) {
 	    fprintf(stderr,
@@ -318,7 +325,7 @@ int vmdfio_open_traj(void **handle, char *fname, int fnamelen)
 
 
  cleanup:
-  free(buf);
+  free(abspath);
   return retstatus;
 }
 
