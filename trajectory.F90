@@ -20,20 +20,49 @@
 ! module that governs trajectory I/O
 
 module trajectory
+  use, intrinsic :: iso_c_binding
   type handle
-     integer(8) :: vmdhandle
+     type(c_ptr) :: vmdhandle
   end type handle
+
+  interface
+    subroutine vmdfio_init_traj() bind(C)
+    end subroutine
+
+    subroutine vmdfio_fini_traj() bind(C)
+    end subroutine
+
+    function vmdfio_open_traj(handle, fname, fnamelen) bind(C) result(retstatus)
+      use, intrinsic :: iso_c_binding
+      type(c_ptr), intent(out) :: handle
+      character(kind=c_char), dimension(*), intent(in) :: fname
+      integer(kind=c_int), value, intent(in) :: fnamelen
+      integer(kind=c_int) :: retstatus
+    end function
+
+    subroutine vmdfio_close_traj(handle) bind(C)
+      use, intrinsic :: iso_c_binding
+      type(c_ptr), value, intent(in) :: handle
+    end subroutine
+
+    function vmdfio_read_traj_step(handle, xout, box, natoms_aux) bind(C) result(retstatus)
+      use, intrinsic :: iso_c_binding
+      type(c_ptr), value, intent(in) :: handle
+      real(kind=c_double), intent(out) :: xout(*)
+      real(kind=c_double), intent(out) :: box(3, 3)
+      integer(kind=c_int), value, intent(in) :: natoms_aux
+      integer(kind=c_int) :: retstatus
+    end function
+  end interface
  
 contains
   subroutine init_trajectory()
     implicit none
-    external vmdfio_init_traj
     call vmdfio_init_traj()
   end subroutine init_trajectory
 
   subroutine finish_trajectory()
     implicit none
-    external vmdfio_fini_traj
     call vmdfio_fini_traj()
   end subroutine finish_trajectory
 
@@ -45,9 +74,8 @@ contains
     character(len=*), intent(in) :: fname
 
     integer :: status
-    external vmdfio_open_traj
 
-    call vmdfio_open_traj(htraj%vmdhandle, fname, len_trim(fname), status)
+    status = vmdfio_open_traj(htraj%vmdhandle, fname, len_trim(fname))
     if(status /= 0) then
        stop "vmdfio_open_traj: unable to open trajectory. HISTORY must be a symlink"
     endif
@@ -58,7 +86,6 @@ contains
     implicit none
     type(handle), intent(inout) :: htraj
 
-    external vmdfio_close_traj
     call vmdfio_close_traj(htraj%vmdhandle)
   end subroutine close_trajectory
 
@@ -75,11 +102,9 @@ contains
     real, intent(out) :: cell(3, 3)
     integer, intent(out) :: status
    
-    external vmdfio_read_traj_step
-
     if(kind(crd) /= 8) stop "vmdfio: write interfacing wrapper"
 
-    call vmdfio_read_traj_step(htraj%vmdhandle, crd, cell, natom, status)
+    status = vmdfio_read_traj_step(htraj%vmdhandle, crd, cell, natom)
   end subroutine read_trajectory
 
 end module trajectory

@@ -135,7 +135,7 @@ static char* find_plugin_paths()
 }
 
 
-void vmdfio_init_traj_(void)
+void vmdfio_init_traj(void)
 {
   char* plugindir;
   char* buf;
@@ -185,7 +185,7 @@ void vmdfio_init_traj_(void)
   }while(0);
 }
 
-void vmdfio_fini_traj_(void)
+void vmdfio_fini_traj(void)
 {
   int i;
   for(i = 0; i < plugincounts; ++i){
@@ -203,7 +203,7 @@ typedef struct vmdpluginio_t {
   int natoms;
 } vmdpluginio;
 
-void vmdfio_open_traj_(void **handle, char *fname, int *fnamelen, int *status)
+int vmdfio_open_traj(void **handle, char *fname, int fnamelen)
 {
   char* buf;
   size_t buflen = 8192;
@@ -211,10 +211,11 @@ void vmdfio_open_traj_(void **handle, char *fname, int *fnamelen, int *status)
   int fp;
   char* ext;
   int i;
+  int retstatus;
 
   buf = malloc(sizeof(char) * buflen + 1);
-  strncpy(buf, fname, *fnamelen);
-  buf[*fnamelen] = '\0';
+  strncpy(buf, fname, fnamelen);
+  buf[fnamelen] = '\0';
 
   while(1){
     r = readlink(buf, buf, buflen);
@@ -222,10 +223,10 @@ void vmdfio_open_traj_(void **handle, char *fname, int *fnamelen, int *status)
     buf[r] = '\0';
   }
 
-  if(*fnamelen == strlen(buf) && strncmp(fname, buf, *fnamelen) == 0){
+  if(fnamelen == strlen(buf) && strncmp(fname, buf, fnamelen) == 0){
     /* not a symbolic link? */
-    fprintf(stderr, "Error: vmdfio.c: failed to open with vmdfio_open_traj_. (filename = \"%s\".) Perhaps it's not a symbolic link?\n", buf);
-    *status = -1;
+    fprintf(stderr, "Error: vmdfio.c: failed to open with vmdfio_open_traj. (filename = \"%s\".) Perhaps it's not a symbolic link?\n", buf);
+    retstatus = -1;
     goto cleanup;
   }
   
@@ -233,7 +234,7 @@ void vmdfio_open_traj_(void **handle, char *fname, int *fnamelen, int *status)
      select plugin to use.
      use filename_extension to select
   */
-  *status = -1;
+  retstatus = -1;
   *handle = NULL;
   {
     /* get filename extension */
@@ -306,19 +307,19 @@ void vmdfio_open_traj_(void **handle, char *fname, int *fnamelen, int *status)
     }
     free(plugin_supportext);
     if(*handle){
-      *status = 0;
+      retstatus = 0;
       break;
     }
   }
 
-  if(*status == -1){
+  if(retstatus == -1){
     fprintf(stderr, "Error: could not find appropriate plugins\n");
   }
 
 
  cleanup:
   free(buf);
-  return;
+  return retstatus;
 }
 
 static void calc_sincos_angle(double angle, double *sinx, double *cosx)
@@ -334,24 +335,25 @@ static void calc_sincos_angle(double angle, double *sinx, double *cosx)
   }
 }
 
-void vmdfio_read_traj_step_(void **handle, double* xout, double* box, int *natoms_aux, int *status)
+int vmdfio_read_traj_step(void *handle, double* xout, double* box, int natoms_aux)
 {
-  vmdpluginio *p = *handle;
+  vmdpluginio *p = (vmdpluginio*)handle;
   molfile_plugin_t *plugin = p -> plugin;
   molfile_timestep_t snapshot;
   int natoms = p -> natoms;
   float* buf;
   int r;
+  int retstatus = 0;
 
   if(natoms == MOLFILE_NUMATOMS_UNKNOWN){
     /* not determined from the trajectory */
-    natoms = *natoms_aux;
+    natoms = natoms_aux;
   }else{
     /* check integrity */
-    if(natoms != *natoms_aux){
+    if(natoms != natoms_aux){
       fprintf(stderr, "Error: # of atoms in trajectory does not match with # of atoms in configurations. Perhaps you mistook the trajectory?\n");
-      *status = -1;
-      return;
+      retstatus = -1;
+      return retstatus;
     }
   }
 
@@ -366,7 +368,7 @@ void vmdfio_read_traj_step_(void **handle, double* xout, double* box, int *natom
     double sina, cosa, sinb, cosb, sing, cosg;
 
     if(r == MOLFILE_EOF){
-      *status = -1;
+      retstatus = -1;
       break;
     }
 
@@ -403,17 +405,17 @@ void vmdfio_read_traj_step_(void **handle, double* xout, double* box, int *natom
     
     box[1] = 0.; box[2] = 0.; box[5] = 0;
 
-    *status = 0;
+    retstatus = 0;
   }while(0);
 
   free(buf);
-  return;
+  return retstatus;
 }
 
-void vmdfio_close_traj_(void **handle)
+void vmdfio_close_traj(void *handle)
 {
-  vmdpluginio *p = *handle;
+  vmdpluginio *p = handle;
   molfile_plugin_t *plugin = p -> plugin;
   (plugin -> close_file_read)(p -> filehandle);
-  free(*handle);
+  free(p);
 }

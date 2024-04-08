@@ -29,6 +29,19 @@ module utility
 
 contains
 
+function hash_double(arr, n) bind(C) result(hashed)
+  use, intrinsic :: iso_c_binding
+  type(c_ptr), intent(in) :: arr
+  integer(kind=c_size_t), value, intent(in) :: n
+  integer(8) :: hashed
+end function
+function hash_float(arr, n) bind(C) result(hashed)
+  use, intrinsic :: iso_c_binding
+  type(c_ptr), intent(in) :: arr
+  integer(kind=c_size_t), value, intent(in) :: n
+  integer(8) :: hashed
+end function
+
 #ifdef HAVE_TRANSFER
   integer(8) function hash(arr, size) 
     implicit none
@@ -48,21 +61,28 @@ contains
 
 #else
 ! (== not HAVE_TRANSFER)
-  integer(8) function hash(arr, size) 
+  integer(8) function hash(arr, size)
+    use, intrinsic :: iso_c_binding
     implicit none
+
     integer, intent(in) :: size
-    real, intent(in) :: arr(size)
-    integer(8) :: ret
-    external hash_double, hash_float
+    real, intent(in), target :: arr(size)
+    integer(kind=c_size_t) :: size_c
+  
+    ! Since Fortran do not have template instantiation-like type operation,
+    ! and because we may use "real as real(8)" option,
+    ! we have no way to selectively call hash_double or hash_float with different types
+    ! instead we choose to use generic type of c_ptr (void*) and use C_LOC to achieve this.
+    size_c = size
     select case(kind(arr))
     case(4)
-       call hash_float(arr, size, ret)
+      hash = hash_float(c_loc(arr), size_c)
     case(8)
-       call hash_double(arr, size, ret)
+      hash = hash_double(c_loc(arr), size_c)
     case default
-       stop "Error: hash(): unknown real type"
+      stop "Unexpected real variable size"
     end select
-    hash = ret
+
   end function hash
 #endif
 
