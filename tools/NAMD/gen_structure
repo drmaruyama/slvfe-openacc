@@ -52,13 +52,6 @@ def error(x):
     warn_or_error("Error: " + x, 31)
     sys.exit(1)
 
-def safe_close(fh):
-    # asynchronous NFS may miss file creation
-    # esp. combined with delayed allocation (ext4, XFS)
-    fh.flush()
-    os.fsync(fh.fileno())
-    fh.close()
-
 if options.param == [] and options.conf == None and options.log == None:
     print("Error: CHARMM parameter file is not specified (specify one of: --param, --log, --conf)", file=sys.stderr)
     sys.exit(1)
@@ -435,26 +428,26 @@ if use_ljtable:
             # one of pairs not used
             continue
         sig = sgm_from_rmin2 * rmin
-        sigtable[i][j] = sgm
+        sigtable[i][j] = sig
         epstable[i][j] = eps
 
 def gen(mode):
     if not os.path.exists(mode):
         os.mkdir(mode)
-    mdifh = open(mode + "/MDinfo", "wt")
-    ntypes = len(solvent)
-    if mode == "refs":
-        ntypes -= 1 # removing solute
-    print("FRAMES %d" % ntypes, file=mdifh)
-    for i in range(len(solvent)):
-        if mode == "soln" or i != slupos:
-            print("%d" % solvent[i][2], end=' ', file=mdifh)
-    print(file=mdifh)
-    for i in range(len(solvent)):
-        if mode == "soln" or i != slupos:
-            print("%d" % solvent[i][1], end=' ', file=mdifh)
-    print(file=mdifh)
-    safe_close(mdifh)
+    with open(mode + "/MDinfo", "wt") as mdifh:
+        ntypes = len(solvent)
+        if mode == "refs":
+            ntypes -= 1 # removing solute
+        print("FRAMES %d" % ntypes, file=mdifh)
+        for i in range(len(solvent)):
+            if mode == "soln" or i != slupos:
+                print("%d" % solvent[i][2], end=' ', file=mdifh)
+        print(file=mdifh)
+        for i in range(len(solvent)):
+            if mode == "soln" or i != slupos:
+                print("%d" % solvent[i][1], end=' ', file=mdifh)
+        print(file=mdifh)
+
     
     solvent_cnt = 1
     iatom = 0
@@ -464,18 +457,17 @@ def gen(mode):
         else:
             fn = "MolPrm%d" % solvent_cnt
             solvent_cnt += 1
-        ofh = open(mode + "/" + fn, "wt")
-        (rb, rl, n) = solvent[i]
-        for j in range(rl):
-            (_aid, _seg, _resi, resname, _atomname, atomtype, charge, mass) = atoms[rb + j]
-            (eps, rmin) = atomtable[atomtype]
-            atom = atomtype_of_mass(float(mass))
-            if use_ljtable:
-                eps = atomtypes_used.index(atomtype) + 1
-                rmin = 0.
-            print(("%d %s %.5f %.5f %.5f" % 
-                           (j + 1, atom, float(charge), eps, rmin)), file=ofh)
-        safe_close(ofh)
+        with open(mode + "/" + fn, "wt") as ofh:
+            (rb, rl, n) = solvent[i]
+            for j in range(rl):
+                (_aid, _seg, _resi, resname, _atomname, atomtype, charge, mass) = atoms[rb + j]
+                (eps, rmin) = atomtable[atomtype]
+                atom = atomtype_of_mass(float(mass))
+                if use_ljtable:
+                    eps = atomtypes_used.index(atomtype) + 1
+                    rmin = 0.
+                print(("%d %s %.5f %.5f %.5f" %
+                            (j + 1, atom, float(charge), eps, rmin)), file=ofh)
 
     carryover = {}
     if mode == "soln":
@@ -487,23 +479,21 @@ def gen(mode):
         carryover["ljformat"] = 1
 
     # write carryover
-    ofh = open(mode + "/.extraparam", "wt")
-    pickle.dump(carryover, ofh)
-    safe_close(ofh)
+    with open(mode + "/.extraparam", "wb") as ofh:
+        pickle.dump(carryover, ofh)
 
     if use_ljtable:
-        ofh = open(mode + "/LJTable", "wt")
-        ntypes = len(atomtypes_used)
-        print(ntypes, file=ofh)
-        for i in range(ntypes):
-            for j in range(ntypes):
-                print("%+.6e" % sigtable[i][j], end=' ', file=ofh) 
-            print(file=ofh)
-        for i in range(ntypes):
-            for j in range(ntypes):
-                print("%+.6e" % epstable[i][j], end=' ', file=ofh)
-            print(file=ofh)
-        safe_close(ofh)
+        with open(mode + "/LJTable", "wt") as ofh:
+            ntypes = len(atomtypes_used)
+            print(ntypes, file=ofh)
+            for i in range(ntypes):
+                for j in range(ntypes):
+                    print("%+.6e" % sigtable[i][j], end=' ', file=ofh)
+                print(file=ofh)
+            for i in range(ntypes):
+                for j in range(ntypes):
+                    print("%+.6e" % epstable[i][j], end=' ', file=ofh)
+                print(file=ofh)
 
 gen("soln")
 gen("refs")

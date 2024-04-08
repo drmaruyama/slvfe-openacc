@@ -361,7 +361,7 @@ def parse_log():
 """ % options.minenergy, file=ofh)
 
     if int(dic["dumpN"]) != 0:
-        frames = int(dic["run"]) / int(dic["dumpN"]) + 1
+        frames = int(dic["run"]) // int(dic["dumpN"]) + 1
 
     return (frames, is_periodic)
     
