@@ -60,14 +60,6 @@ def error(x):
     warn_or_error("Error: " + x, 31)
     sys.exit(1)
 
-def safe_close(fh):
-    # asynchronous NFS may miss file creation
-    # esp. combined with delayed allocation (ext4, XFS)
-    # The open-to-close consistency is preserved only when 
-    fh.flush()
-    os.fsync(fh.fileno())
-    fh.close()
-
 mass_table = {
   1: 'H',
   2: 'D',
@@ -151,7 +143,7 @@ def read_topology():
         result = []
         for l in lines:
             l = l.rstrip('\n')
-            nelm = len(l) / coleach
+            nelm = len(l) // coleach
             if nelm > nrep:
                 nelm = nrep
             for i in range(nelm):
@@ -215,8 +207,8 @@ charge_convert = 1 / 18.2223
 bonds = topology['BONDS_INC_HYDROGEN'] + topology['BONDS_WITHOUT_HYDROGEN']
 conn = union_find(natom)
 for i in range(nbond):
-    atom1 = bonds[i * 3] / 3
-    atom2 = bonds[i * 3 + 1] / 3
+    atom1 = bonds[i * 3] // 3
+    atom2 = bonds[i * 3 + 1] // 3
     conn.union(atom1, atom2)
 
 residues = topology['RESIDUE_LABEL']
@@ -403,24 +395,22 @@ for mode in ["soln", "refs"]:
     # Output MDinfo
     if not os.path.exists(mode):
         os.mkdir(mode)
-    mdifh = open(mode + "/MDinfo", "wt")
-
-    mols = copy.deepcopy(merged)
-    nmol = []
-    natoms = []
-    for i in range(len(mols)):
-        if mode == "refs" and i == solute:
-            mols[i]["nmol"] -= 1
-        s = mols[i]
-        nm = s["nmol"]
-        na = len(s["atoms"])
-        if nm != 0:
-            nmol.append(nm)
-            natoms.append(na)
-    print("FRAMES %d" % len(nmol), file=mdifh)
-    print(" ".join([str(x) for x in nmol]), file=mdifh)
-    print(" ".join([str(x) for x in natoms]), file=mdifh)
-    safe_close(mdifh)
+    with  open(mode + "/MDinfo", "wt") as mdifh:
+        mols = copy.deepcopy(merged)
+        nmol = []
+        natoms = []
+        for i in range(len(mols)):
+            if mode == "refs" and i == solute:
+                mols[i]["nmol"] -= 1
+            s = mols[i]
+            nm = s["nmol"]
+            na = len(s["atoms"])
+            if nm != 0:
+                nmol.append(nm)
+                natoms.append(na)
+        print("FRAMES %d" % len(nmol), file=mdifh)
+        print(" ".join([str(x) for x in nmol]), file=mdifh)
+        print(" ".join([str(x) for x in natoms]), file=mdifh)
 
     log("Output MolPrm")
     # Output MolPrm
@@ -432,53 +422,50 @@ for mode in ["soln", "refs"]:
         else:
             fn = "MolPrm%d" % solvent_cnt
             solvent_cnt += 1
-        ofh = open(mode + "/" + fn, "wt")
-        s = mols[i]
-        for j in s["atoms"]:
-            atom = atomtype_of_mass(topology["MASS"][j])
-            charge = topology["CHARGE"][j] * charge_convert
-            ljtype = topology["ATOM_TYPE_INDEX"][j]
-            print(("%7d %3s %10.5f %4d 0" %
-                           (j + 1, atom, charge, ljtype)), file=ofh)
-        safe_close(ofh)
+        with open(mode + "/" + fn, "wt") as ofh:
+            s = mols[i]
+            for j in s["atoms"]:
+                atom = atomtype_of_mass(topology["MASS"][j])
+                charge = topology["CHARGE"][j] * charge_convert
+                ljtype = topology["ATOM_TYPE_INDEX"][j]
+                print(("%7d %3s %10.5f %4d 0" %
+                            (j + 1, atom, charge, ljtype)), file=ofh)
     
     log("Output LJ table")
     # Output LJ table
-    fh = open(mode + "/LJTable", "wt")
-    ico = topology["NONBONDED_PARM_INDEX"]
-    cn1 = topology["LENNARD_JONES_ACOEF"]
-    cn2 = topology["LENNARD_JONES_BCOEF"]
+    with open(mode + "/LJTable", "wt") as fh:
+        ico = topology["NONBONDED_PARM_INDEX"]
+        cn1 = topology["LENNARD_JONES_ACOEF"]
+        cn2 = topology["LENNARD_JONES_BCOEF"]
 
-    # Convert back to length and eps
-    lentable = [[None] * ntypes for i in range(ntypes)]
-    enetable = [[None] * ntypes for i in range(ntypes)]
+        # Convert back to length and eps
+        lentable = [[None] * ntypes for i in range(ntypes)]
+        enetable = [[None] * ntypes for i in range(ntypes)]
 
-    for i in range(ntypes):
-        for j in range(ntypes):
-            acoeff = cn1[ico[(i * ntypes) + j] - 1]
-            bcoeff = cn2[ico[(i * ntypes) + j] - 1]
-            if bcoeff == 0.0:
-                lentable[i][j] = 0
-                enetable[i][j] = 0
-            else:
-                r = acoeff / bcoeff
-                lentable[i][j] = r ** (1. / 6.)
-                enetable[i][j] = bcoeff / (4.0 * r)
-    
-    print(ntypes, file=fh)
-    for i in range(ntypes):
-        print(" ".join(["%11.5E" % lentable[i][j]
-                               for j in range(ntypes)]), file=fh)
-    for i in range(ntypes):
-        print(" ".join(["%11.5E" % enetable[i][j]
-                               for j in range(ntypes)]), file=fh)
-    safe_close(fh)
+        for i in range(ntypes):
+            for j in range(ntypes):
+                acoeff = cn1[ico[(i * ntypes) + j] - 1]
+                bcoeff = cn2[ico[(i * ntypes) + j] - 1]
+                if bcoeff == 0.0:
+                    lentable[i][j] = 0
+                    enetable[i][j] = 0
+                else:
+                    r = acoeff / bcoeff
+                    lentable[i][j] = r ** (1. / 6.)
+                    enetable[i][j] = bcoeff / (4.0 * r)
+        
+        print(ntypes, file=fh)
+        for i in range(ntypes):
+            print(" ".join(["%11.5E" % lentable[i][j]
+                                for j in range(ntypes)]), file=fh)
+        for i in range(ntypes):
+            print(" ".join(["%11.5E" % enetable[i][j]
+                                for j in range(ntypes)]), file=fh)
 
     # Output Extraparam
     extra = {'sltspec': solute + 1}
-    fh = open("soln/.extraparam", "wt")
-    pickle.dump(extra, fh)
-    safe_close(fh)
+    with open("soln/.extraparam", "wb") as fh:
+        pickle.dump(extra, fh)
                              
     # Output permutation
     log("Output Permutation")
@@ -519,8 +506,7 @@ for mode in ["soln", "refs"]:
             os.unlink(fn)
         continue
 
-    fh = open(fn, "wt")
-    for s in perm:
-        print(s + 1, file=fh)
-    safe_close(fh)
+    with open(fn, "wt") as fh:
+        for s in perm:
+            print(s + 1, file=fh)
 

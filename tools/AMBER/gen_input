@@ -30,14 +30,6 @@ def error(x):
     warn_or_error("Error: " + x, 31)
     sys.exit(1)
 
-def safe_close(fh):
-    # asynchronous NFS may miss file creation
-    # esp. combined with delayed allocation (ext4, XFS)
-    # The open-to-close consistency is preserved only when 
-    fh.flush()
-    os.fsync(fh.fileno())
-    fh.close()
-
 # End of common components
 ################################################################
 
@@ -117,11 +109,10 @@ directory_check()
 
 def save_parameters_fe(temp):
     feparamf = "../parameters_fe"
-    fh = open(feparamf, "wt")
-    print("&fevars", file=fh)
-    print("inptemp=%f" % temp, file=fh)
-    print("/", file=fh)
-    safe_close(fh)
+    with open(feparamf, "wt") as fh:
+        print("&fevars", file=fh)
+        print("inptemp=%f" % temp, file=fh)
+        print("/", file=fh)
 
 def parse_log():
     logfh = open(options.log, "rt")
@@ -214,7 +205,7 @@ def parse_log():
         params["maxins"] = options.maxins
 
     try:
-        ifh = open(".extraparam", "rt")
+        ifh = open(".extraparam", "rb")
         carryover = pickle.load(ifh)
         ifh.close()
 
@@ -263,14 +254,11 @@ frames = parse_log()
 
 # update MDinfo
 if frames:
-    ifh = open("MDinfo", "rt")
-    ofh = open("MDinfo.new", "wt")
-    l = ifh.next().split()
-    print(frames, l[1], file=ofh)
-    print(ifh.next().strip(), file=ofh)
-    print(ifh.next().strip(), file=ofh)
-    ifh.close()
-    safe_close(ofh)
+    with open("MDinfo", "rt") as ifh, open("MDinfo.new", "wt") as ofh:
+        l = next(ifh).split()
+        print(frames, l[1], file=ofh)
+        print(next(ifh).strip(), file=ofh)
+        print(next(ifh).strip(), file=ofh)
     shutil.move("MDinfo", "MDinfo.bak")
     shutil.move("MDinfo.new", "MDinfo")
 
@@ -309,15 +297,10 @@ elif options.rigid:
     else:
         error("Unknown rigid file extension")
     
-    ifh = open("SltInfo", "rt")
-    ofh = open("SltInfo.new", "wt")
-    pos = 0
-    for l in ifh:
-        print(' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
-        pos += 1
+    with open("SltInfo", "rt") as ifh, open("SltInfo.new", "wt") as ofh:
+        for pos, l in enumerate(ifh):
+            print(' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
 
-    ifh.close()
-    safe_close(ofh)
     shutil.move("SltInfo", "SltInfo.bak")
     shutil.move("SltInfo.new", "SltInfo")
 
