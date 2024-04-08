@@ -71,6 +71,7 @@ contains
                     ecprread, meshread, peread
     !
     allocate( tplst(nummol) )
+    solute_moltype = 0 ! suppress warning
     numslt = 0
     do i = 1, nummol
        if(sluvid(i) > 0) then
@@ -800,6 +801,8 @@ contains
 
     allocate( insdst(ermax) )
 
+    engnmfc = 0.0
+
     select case(wgtslf)
     case(NO)
        engnmfc = 1.0
@@ -993,6 +996,10 @@ contains
     integer :: idmin, idnum, idpti
     real, parameter :: warn_threshold = 1.0e3
     logical, save :: warn_bin_firsttime = .true.
+
+    idmin = 0 ! clear to supress warning
+    idpti = 0
+    idnum = 0
 
     if(pti >  0) then            ! solute-solvent interaction
        if(pti == 1) then         ! first solvent species

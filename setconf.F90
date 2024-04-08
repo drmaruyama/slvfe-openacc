@@ -539,7 +539,7 @@ contains
     real, parameter :: lencnv = 10.0               ! from nm to Angstrom
     real, parameter :: engcnv = 1.0 / 4.184        ! from kJ/mol to kcal/mol
     integer :: pti, stmax, maxsite, uvtype, cmin, cmax, sid, i, ati, m
-    integer :: solute_index, cur_solvent, prev_solvent_type, cur_atom
+    integer :: solute_index, cur_solvent, cur_atom
     real :: factor, xst(3)
     real, dimension(:), allocatable :: sitemass_temp, charge_temp
     integer, allocatable :: ljtype_temp(:)
@@ -725,7 +725,7 @@ contains
           ! use numbers directly
           ! No sane system will have the problem with 
           ! string -> double -> int conversion ...
-          ljtype_temp(1:stmax) = ljene_temp(1:stmax)
+          ljtype_temp(1:stmax) = int(ljene_temp(1:stmax))
        else
           ! allocate LJ types
           do sid = 1, stmax
@@ -898,6 +898,8 @@ contains
     end if
     
     nread = min(nprocs, maxread)
+    weight = 0
+    readweight = 0
 
     if(myrank < nread) then
        if(myrank == 0) then              ! rank-0 to read from file
