@@ -3,7 +3,7 @@ ACLOCAL_AMFLAGS = -I m4
 bin_PROGRAMS = ermod slvfe
 nobase_pkgdata_SCRIPTS = \
 	tools/AMBER/gen_structure tools/AMBER/gen_input \
-	tools/GROMACS/gen_structure tools/gromacs/gen_input \
+	tools/GROMACS/gen_structure tools/GROMACS/gen_input \
 	tools/NAMD/gen_structure tools/NAMD/gen_input \
 	tools/MARBLE/gen_structure tools/MARBLE/gen_input \
 	tools/MODYLAS/gen_structure tools/MODYLAS/gen_input \

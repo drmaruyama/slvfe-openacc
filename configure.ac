@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 
 # autoconf <= 2.64 has a bug in AC_OPENMP
-AC_PREREQ([2.71])
+AC_PREREQ([2.69])
 #AC_INIT([ermod],[0.3.%rev%],[Matubayasi Laboratory])
 AC_INIT([ermod],[1.0.0-alpha1],[Matubayasi Laboratory])
 AC_CONFIG_MACRO_DIR(m4)
