@@ -59,27 +59,17 @@ def error(x):
     warn_or_error("Error: " + x, 31)
     sys.exit(1)
 
-def safe_close(fh):
-    # asynchronous NFS may miss file creation
-    # esp. combined with delayed allocation (ext4, XFS)
-    fh.flush()
-    os.fsync(fh.fileno())
-    fh.close()
-
 if options.topology == None:
     error("topology must be specified (try --help)")
 
-def find_luck():
-    candidates = ["luck", "luck_d", "g_luck", "g_luck_d"]
+def find_gmx():
+    candidates = ["gmx", "gmx_d", "gmx_mpi", "gmx_mpi_d"]
     for cmd in candidates:
-        (stdin, stdout, stderr) = os.popen3(" ".join(["which", cmd]))
+        p = subprocess.Popen(["which", cmd], stdout=subprocess.PIPE) # this will call /usr/bin/which (not shell builtin which) in most of environments
         # May block if PIPE bufsize is extremely small, but should be enough for which(1) output
-        stdin.close()
-        output = "".join(stdout.readlines())
-        _errors = stderr.readlines()
-
-        if output != "":
-            return output
+        (stdout, _stderr) = p.communicate()
+        if p.returncode == 0 and stdout != b"":
+            return stdout.decode()
     return None
 
 def cpp_accepts_traditional():
@@ -96,11 +86,11 @@ def where_gromacs():
             p2 = os.path.join(os.environ["GMXDATA"], "gromacs/top")
             ps = [p1, p2]
         else:
-            output = find_luck()
+            output = find_gmx()
             log("Found luck at \"%s\"" % output)
             if output == None:
                 if options.includes == []:
-                    warn("Could not find luck / g_luck (1). Default search path to (gromacs-root-path)/share/gromacs/top is not set; please specify with -I")
+                    warn("Could not find gmx. Default search path to (gromacs-root-path)/share/gromacs/top is not set; please specify with -I")
                 return
             
             rp = os.path.realpath(output)
@@ -192,7 +182,7 @@ class topology:
         # process [ nonbond_params ] section
         try:
             functype = int(ls[2])
-        except e:
+        except ValueError:
             error("LJ function type in [ nonbond_params ] is string, not integer")
 
         if functype == 2:
@@ -204,7 +194,7 @@ class topology:
         try:
             v = float(ls[3])
             w = float(ls[4])
-        except e:
+        except ValueError:
             error("LJ parameter in [ nonbond_params ] is broken")
         self.paircorrection[(atom1, atom2)] = (v, w)
         self.paircorrection[(atom2, atom1)] = (v, w)
@@ -574,7 +564,7 @@ def gen(mode):
         k = 1
 
         if ofh:
-            safe_close(ofh)
+            ofh.close()
         ofh = open(mode + "/" + fn, "wt")
 
         for (atype, _atom, charge, mass) in atoms:
@@ -588,27 +578,25 @@ def gen(mode):
                            (k, atom, charge, eps, sig)), file=ofh)
             k += 1
 
-    safe_close(ofh)
+    ofh.close()
     # write carryover
-    ofh = open(mode + "/.extraparam", "wt")
-    pickle.dump(carryover, ofh)
-    safe_close(ofh)
+    with open(mode + "/.extraparam", "wb") as ofh:
+        pickle.dump(carryover, ofh)
 
     if use_ljtable:
-        ofh = open(mode + "/LJTable", "wt")
-        n = len(ljatoms)
-        print(n, file=ofh)
-        # FIXME: len-> eps order is used, but program uses ene -> len order
-        for i in range(n):
-            for j in range(n):
-                print("%+.6e" % ljtable[i][j][0], end=' ', file=ofh)
-            print(file=ofh)
-        # eps
-        for i in range(n):
-            for j in range(n):
-                print("%+.6e" % ljtable[i][j][1], end=' ', file=ofh)
-            print(file=ofh)
-        safe_close(ofh)
+        with open(mode + "/LJTable", "wt") as ofh:
+            n = len(ljatoms)
+            print(n, file=ofh)
+            # FIXME: len-> eps order is used, but program uses ene -> len order
+            for i in range(n):
+                for j in range(n):
+                    print("%+.6e" % ljtable[i][j][0], end=' ', file=ofh)
+                print(file=ofh)
+            # eps
+            for i in range(n):
+                for j in range(n):
+                    print("%+.6e" % ljtable[i][j][1], end=' ', file=ofh)
+                print(file=ofh)
 
 gen("soln")
 gen("refs")

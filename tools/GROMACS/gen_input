@@ -58,9 +58,8 @@ if options.rigid != None or options.solute != None:
 
 params = {}
 try:
-    ifh = open(".extraparam", "rt")
-    carryover = pickle.load(ifh)
-    ifh.close()
+    with open(".extraparam", "rb") as ifh:
+        carryover = pickle.load(ifh)
 
     params["ljformat"] = {
         'C6C12': 4,
@@ -102,13 +101,6 @@ def error(x):
     warn_or_error("Error: " + x, 31)
     sys.exit(1)
 
-def safe_close(fh):
-    # asynchronous NFS may miss file creation
-    # esp. combined with delayed allocation (ext4, XFS)
-    fh.flush()
-    os.fsync(fh.fileno())
-    fh.close()
-
 if options.log == None:
     error("log file is not specified (try --help)")
 
@@ -142,39 +134,36 @@ else:
 
 def save_parameters_fe(temp):
     feparamf = "../parameters_fe"
-    fh = open(feparamf, "wt")
-    print("&fevars", file=fh)
-    print("inptemp=%f" % temp, file=fh)
-    print("/", file=fh)
-    safe_close(fh)
+    with open(feparamf, "wt") as fh:
+        print("&fevars", file=fh)
+        print("inptemp=%f" % temp, file=fh)
+        print("/", file=fh)
 
 # TODO: ljformat
 # TODO: LJ table
 def parse_mdp():
-    logfh = open(options.log, "rt")
-    pats = re.compile(r"^\s*([a-zA-Z0-9_\-]+)\s*=\s*(\S+)\s*$")
-    reft = re.compile(r"^\s+ref[_-]t:\s+([0-9.]+)")
-    beta = re.compile(r"Using a Gaussian width \(1/beta\) of (\S+) nm for Ewald")
-    dic = {}
-    temp = 300.0
-    betawidth = None
+    with open(options.log, "rt") as logfh:
+        pats = re.compile(r"^\s*([a-zA-Z0-9_\-]+)\s*=\s*(\S+)\s*$")
+        reft = re.compile(r"^\s+ref[_-]t:\s+([0-9.]+)")
+        beta = re.compile(r"Using a Gaussian width \(1/beta\) of (\S+) nm for Ewald")
+        dic = {}
+        temp = 300.0
+        betawidth = None
 
-    for l in logfh:
-        pairs = pats.match(l)
-        if pairs:
-            # Replace by underscores, to handle both GROMACS pre-4.5 and post-4.6 series
-            key = pairs.group(1).replace('-', '_')
-            dic[key] = pairs.group(2)
+        for l in logfh:
+            pairs = pats.match(l)
+            if pairs:
+                # Replace by underscores, to handle both GROMACS pre-4.5 and post-4.6 series
+                key = pairs.group(1).replace('-', '_')
+                dic[key] = pairs.group(2)
 
-        reftf = reft.match(l)
-        if reftf:
-            temp = float(reftf.group(1))
+            reftf = reft.match(l)
+            if reftf:
+                temp = float(reftf.group(1))
 
-        betaf = beta.match(l)
-        if betaf:
-            betawidth = float(betaf.group(1))
-
-    logfh.close()
+            betaf = beta.match(l)
+            if betaf:
+                betawidth = float(betaf.group(1))
 
     # From gromacs 5.0 following terms were renamed
     conversion = { 'vdw_type': 'vdwtype',
@@ -293,23 +282,20 @@ def parse_mdp():
 """ % options.minenergy, file=ofh)
 
     if int(dic["nstxtcout"]) != 0:
-        frames = int(dic["nsteps"]) / int(dic["nstxtcout"])
+        frames = int(dic["nsteps"]) // int(dic["nstxtcout"])
     else:
-        frames = int(dic["nsteps"]) / int(dic["nstxout"])
+        frames = int(dic["nsteps"]) // int(dic["nstxout"])
     return (frames, is_periodic)
     
 (frames, is_periodic) = parse_mdp()
 
 # update MDinfo
 if frames:
-    ifh = open("MDinfo", "rt")
-    ofh = open("MDinfo.new", "wt")
-    l = ifh.next().split()
-    print(frames, l[1], file=ofh)
-    print(ifh.next().strip(), file=ofh)
-    print(ifh.next().strip(), file=ofh)
-    ifh.close()
-    safe_close(ofh)
+    with open("MDinfo", "rt") as ifh, open("MDinfo.new", "wt") as ofh:
+        l = next(ifh).split()
+        print(frames, l[1], file=ofh)
+        print(next(ifh).strip(), file=ofh)
+        print(next(ifh).strip(), file=ofh)
     shutil.move("MDinfo", "MDinfo.bak")
     shutil.move("MDinfo.new", "MDinfo")
 
@@ -343,18 +329,17 @@ elif options.rigid:
         return coords
 
     def get_gro_coord():
-        fh = open(options.rigid, "rt")
         coords = []
-        _l = next(fh) # header
-        natoms = int(fh.next().strip())
-        for _i in range(natoms):
-            line = next(fh)
-            x = float(line[20:28].strip())
-            y = float(line[28:36].strip())
-            z = float(line[36:44].strip())
-            uc = 10.0 # nm to angstrom
-            coords.append((x*uc, y*uc, z*uc))
-        fh.close()
+        with open(options.rigid, "rt") as fh:
+            _l = next(fh) # header
+            natoms = int(fh.next().strip())
+            for _i in range(natoms):
+                line = next(fh)
+                x = float(line[20:28].strip())
+                y = float(line[28:36].strip())
+                z = float(line[36:44].strip())
+                uc = 10.0 # nm to angstrom
+                coords.append((x*uc, y*uc, z*uc))
         return coords
 
     (_, ext) = os.path.splitext(options.rigid)
@@ -365,14 +350,8 @@ elif options.rigid:
     else:
         error("Unknown rigid file extension")
     
-    ifh = open("SltInfo", "rt")
-    ofh = open("SltInfo.new", "wt")
-    pos = 0
-    for l in ifh:
-        print(' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
-        pos += 1
-
-    ifh.close()
-    safe_close(ofh)
+    with open("SltInfo", "rt") as ifh, open("SltInfo.new", "wt") as ofh:
+        for pos, l in enumerate(ifh):
+            print(' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
     shutil.move("SltInfo", "SltInfo.bak")
     shutil.move("SltInfo.new", "SltInfo")
