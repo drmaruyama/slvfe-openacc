@@ -199,7 +199,7 @@ def parse_mdp():
 
     if dic["epc"] == "No":
         params['estype'] = 1
-    elif dic["epc"] in ["Berendsen", "Parrinello-Rahman", "MTTK"]:
+    elif dic["epc"] in ["Berendsen", "Parrinello-Rahman", "MTTK", "C-rescale"]:
         params['estype'] = 2
     else:
         warn("Warning: Unknown pressure coupling type (NVT assumed), check log / output")
