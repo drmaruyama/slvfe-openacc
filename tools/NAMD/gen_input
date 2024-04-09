@@ -216,7 +216,7 @@ def parse_log():
                 elif isinstance(v, float):
                     print("        %s = %g," % (k, v), file=ofh)
                 else:
-                    error("Unknown output type")
+                    raise RuntimeError("Unknown output type")
 
         print("""/
 &hist
@@ -236,7 +236,7 @@ def parse_log():
             print("/", file=fh)
 
     if total != 0 and freq != 0:
-        frames = total / freq
+        frames = total // freq
     else:
         frames = None
     return (frames, is_periodic)
