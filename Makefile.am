@@ -5,8 +5,6 @@ nobase_pkgdata_SCRIPTS = \
 	tools/AMBER/gen_structure tools/AMBER/gen_input \
 	tools/GROMACS/gen_structure tools/GROMACS/gen_input \
 	tools/NAMD/gen_structure tools/NAMD/gen_input \
-	tools/MARBLE/gen_structure tools/MARBLE/gen_input \
-	tools/MODYLAS/gen_structure tools/MODYLAS/gen_input \
 	tools/LAMMPS/gen_structure tools/LAMMPS/gen_input \
 	tools/CHARMM/gen_structure tools/CHARMM/gen_input \
 	tools/GENESIS/gen_structure tools/GENESIS/gen_input \

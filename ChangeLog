@@ -1,6 +1,9 @@
 version 1.0.0 (TBD)
 * Moved toolchain to python3
     * Requirement: Python 3.5+
+* Removed unmaintained tools
+    * MARBLE
+    * MODYLAS
 
 version 0.3.8 (10 January 2023)
 * Energy Histogram Computation:
