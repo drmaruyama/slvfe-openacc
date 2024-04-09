@@ -798,6 +798,7 @@ contains
    ! updates cell_normal and sitepos_normal
    subroutine make_cell_uppertriangular
       use engmain, only: cell, sitepos
+      use mpiproc, only: warning
       implicit none
 
       real :: q(3,3), r(3, 3), temp(3, 3), axis_len
@@ -809,6 +810,8 @@ contains
          sitepos_normal(:, :) = sitepos(:, :)
          return
       end if
+
+      call warning("cell")
 
       ! modified Gram-Schmidt
       q(:, :) = 0.
@@ -838,6 +841,7 @@ contains
    ! Cell vectors are normalized by either inverting the cell vector or by adding integer times other vectors
    subroutine normalize_cell_vector
       use engmain, only: elecut, upljcut
+      use mpiproc, only: warning
       integer :: i
       real :: cutoff
 
@@ -849,14 +853,17 @@ contains
 
       ! check cell size restrictions
       if (abs(cell_normal(1, 2)) > 0.5 * cell_normal(1, 1) + cutoff_thres) then
+         call warning("cel2")
          cell_normal(:, 2) = cell_normal(:, 2) - &
             cell_normal(:, 1) * anint(cell_normal(1, 2) * invcell_normal(1))
       end if
       if (abs(cell_normal(1, 3)) > 0.5 * cell_normal(1, 1) + cutoff_thres) then
+         call warning("cel2")
          cell_normal(:, 3) = cell_normal(:, 3) - &
             cell_normal(:, 1) * anint(cell_normal(1, 3) * invcell_normal(1))
       end if
       if (abs(cell_normal(2, 3)) > 0.5 * cell_normal(2, 2) + cutoff_thres) then
+         call warning("cel2")
          cell_normal(:, 3) = cell_normal(:, 3) - &
             cell_normal(:, 2) * anint(cell_normal(2, 3) * invcell_normal(2))
       end if
