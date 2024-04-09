@@ -984,7 +984,9 @@ contains
 
    subroutine getmass(stmass,atmtype)
       implicit none
+      real, parameter :: massM = 0.0              ! dummy atom
       real, parameter :: massH = 1.00794          ! atomic weight (hydrogen)
+      real, parameter :: massD = 2.014102         ! atomic weight (deuterium)
       real, parameter :: massC = 12.0107          ! atomic weight (carbon)
       real, parameter :: massO = 15.9994          ! atomic weight (oxygen)
       real, parameter :: massN = 14.00674         ! atomic weight (nitrogen)
@@ -1012,7 +1014,9 @@ contains
       character(len=3) :: eltp3
 
       eltp1 = atmtype(1:1)
+      if(eltp1 == 'M') stmass = massM
       if(eltp1 == 'H') stmass = massH
+      if(eltp1 == 'D') stmass = massD
       if(eltp1 == 'C') stmass = massC
       if(eltp1 == 'O') stmass = massO
       if(eltp1 == 'N') stmass = massN

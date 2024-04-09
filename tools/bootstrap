@@ -685,7 +685,7 @@ def get_args():
                         help='block: a single block within a trajectory as a single sample\n' \
                            + 'traj:  a signle trajectory (all the divided blocks in a soln or refs directory) as a single sample')
     parser.add_argument('-s', '--soln_dir_list_file', type=str, default='',
-                        help='filename to list the solnution directories to be read')
+                        help='filename to list the solution directories to be read')
     parser.add_argument('-r', '--refs_dir_list_file', type=str, default='',
                         help='filename to list the reference-solvent directories to be read')
 
