@@ -246,10 +246,10 @@ def parse_log():
 # update MDinfo
 if frames:
     with open("MDinfo", "rt") as ifh, open("MDinfo.new", "wt") as ofh:
-        l = ifh.next().split()
+        l = next(ifh).split()
         print(frames, l[1], file=ofh)
-        print(ifh.next().strip(), file=ofh)
-        print(ifh.next().strip(), file=ofh)
+        print(next(ifh).strip(), file=ofh)
+        print(next(ifh).strip(), file=ofh)
     shutil.move("MDinfo", "MDinfo.bak")
     shutil.move("MDinfo.new", "MDinfo")
 
