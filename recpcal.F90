@@ -445,19 +445,19 @@ contains
     end do
   end subroutine calc_spline_molecule
 
-  subroutine recpcal_self_energy(pairep)
+  function recpcal_self_energy() result(pairep)
     implicit none
-    real, intent(out) :: pairep
+    real :: pairep
 
     pairep = solute_self_energy
-  end subroutine recpcal_self_energy
+  end function recpcal_self_energy
 
-  subroutine recpcal_energy(tagslt, i, pairep)
+  function recpcal_energy(tagslt, i) result(pairep)
     use engmain, only: ms1max, ms2max, ms3max, splodr, numsite, specatm, sluvid, charge
     use mpiproc, only: halt_with_error, perf_time
     implicit none
     integer, intent(in) :: tagslt, i
-    real, intent(inout) :: pairep
+    real :: pairep
     integer :: cg1, cg2, cg3, k
     integer :: rc1, rc2, rc3, ptrnk, sid, ati, svi, stmax
     real :: fac1, fac2, fac3, chr
@@ -469,7 +469,7 @@ contains
     k = sluvid(tagslt)
     if(k == 0) call halt_with_error('rcp_fst')
     if(tagslt == i) then              ! solute self-energy
-       call recpcal_self_energy(pairep)
+       pairep = recpcal_self_energy()
     else                              ! solute-solvent pair interaction
        svi = slvtag(i)
        if(svi <= 0) call halt_with_error('rcp_cns')
@@ -503,6 +503,6 @@ contains
        end do
     endif
     call perf_time()
-  end subroutine recpcal_energy
+   end function recpcal_energy
 
 end module reciprocal

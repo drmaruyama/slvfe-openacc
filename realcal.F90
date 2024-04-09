@@ -151,15 +151,17 @@ contains
 
 
    ! Calculate i-j interaction energy in the bare 1/r form
-   subroutine realcal_bare(i, j, pairep)
+   function realcal_bare(i, j) result(pairep)
       use engmain, only:  boxshp, numsite, &
          elecut, lwljcut, upljcut, cltype, screen, charge, specatm, &
          ljswitch, ljtype, ljtype_max, ljene_mat, ljlensq_mat, &
          SYS_NONPERIODIC, SYS_PERIODIC, EL_COULOMB, &
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
       implicit none
-      integer :: i, j, is, js, ismax, jsmax, ati, atj
-      real :: reelcut, pairep, rst, dis2, invr2, invr3, invr6
+      integer, intent(in) :: i, j
+      real :: pairep
+      integer :: is, js, ismax, jsmax, ati, atj
+      real :: reelcut, rst, dis2, invr2, invr3, invr6
       real :: eplj, epcl, xst(3), half_cell(3)
       real :: lwljcut2, upljcut2, lwljcut3, upljcut3, lwljcut6, upljcut6
       real :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
@@ -279,17 +281,15 @@ contains
             pairep = pairep + eplj + epcl
          end do
       end do
-      !
-      return
-   end subroutine realcal_bare
+   end function realcal_bare
 
    ! self-energy part, no LJ calculation performed
-   subroutine realcal_self(i, pairep)
+   function realcal_self(i) result(pairep)
       use engmain, only: numsite, screen, cltype, charge, specatm, &
          EL_COULOMB, PI
       implicit none
       integer, intent(in) :: i
-      real, intent(inout) :: pairep
+      real :: pairep
       integer :: is, js, ismax, ati, atj
       real :: rst, dis2, epcl, xst(3), half_cell(3)
 
@@ -330,7 +330,7 @@ contains
          enddo
       enddo
 
-   end subroutine realcal_self
+   end function realcal_self
 
 
    integer function count_solv(solu, tagpt, slvmax)

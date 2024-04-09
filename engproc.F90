@@ -705,7 +705,7 @@ contains
       integer :: i, k
       integer(8) :: current_solute_hash
       integer(8) :: solute_hash = 0
-      real :: pairep, residual, factor
+      real :: pairep, residual, factor, uvrecp, pair_real, pair_recp
       real, save :: usreal
       logical, save :: initialized = .false.
 
@@ -729,6 +729,7 @@ contains
       call realcal_prepare
 
       uvengy(:) = 0
+      uvrecp = 0.
       ! Calculate system-wide values
       if(cltype == EL_PME .or. cltype == EL_PPPM) then
          call recpcal_prepare_solute(tagslt)
@@ -736,7 +737,7 @@ contains
          call realcal_proc(tagslt, tagpt, slvmax, uvengy)
          call perf_time()
          call perf_time("kslf")
-         call recpcal_self_energy(uvengy(0))
+         uvrecp = recpcal_self_energy()
          call perf_time()
       endif
 
@@ -749,32 +750,32 @@ contains
          ! For refs calculation, the configuration of solute may change with
          ! random translation and/or rotation upon insertion,
          ! though the self energy will not change.
-         pairep = usreal ! reuse
+         ! usreal is kept over subroutine calls during "save"
       else
          call perf_time("rslf")
-         call realcal_self(tagslt, pairep) ! calculate self-interaction
+         usreal = realcal_self(tagslt) ! calculate self-interaction
          call perf_time()
-         usreal = pairep
       endif
       solute_hash = current_solute_hash
-      call residual_ene(tagslt, tagslt, residual)
-      uvengy(0) = uvengy(0) + pairep + residual
+      residual = residual_ene(tagslt, tagslt)
+      uvengy(0) = uvrecp + usreal + residual
 
       ! solute-solvent pair
-      !$omp parallel do schedule(dynamic) private(i, k, pairep, factor)
+      !$omp parallel do schedule(dynamic) private(i, k, pairep, pair_real, pair_recp)
       do k = 1, slvmax
          i = tagpt(k)
          if(i == tagslt) cycle
 
-         pairep = 0
-         factor = 0
+         pair_real = 0
+         pair_recp = 0
          if(cltype == EL_PME .or. cltype == EL_PPPM) then
             ! called only when PME or PPPM, non-self interaction
-            call residual_ene(tagslt, i, pairep)
-            call recpcal_energy(tagslt, i, factor)
-            pairep = pairep + factor
+            pair_real = residual_ene(tagslt, i)
+            pair_recp = recpcal_energy(tagslt, i)
+            pairep = pair_real + pair_recp
          else                      ! Bare coulomb solute-solvent interaction
-            call realcal_bare(tagslt, i, pairep)
+            pair_real = realcal_bare(tagslt, i)
+            pairep = pair_real
          endif
          !$omp atomic
          uvengy(k) = uvengy(k) + pairep
@@ -884,17 +885,17 @@ contains
    end subroutine update_histogram
 
    !
-   subroutine residual_ene(i, j, pairep)
+   function residual_ene(i, j) result(pairep)
       use engmain, only: screen, volume, mol_charge, cltype, EL_COULOMB, PI
       implicit none
       integer, intent(in) :: i, j
-      real, intent(inout) :: pairep
+      real :: pairep
       real :: epcl
       if(cltype == EL_COULOMB) return
       epcl = PI * mol_charge(i) * mol_charge(j) / screen / screen / volume
       if(i == j) epcl = epcl / 2.0   ! self-interaction
       pairep = pairep - epcl
-   end subroutine residual_ene
+   end function residual_ene
    !
    subroutine volcorrect(weight)
       use engmain, only:  sluvid, cltype, screen, mol_charge, volume, temp, &
