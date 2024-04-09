@@ -61,7 +61,7 @@ contains
    end subroutine finiconf
 
    ! Initialization - read MDinfo
-   ! when ermod is built into MD program, read topologies from parent MD program
+   ! when erdst is built into MD program, read topologies from parent MD program
    subroutine OUT_MDinfo
       implicit none
       open(unit = io_MDinfo, file = inffile, status = 'old')
@@ -74,7 +74,7 @@ contains
    end subroutine OUT_MDinfo
 
    ! read system setup (coulomb rule, LJ, etc..)
-   ! used when the ermod program is built into MD program and runs on-the-fly
+   ! used when the erdst program is built into MD program and runs on-the-fly
    subroutine OUTintprm
    end subroutine OUTintprm
 

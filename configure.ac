@@ -385,7 +385,7 @@ LAPACK: $lapack_result
 FFT: $with_fft
 MPI: $mpi_result
 OpenMP: $enable_openmp
-FC(for ermod)=$FC
+FC(for erdst)=$FC
 FC_CANONICAL(for slvfe)=$FC_CANONICAL
 FCFLAGS=$FCFLAGS
 
