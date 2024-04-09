@@ -8,6 +8,18 @@ import re
 import pickle
 from argparse import ArgumentParser
 
+def warn_or_error(x, col):
+    prefix = ""
+    suffix = ""
+    if os.isatty(sys.stderr.fileno()):
+        prefix = "\x1b[" + str(col) + ";1m"
+        suffix = "\x1b[0m"
+    print(prefix + x + suffix, file=sys.stderr)
+
+def error(x):
+    warn_or_error("Error: " + x, 31)
+    sys.exit(1)
+
 parser = ArgumentParser()
 
 # only have to specify one of three:
@@ -43,13 +55,6 @@ parser.add_argument("--maxins", dest = "maxins", type=int,
                   default = 1000)
 
 options = parser.parse_args()
-
-def safe_close(fh):
-    # asynchronous NFS may miss file creation
-    # esp. combined with delayed allocation (ext4, XFS)
-    fh.flush()
-    os.fsync(fh.fileno())
-    fh.close()
 
 if options.log == None:
     print("Error: log file is not specified (try --help)", file=sys.stderr)
@@ -313,21 +318,21 @@ def parse_log():
                  "ms1max", "ms2max", "ms3max",
                  "maxins", "engdiv"]
 
-    ofh = open("parameters_er", "wt")
-    print("&ene_param", file=ofh)
-    for k in output_var:
-        if k in list(params.keys()):
-            v = params[k]
-            if isinstance(v, str):
-                print("        %s = \"%s\"," % (k, v), file=ofh)
-            elif isinstance(v, int):
-                print("        %s = %d," % (k, v), file=ofh)
-            elif isinstance(v, float):
-                print("        %s = %g," % (k, v), file=ofh)
-            else:
-                error("Unknown output type")
+    with open("parameters_er", "wt") as ofh:
+        print("&ene_param", file=ofh)
+        for k in output_var:
+            if k in list(params.keys()):
+                v = params[k]
+                if isinstance(v, str):
+                    print("        %s = \"%s\"," % (k, v), file=ofh)
+                elif isinstance(v, int):
+                    print("        %s = %d," % (k, v), file=ofh)
+                elif isinstance(v, float):
+                    print("        %s = %g," % (k, v), file=ofh)
+                else:
+                    error("Unknown output type")
 
-    print("""/
+        print("""/
 &hist
       eclbin=5.0e-2, ecfbin=2.0e-3, ec0bin=2.0e-4, finfac=10.0e0,
       ecdmin=%f, ecfmns=-0.20e0, ecdcen=0.0e0, eccore=20.0e0,
@@ -335,20 +340,17 @@ def parse_log():
 /
 """ % options.minenergy, file=ofh)
 
-    safe_close(ofh)
-
     if options.solute == None and options.pdb == None:
         # solution system
         # update parameter_fe
         feparamf = "../parameters_fe"
-        fh = open(feparamf, "wt")
-        print("&fevars", file=fh)
-        print("inptemp=%f" % temp, file=fh)
-        print("/", file=fh)
-        safe_close(fh)
+        with open(feparamf, "wt") as fh:
+            print("&fevars", file=fh)
+            print("inptemp=%f" % temp, file=fh)
+            print("/", file=fh)
 
     if total != 0 and freq != 0:
-        frames = total / freq
+        frames = total // freq
     else:
         frames = None
     return (frames, is_periodic)
@@ -357,14 +359,11 @@ def parse_log():
 
 # update MDinfo
 if frames:
-    ifh = open("MDinfo", "rt")
-    ofh = open("MDinfo.new", "wt")
-    l = ifh.next().split()
-    print(frames, l[1], file=ofh)
-    print(ifh.next().strip(), file=ofh)
-    print(ifh.next().strip(), file=ofh)
-    ifh.close()
-    safe_close(ofh)
+    with open("MDinfo", "rt") as ifh, open("MDinfo.new", "wt") as ofh:
+        l = next(ifh).split()
+        print(frames, l[1], file=ofh)
+        print(next(ifh).strip(), file=ofh)
+        print(next(ifh).strip(), file=ofh)
     shutil.move("MDinfo", "MDinfo.bak")
     shutil.move("MDinfo.new", "MDinfo")
 
@@ -392,13 +391,10 @@ elif options.pdb:
         if l[0:4] == "ATOM" or l[0:6] == "HETATM":
             coords.append((float(l[30:38]), float(l[38:46]), float(l[46:54])))
     fh.close()
-    ifh = open("SltInfo", "rt")
-    ofh = open("SltInfo.new", "wt")
-    pos = 0
-    for l in ifh:
-        print(' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
-        pos += 1
-    ifh.close()
-    safe_close(ofh)
+    with open("SltInfo", "rt") as ifh, open("SltInfo.new", "wt") as ofh:
+        pos = 0
+        for l in ifh:
+            print(' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
+            pos += 1
     shutil.move("SltInfo", "SltInfo.bak")
     shutil.move("SltInfo.new", "SltInfo")
