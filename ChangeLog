@@ -1,9 +1,11 @@
 version 1.0.0 (TBD)
 * Moved toolchain to python3
     * Requirement: Python 3.5+
+* SltInfo / MolPrm format was renewed. Old format is still accepted
 * Removed unmaintained tools
     * MARBLE
     * MODYLAS
+* slvfe checks the consistency between soln/refs
 
 version 0.3.8 (10 January 2023)
 * Energy Histogram Computation:

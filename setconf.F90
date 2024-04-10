@@ -549,8 +549,12 @@ contains
       logical :: lj_is_new
       integer, dimension(:), allocatable :: pttype, ptcnt, ptsite
       real, dimension(:,:), allocatable :: psite
-      character(len=5) :: atmtype
+      character(len=8) :: atmname
+      character(len=12) :: atmtype ! OPLS and CHARMM may have very long atomtype
       character(len=80) :: molfile
+      character(len=120) :: linebuf
+      integer :: ierr
+      real :: mass
 
       call OUTinitial                ! initialization of OUTname module
       call iniparam                  ! initialization of parameters
@@ -692,14 +696,27 @@ contains
 
          ! This part is a bit complicated due to backward compatibility.
          ! for ljtype /= 5, read the table and make table by program
-         open(unit = mol_io, file = molfile, status = 'old')
+         open(unit = mol_io, file = molfile, status = 'old', action='read')
          do sid = 1, stmax
+            read(mol_io, '(A)') linebuf ! read entire line into buf
             if(uvtype == SLT_REFS_RIGID) then
-               read(mol_io,*) m, atmtype, xst(1:3), psite(1:3,sid)
+               ! new format
+               read(linebuf,*,iostat=ierr) m, mass, atmtype, atmname, xst(1:3), psite(1:3,sid)
+               if(ierr/=0) then
+                  ! old format
+                  read(linebuf,*) m, atmtype, xst(1:3), psite(1:3,sid)
+                  call getmass(mass, atmtype)
+               end if
             else
-               read(mol_io,*) m, atmtype, xst(1:3)
+               ! new format
+               read(linebuf,*, iostat=ierr) m, mass, atmtype, atmname, xst(1:3)
+               if(ierr/=0) then
+                  ! old format
+                  read(linebuf,*, iostat=ierr) m, mass, atmtype, xst(1:3)
+                  call getmass(mass, atmtype)
+               end if
             endif
-            call getmass(sitemass_temp(sid), atmtype)
+            sitemass_temp(sid) = mass
 
             charge_temp(sid) = xst(1)
             if(ljformat == LJFMT_EPS_Rminh) xst(3) = sgmcnv * xst(3)

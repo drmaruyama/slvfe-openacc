@@ -330,41 +330,6 @@ retcode = ppw.wait()
 if retcode != 0:
     warn("Warning: cpp reported an error on preprocessing. Perhaps you forgot to add gromacs default topology path (/usr/share/gromacs/top)?")
 
-mass_table = {
-  1: 'H',
-  2: 'D',
-  4: 'He',
-  6: 'Li',
-  7: 'Li',
-  11: 'B',
-  12: 'C',
-  14: 'N',
-  15: 'CH3',
-  16: 'O',
-  19: 'F',
-  23: 'Na',
-  28: 'Si',
-  31: 'P',
-  32: 'S',
-  35: 'Cl',
-  36: 'Cl',
-  39: 'K',
-  40: 'Ca',
-  56: 'Fe',
-  63: 'Cu',
-  64: 'Cu',
-  65: 'Zn',
-  80: 'Br',
-  127: 'I',
-  0: 'M' } # dummy atom
-
-def atomtype_of_mass(mass):
-    imass = int(round(mass))
-    if imass not in mass_table:
-        warn("Could not find appropriate atom type from mass (%f); replacing with carbon (12.0)" % mass)
-        return 'C'
-    return mass_table[imass]
-
 def get_topology_info():
     # make list of segment names
     mollist = [s for (s, _n) in top.system]
@@ -568,15 +533,14 @@ def gen(mode):
             ofh.close()
         ofh = open(mode + "/" + fn, "wt")
 
-        for (atype, _atom, charge, mass) in atoms:
+        for (atype, aname, charge, mass) in atoms:
             eps = top.atom2epsilon[atype]
             sig = top.atom2sigma[atype]
-            atom = atomtype_of_mass(float(mass))
             if use_ljtable:
                 eps = float(atom2num[atype] + 1) 
                 sig = 0.
-            print(("%d %s %.8g %.8g %.8g" % 
-                           (k, atom, charge, eps, sig)), file=ofh)
+            print(("%d %12.4f %12s %8s %.8g %.8g %.8g" %
+                           (k, mass, atype, aname, charge, eps, sig)), file=ofh)
             k += 1
 
     ofh.close()

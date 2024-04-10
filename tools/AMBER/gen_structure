@@ -60,37 +60,6 @@ def error(x):
     warn_or_error("Error: " + x, 31)
     sys.exit(1)
 
-mass_table = {
-  1: 'H',
-  2: 'D',
-  4: 'He',
-  6: 'Li',
-  7: 'Li',
-  11: 'B',
-  12: 'C',
-  14: 'N',
-  16: 'O',
-  19: 'F',
-  23: 'Na',
-  28: 'Si',
-  31: 'P',
-  32: 'S',
-  35: 'Cl',
-  36: 'Cl',
-  39: 'K',
-  40: 'Ca',
-  56: 'Fe',
-  63: 'Cu',
-  64: 'Cu',
-  65: 'Zn',
-  80: 'Br',
-  127: 'I' }
-def atomtype_of_mass(mass):
-    imass = int(round(mass))
-    if imass not in mass_table:
-        return "M" # dummy atom
-    return mass_table[imass]
-
 # End of common components
 ################################################################
 
@@ -425,11 +394,13 @@ for mode in ["soln", "refs"]:
         with open(mode + "/" + fn, "wt") as ofh:
             s = mols[i]
             for j in s["atoms"]:
-                atom = atomtype_of_mass(topology["MASS"][j])
+                mass = topology["MASS"][j]
+                atomname = topology["ATOM_NAME"][j]
+                atomtype = topology["AMBER_ATOM_TYPE"][j]
                 charge = topology["CHARGE"][j] * charge_convert
                 ljtype = topology["ATOM_TYPE_INDEX"][j]
-                print(("%7d %3s %10.5f %4d 0" %
-                            (j + 1, atom, charge, ljtype)), file=ofh)
+                print(("%7d %10.5f %4s %4s %10.5f %4d 0" %
+                            (j + 1, mass, atomtype, atomname, charge, ljtype)), file=ofh)
     
     log("Output LJ table")
     # Output LJ table
