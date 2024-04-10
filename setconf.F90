@@ -167,10 +167,11 @@ contains
          OUTcmb, OUTclt, OUTscr, OUTspo, &       ! from outside
          OUTew1, OUTew2, OUTew3, &               ! from outside
          OUTms1, OUTms2, OUTms3                  ! from outside
-      use mpiproc, only: halt_with_error                               ! MPI
+      use mpiproc, only: halt_with_error, myrank                          ! MPI
       implicit none
       real, parameter :: tiny = 1.0e-20
-      real :: real_seed
+      real(8) :: real_seed
+      integer(8) :: sclock
 
       intprm=1                                     ! trajectory reading
       select case(intprm)
@@ -299,7 +300,12 @@ contains
       if(iseed == 0) then
          CALL RANDOM_SEED
          CALL RANDOM_NUMBER(real_seed)
-         iseed = 100000 + int(899999 * real_seed)
+         iseed = int(1e16 * real_seed, 8)
+         call system_clock(sclock)
+         iseed = ieor(iseed, sclock) ! if RANDOM_NUMBER can't be trusted we can't trust RANDOM_SEED as well...
+         if (myrank == 0) then
+            print *, "Starting erdst calculation with seed =", iseed
+         end if
       endif
 
       ! temperature converted into the unit of kcal/mol

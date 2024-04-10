@@ -22,7 +22,7 @@ uninstall-hook:
 
 dist_pkglibexec_SCRIPTS = $(top_srcdir)/vmdplugins/libexec/*.so
 
-ersources = enganal.F90 engmain.F90 realcal.F90 spline.F90 fft_iface.F90 mpiproc.F90 engproc.F90 recpcal.F90 insertion.F90 setconf.F90 trajectory.F90 utility.F90 bestfit.F90
+ersources = enganal.F90 engmain.F90 realcal.F90 spline.F90 fft_iface.F90 mpiproc.F90 engproc.F90 recpcal.F90 insertion.F90 setconf.F90 trajectory.F90 utility.F90 bestfit.F90 randgen.F90
 
 EXTRA_DIST = parameters_er.example parameters_fe.example
 EXTRA_DIST += extensions/*
@@ -53,7 +53,7 @@ erdst_FCFLAGS = $(VMDPLUGINFLAGS) $(FFTFLAGS)
 erdst_LDADD = $(LAPACK_LIBS) $(BLAS_LIBS) $(FFTLIBS) $(MPILIBS) -ldl -lm 
 
 if USE_VMDPLUGIN
-erdst_SOURCES += vmdfio.c
+erdst_SOURCES += vmdfio.c xoshiro256ss.c
 endif
 
 if USE_TRANSFER
@@ -84,6 +84,7 @@ $(top_builddir)/erdst-engproc.$(OBJEXT): $(top_srcdir)/engproc.F90 \
     $(top_builddir)/erdst-utility.$(OBJEXT) \
     $(top_builddir)/erdst-mpiproc.$(OBJEXT) \
     $(top_builddir)/erdst-engmain.$(OBJEXT)
+$(top_builddir)/erdst-randgen.$(OBJEXT): $(top_srcdir)/randgen.F90
 $(top_builddir)/erdst-realcal.$(OBJEXT): $(top_srcdir)/realcal.F90 \
     $(top_builddir)/erdst-engmain.$(OBJEXT)
 $(top_builddir)/erdst-recpcal.$(OBJEXT): $(top_srcdir)/recpcal.F90 \
@@ -96,6 +97,7 @@ $(top_builddir)/erdst-insertion.$(OBJEXT): $(top_srcdir)/insertion.F90 \
     $(top_builddir)/erdst-bestfit.$(OBJEXT) \
     $(top_builddir)/erdst-trajectory.$(OBJEXT) \
     $(top_builddir)/erdst-mpiproc.$(OBJEXT) \
+    $(top_builddir)/erdst-randgen.$(OBJEXT) \
     $(top_builddir)/erdst-engmain.$(OBJEXT)
 $(top_builddir)/erdst-setconf.$(OBJEXT): $(top_srcdir)/setconf.F90 \
     $(top_builddir)/erdst-utility.$(OBJEXT) \

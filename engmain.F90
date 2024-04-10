@@ -258,7 +258,8 @@ module engmain
    integer :: insorigin, insposition, insorient, insstructure
    integer :: sltpick, refpick, inscnd, inscfg           ! deprecated
    real :: lwreg, upreg, lwstr, upstr
-   integer :: ljformat, ljswitch, iseed
+   integer :: ljformat, ljswitch
+   integer(8) :: iseed
    real :: inptemp, temp
    integer :: ermax_limit
    real :: block_threshold

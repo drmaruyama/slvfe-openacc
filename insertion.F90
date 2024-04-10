@@ -19,8 +19,9 @@
 
 module ptinsrt
    ! test particle insertion of the solute
+   use randgen
    implicit none
-   real, save :: unrn
+   type(randstate), save :: randst
    !
    ! insertion against reference structure
    !   insorigin = INSORG_REFSTR: solvent species as superposition reference
@@ -39,6 +40,7 @@ contains
    subroutine instslt(caltype, cntdst, stat_weight_solute)
       use engmain, only: nummol, slttype, numslt, sltlist, iseed, SLT_REFS_FLEX
       use mpiproc, only: halt_with_error
+      use randgen
       implicit none
       character(len=4),  intent(in) :: caltype
       integer, optional, intent(in) :: cntdst
@@ -535,9 +537,10 @@ contains
    ! Any sane compiler implements random_number
    ! (which is included in fortran 95 standards)
    subroutine urand(rndm)          ! uniform random number generator
+      use randgen
       implicit none
       real, intent(out) :: rndm
-      call random_number(rndm)
+      rndm = next_real(randst)
    end subroutine urand
 
    ! Normal random variable N(0,1)
@@ -555,22 +558,30 @@ contains
 
    subroutine urand_init(seed)
       use mpiproc, only: myrank
+      use randgen
+#ifdef MPI
+      use mpi
+#endif
       implicit none
-      integer, intent(in) :: seed
-      integer :: seedsize
-      integer, allocatable :: seedarray(:)
+      integer(8), intent(in) :: seed
+      integer(8) :: seed_in(1)
+      integer :: i
 
-      call random_seed(size = seedsize)
-      allocate(seedarray(seedsize))
-      seedarray(:) = 1
+      if(seed == 0) call system_clock(count = seed_in(1))
+#ifdef MPI
+      if (myrank /= 0) then
+         seed_in(1) = 0
+      end if
+      call mympi_reduce_scatter_real_scalar(seed_in(1), mpi_sum)
+#endif
 
-      seedarray(1) = myrank + seed
-      if(seed == 0) call system_clock(count = seedarray(1))
+      randst = randstate(seed_in(1))
 
-      call random_seed(put = seedarray)
-      deallocate(seedarray)
+      ! Each MPI process must have completely different state
+      do i = 1, myrank
+         call long_jump(randst)
+      end do
    end subroutine urand_init
-
 
    subroutine com_aggregate(aggregate_center)
       use engmain, only: nummol, numsite, hostspec, moltype, &
