@@ -112,12 +112,13 @@ $(top_builddir)/erdst-mpiproc.$(OBJEXT): $(top_srcdir)/mpiproc.F90 \
     $(top_builddir)/erdst-engmain.$(OBJEXT)
 
 # slvfe part
-slvfe_SOURCES = slvfe.F90 sfemain.F90 sfecorrect.F90
+slvfe_SOURCES = slvfe.F90 sfemain.F90 sfecorrect.F90 engmain.F90
 slvfe_LDADD = $(LAPACK_LIBS) $(BLAS_LIBS)
 slvfe_LINK = $(FC_CANONICAL) $(FCFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-slvfe.$(OBJEXT): slvfe.F90 sfemain.$(OBJEXT) sfecorrect.$(OBJEXT)
-sfemain.$(OBJEXT): sfemain.F90
+slvfe.$(OBJEXT): slvfe.F90 sfemain.$(OBJEXT) sfecorrect.$(OBJEXT) engmain.$(OBJEXT)
+sfemain.$(OBJEXT): sfemain.F90 engmain.$(OBJEXT)
 sfecorrect.$(OBJEXT): sfecorrect.F90 sfemain.$(OBJEXT)
+engmain.$(OBJEXT): engmain.F90
 
 # these are necessary to compile slvfe's sources without mpi
 $(top_builddir)/slvfe.$(OBJEXT): $(top_srcdir)/slvfe.F90
@@ -127,5 +128,8 @@ $(top_builddir)/sfemain.$(OBJEXT): $(top_srcdir)/sfemain.F90
 	$(FC_CANONICAL) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(slvfe_FCFLAGS) -c -o $@ $<
 $(top_builddir)/sfecorrect.$(OBJEXT): $(top_srcdir)/sfecorrect.F90
+	$(FC_CANONICAL) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(slvfe_FCFLAGS) -c -o $@ $<
+$(top_builddir)/engmain.$(OBJEXT): $(top_srcdir)/engmain.F90
 	$(FC_CANONICAL) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) $(slvfe_FCFLAGS) -c -o $@ $<

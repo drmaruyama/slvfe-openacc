@@ -390,12 +390,20 @@ module engmain
       ermax_limit, block_threshold, force_calculation
 
 contains
-   subroutine init_params()
+   subroutine init_params(directory)
       implicit none
       integer :: param_err
+      character(len=*), optional :: directory
+      character(len=1024) :: eneconfbuf
+
+      if(present(directory)) then
+        eneconfbuf = trim(directory) // "/" // ene_confname
+      else
+        eneconfbuf = ene_confname
+      end if
 
       param_err = 0
-      open(unit = io_paramfile, file = ene_confname, action = "read", iostat = param_err)
+      open(unit = io_paramfile, file = trim(eneconfbuf), action = "read", iostat = param_err)
 
       if(param_err == 0) then
          read(io_paramfile, nml = ene_param)

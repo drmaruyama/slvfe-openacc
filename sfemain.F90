@@ -77,6 +77,8 @@ module sysvars
    integer, dimension(:),  allocatable :: svgrp, svinf
    real, dimension(:),     allocatable :: wgtsln, wgtref
 
+   logical :: force_calculation = .false.
+
    namelist /fevars/ clcond, numprm, numsln, numref, numdiv, &
       uvread, slfslt, infchk, meshread, zerosft, wgtfnform, &
       refmerge, extsln, extthres_soln, extthres_refs, &
@@ -87,7 +89,8 @@ module sysvars
       solndirec, refsdirec, wgtslnfl, wgtreffl, &
       slndnspf, slncorpf, refdnspf, refcorpf, &
       aveuvfile, engmeshfile, cumuint, cumuintfl, &
-      ermax_limit, large, itrmax, error, tiny
+      ermax_limit, large, itrmax, error, tiny, &
+      force_calculation
 
 contains
 
@@ -152,6 +155,7 @@ contains
                numref = numdiv * (numref / numdiv)
             endif
          endif
+         call check_params() ! check consistency in parameters_er
       endif
 
       if(numprm <= 0) then                 ! default setting
@@ -167,4 +171,79 @@ contains
       if(pickgr > numprm) stop " Incorrect setting: pickgr > numprm not allowed"
 
    end subroutine init_sysvars
+
+   ! Check parameter consistency (issue #17)
+   subroutine check_params
+      use engmain, engmain_force_calculation=>force_calculation
+      implicit none
+      integer :: boxshp_s, estype_s, insposition_s, insstructure_s
+      real :: lwreg_s, upreg_s, lwstr_s, upstr_s, inptemp_s
+      integer :: ljformat_s, ljswitch_s, cmbrule_s
+      real :: lwljcut_s, upljcut_s, elecut_s, screen_s, ewtoler_s
+      integer :: splodr_s, cltype_s, ms1max_s, ms2max_s, ms3max_s
+      logical :: inconsistent
+      
+      ! load both parameters_er and compare varibles
+      lwreg = -1; upreg = -1; lwstr = -1; upstr = -1
+      call init_params(solndirec)
+      boxshp_s = boxshp; estype_s = estype; insposition_s = insposition; insstructure_s = insstructure
+      lwreg_s = lwreg; upreg_s = upreg; upstr_s = upstr; inptemp_s = inptemp
+      ljformat_s = ljformat; ljswitch_s = ljswitch; lwljcut_s = lwljcut; upljcut_s = upljcut; cmbrule_s = cmbrule
+      elecut_s = elecut; screen_s = screen; ewtoler_s = ewtoler; splodr_s = splodr
+      cltype_s = cltype; ms1max_s = ms1max; ms2max_s = ms2max; ms3max_s = ms3max
+
+      call init_params(refsdirec)
+
+      inconsistent = .false.
+
+      if((boxshp /= boxshp_s) .or. (estype /= estype_s)) then
+         print *, "box shape / system type inconsistent"
+         inconsistent = .true.
+      end if
+      if((cltype /= cltype_s) .or. &
+         (lwljcut /= lwljcut_s) .or. &
+         (upljcut /= upljcut_s) .or. &
+         (ljswitch /= ljswitch_s) .or. &
+         (ljformat /= ljformat_s) .or. &
+         (cmbrule /= cmbrule_s) .or. &
+         (splodr /= splodr_s) .or. & ! splodr is technically ok, but different splodrs look *very* wrong...
+         (elecut /= elecut_s)) then
+         print *, "Nonbond calculation conditions (electrostatic, LJ) inconsistent"
+         inconsistent = .true.
+      end if
+      if((insposition /= insposition_s) .or. &
+         (insstructure /= insstructure_s) .or. &
+         (lwreg /= lwreg_s) .or. &
+         (upreg /= upreg_s) .or. &
+         (lwstr /= lwstr_s) .or. &
+         (upstr /= upstr_s)) then
+         ! TODO FIXME is this really problematic???
+      end if
+
+      if(inconsistent) then
+         if(force_calculation) then
+            print *, "Proceeding the calculation because force_calculation is set"
+         else
+            print *, "Aborting because solution and reference systems do not match"
+            print *, "This typically mean you need to rerun the simulation with matching conditions"
+            print *, 'If you dare to proceed, set "force_calculation=.true." in parameters_fe'
+            stop "Stopping the calculation due to inconsistency"
+         end if
+      end if
+
+      if((screen /= screen_s) .or. &
+         (ms1max /= ms1max_s) .or. &
+         (ms2max /= ms2max_s) .or. &
+         (ms3max /= ms3max_s) .or. &
+         (ewtoler /= ewtoler_s)) then
+         print *, "Some of Ewald parameters are inconsistent"
+         print *, "beta =", screen_s, "(soln) /", screen, "(refs)"
+         print *, "grid =", ms1max_s, ",", ms2max_s, ",", ms3max_s, "(soln) /", &
+            ms1max, ",", ms2max, ",", ms3max, "(refs)"
+         print *, "Ewald tolerance =", ewtoler_s, "(soln)", ewtoler, "(refs)"
+         print *, "This is mostly harmless and slvfe continues;"
+         print *, " but keep in mind that the F.E. estimation may become unstable due to this difference"
+         print *, " (if you cannot prevent this inconsistency, keep ewald tolerance low in the SIMULATION software)"
+      end if
+   end subroutine check_params
 end module sysvars
