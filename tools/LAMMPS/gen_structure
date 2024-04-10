@@ -532,12 +532,12 @@ def gen(mode):
             safe_close(ofh)
         ofh = open(mode + "/" + fn, "wt")
 
-        for (atype, _atom, charge, mass) in atoms:
+        for (atype, atom, charge, mass) in atoms:
             eps = top.atomtype2epsilon[atype]
             sig = top.atomtype2sigma[atype]
-            atom = atomtype_of_mass(float(mass))
-            print(("%d %s %.8g %.8g %.8g" % 
-                           (k, atom, charge, eps, sig)), file=ofh)
+            mass = float(mass)
+            print(("%d %10.5f %12s %5s %.8g %.8g %.8g" %
+                           (k, mass, atype, atom, charge, eps, sig)), file=ofh)
             k += 1
 
     safe_close(ofh)
