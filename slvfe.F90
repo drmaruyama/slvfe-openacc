@@ -82,11 +82,12 @@ contains
          opnfile = engfile(1)
       endif
       open(unit = 71, file = opnfile, status = 'old')
+      read(71, *) ! skip header line
       ermax = 0
       numslv = 0
       k = 0
       do iduv = 1, large
-         read(71, *, end = 781) factor, pti, factor
+         read(71, *, end = 781) factor, factor, pti ! only read species
          if(pti /= k) then
             numslv = numslv + 1
             k = pti
@@ -111,9 +112,10 @@ contains
       !
       ! opnfile is still engfile(1) or soln/engsln.01
       open(unit = 71, file = opnfile, status = 'old')
+      read(71, *) ! skip header
       k = 0
       do iduv = 1, ermax
-         read(71, *) crdnow, pti, factor
+         read(71, *) factor, crdnow, pti, factor
          if(pti /= k) then
             rduvmax(pti) = 1
             rduvcore(pti) = 0
@@ -293,7 +295,7 @@ contains
       integer, intent(in) :: cntrun
       integer :: slnini, slnfin, refini, reffin, ecmin, ecmax
       integer :: iduv, iduvp, i, k, m, pti, cnt
-      real :: factor, ampl
+      real :: factor, ampl, leftbin_unused
       logical :: num_different
       real, allocatable :: cormat_temp(:, :)
       character(len=1024) :: opnfile
@@ -370,10 +372,11 @@ contains
             end select
             if((cnt == 1) .or. (cnt == 3)) then    ! 1-D distribution
                open(unit = 71, file = opnfile, status = 'old')
+               read(71, *) ! skip header
                k = 0
                m = 0
                do iduv = 1, ermax
-                  read(71, *) rdcrd(iduv), pti, factor
+                  read(71, *) leftbin_unused, rdcrd(iduv), pti, factor
                   if(pti /= k) then
                      k = pti
                      m = m + 1

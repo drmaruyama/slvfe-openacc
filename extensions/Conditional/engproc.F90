@@ -917,7 +917,7 @@ contains
        engfile = 'slfeng' // suffeng
        open(unit = slf_io, file = engfile, form = "FORMATTED", action = 'write')
        do iduv = 1, esmax
-          call repval('self', iduv, factor)
+          call representative_bin_selfenergy(iduv, factor)
           write(slf_io, '(g15.7,g25.15)') factor, eself(iduv)
        enddo
        endfile(slf_io)
