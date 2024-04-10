@@ -77,7 +77,7 @@ module sysvars
    integer, dimension(:),  allocatable :: svgrp, svinf
    real, dimension(:),     allocatable :: wgtsln, wgtref
 
-   logical :: force_calculation = .false.
+   logical :: force_calculation = .false., strict_ewald_parameters = .false.
 
    namelist /fevars/ clcond, numprm, numsln, numref, numdiv, &
       uvread, slfslt, infchk, meshread, zerosft, wgtfnform, &
@@ -90,7 +90,7 @@ module sysvars
       slndnspf, slncorpf, refdnspf, refcorpf, &
       aveuvfile, engmeshfile, cumuint, cumuintfl, &
       ermax_limit, large, itrmax, error, tiny, &
-      force_calculation
+      force_calculation, strict_ewald_parameters
 
 contains
 
@@ -187,7 +187,7 @@ contains
       lwreg = -1; upreg = -1; lwstr = -1; upstr = -1
       call init_params(solndirec)
       boxshp_s = boxshp; estype_s = estype; insposition_s = insposition; insstructure_s = insstructure
-      lwreg_s = lwreg; upreg_s = upreg; upstr_s = upstr; inptemp_s = inptemp
+      lwreg_s = lwreg; upreg_s = upreg; lwstr_s = lwstr; upstr_s = upstr; inptemp_s = inptemp
       ljformat_s = ljformat; ljswitch_s = ljswitch; lwljcut_s = lwljcut; upljcut_s = upljcut; cmbrule_s = cmbrule
       elecut_s = elecut; screen_s = screen; ewtoler_s = ewtoler; splodr_s = splodr
       cltype_s = cltype; ms1max_s = ms1max; ms2max_s = ms2max; ms3max_s = ms3max
@@ -211,20 +211,25 @@ contains
          print *, "Nonbond calculation conditions (electrostatic, LJ) inconsistent"
          inconsistent = .true.
       end if
-      if((insposition /= insposition_s) .or. &
-         (insstructure /= insstructure_s) .or. &
+      if(((insposition /= insposition_s) .and. &
+          ((insposition /= INSPOS_RANDOM) .and. (insposition /= INSPOS_NOCHANGE) .and. (insposition /= INSPOS_GAUSS))) .or. &
+         ((insstructure /= insstructure_s) .and. (insstructure /= INSSTR_NOREJECT)) .or. &
          (lwreg /= lwreg_s) .or. &
          (upreg /= upreg_s) .or. &
          (lwstr /= lwstr_s) .or. &
          (upstr /= upstr_s)) then
-         ! TODO FIXME is this really problematic???
+         print *, "Insertion conditions inconsistent between solution and reference."
+         print *, " Test particle insertion parameters are also used in the solution system to reject" // &
+            " snapshots in the solution system. We thus need to use same parameters for:" // &
+            "insposition, insstructure, lwreg, upreg, lwstr, and upstr"
+         inconsistent = .true.
       end if
 
       if(inconsistent) then
          if(force_calculation) then
             print *, "Proceeding the calculation because force_calculation is set"
          else
-            print *, "Aborting because solution and reference systems do not match"
+            print *, "==>Aborting because solution and reference systems do not match"
             print *, "This typically mean you need to rerun the simulation with matching conditions"
             print *, 'If you dare to proceed, set "force_calculation=.true." in parameters_fe'
             stop "Stopping the calculation due to inconsistency"
@@ -244,6 +249,9 @@ contains
          print *, "This is mostly harmless and slvfe continues;"
          print *, " but keep in mind that the F.E. estimation may become unstable due to this difference"
          print *, " (if you cannot prevent this inconsistency, keep ewald tolerance low in the SIMULATION software)"
+         if(strict_ewald_parameters) then
+            stop "Aborting due to strict condition"
+         end if
       end if
    end subroutine check_params
 end module sysvars
