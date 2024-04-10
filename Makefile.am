@@ -22,7 +22,7 @@ uninstall-hook:
 
 dist_pkglibexec_SCRIPTS = $(top_srcdir)/vmdplugins/libexec/*.so
 
-ersources = enganal.F90 engmain.F90 realcal.F90 spline.F90 fft_iface.F90 mpiproc.F90 engproc.F90 recpcal.F90 insertion.F90 setconf.F90 trajectory.F90 utility.F90 bestfit.F90 randgen.F90
+ersources = enganal.F90 engmain.F90 realcal.F90 spline.F90 fft_iface.F90 insertion.F90 mpiproc.F90 engproc.F90 recpcal.F90 setconf.F90 trajectory.F90 utility.F90 bestfit.F90 randgen.F90
 
 EXTRA_DIST = parameters_er.example parameters_fe.example
 EXTRA_DIST += extensions/*

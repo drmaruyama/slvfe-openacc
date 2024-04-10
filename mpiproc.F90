@@ -161,18 +161,18 @@ contains
 #endif
    end subroutine mympi_reduce_real_scalar
 
-   subroutine mympi_reduce_scatter_real_scalar(scalar, operation)
+   subroutine mympi_allreduce_real_scalar(scalar, operation)
       implicit none
       integer, intent(in) :: operation
       real, intent(inout) :: scalar
 #ifdef MPI
       real :: buf
       integer :: mympi_realkind
-      call get_mympi_realkind(kind(data), mympi_realkind)
-      call mpi_reduce_scatter(scalar, buf, 1, mympi_realkind, operation, mpi_comm_world, ierror)
+      call get_mympi_realkind(kind(scalar), mympi_realkind)
+      call mpi_allreduce(scalar, buf, 1, mympi_realkind, operation, mpi_comm_world, ierror)
       scalar = buf
 #endif
-   end subroutine mympi_reduce_scatter_real_scalar
+   end subroutine mympi_allreduce_real_scalar
 
    subroutine get_mympi_realkind(data_kind, local_realkind)
       implicit none

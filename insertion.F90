@@ -557,25 +557,31 @@ contains
    end function nrand
 
    subroutine urand_init(seed)
-      use mpiproc, only: myrank
+      use mpiproc
       use randgen
 #ifdef MPI
       use mpi
 #endif
       implicit none
       integer(8), intent(in) :: seed
-      integer(8) :: seed_in(1)
+      integer(8) :: seed_in
       integer :: i
-
-      if(seed == 0) call system_clock(count = seed_in(1))
 #ifdef MPI
-      if (myrank /= 0) then
-         seed_in(1) = 0
-      end if
-      call mympi_reduce_scatter_real_scalar(seed_in(1), mpi_sum)
+      integer(8) :: buf
+      integer :: ierr
 #endif
 
-      randst = randstate(seed_in(1))
+      if(seed == 0) call system_clock(count = seed_in)
+#ifdef MPI
+      if (myrank /= 0) then
+         seed_in = 0
+      end if
+      call mpi_allreduce(seed_in, buf, 1, mpi_integer8, mpi_sum, mpi_sum, ierr)
+      if(ierr /= 0) stop "Allreduce failed"
+      seed_in = buf
+#endif
+
+      randst = randstate(seed_in)
 
       ! Each MPI process must have completely different state
       do i = 1, myrank
