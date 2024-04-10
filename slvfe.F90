@@ -295,7 +295,8 @@ contains
       integer, intent(in) :: cntrun
       integer :: slnini, slnfin, refini, reffin, ecmin, ecmax
       integer :: iduv, iduvp, i, k, m, pti, cnt
-      real :: factor, ampl, leftbin_unused
+      real :: factor, ampl, leftbin
+      real, allocatable :: bin_consistency_check(:)
       logical :: num_different
       real, allocatable :: cormat_temp(:, :)
       character(len=1024) :: opnfile
@@ -338,6 +339,9 @@ contains
          rdcor(:,:) = 0.0
       endif
 
+      allocate(bin_consistency_check(ermax))
+      bin_consistency_check(:) = 0.0
+
       ! FIXME: this part is kinda spaghetti and should be rewritten WITHOUT looping by cnt!
       do cnt = 1, 4
          if((cnt == 2) .and. (slncor /= 'yes')) cycle
@@ -376,7 +380,14 @@ contains
                k = 0
                m = 0
                do iduv = 1, ermax
-                  read(71, *) leftbin_unused, rdcrd(iduv), pti, factor
+                  read(71, *) leftbin, rdcrd(iduv), pti, factor
+                  if(cnt == 1) then
+                     bin_consistency_check(iduv) = leftbin
+                  elseif(cnt == 3) then
+                     if(bin_consistency_check(iduv) /= leftbin) then
+                        stop "Solution and reference system energy coordinates are inconsitent"
+                     endif
+                  end if
                   if(pti /= k) then
                      k = pti
                      m = m + 1
