@@ -1,11 +1,15 @@
 version 1.0.0 (TBD)
 * Moved toolchain to python3
     * Requirement: Python 3.5+
-* SltInfo / MolPrm format was renewed. Old format is still accepted
-* Removed unmaintained tools
+* SltInfo / MolPrm format was changed. Old format is still accepted.
+* engsln/engref output formats were changed.
+* Removed unmaintained tools:
     * MARBLE
     * MODYLAS
-* slvfe checks the consistency between soln/refs
+* slvfe checks the consistency between soln/refs.
+* Added internal rng to make sure the rng uncorrelated in parallel.
+* Source code was reformatted with findent (3-column space indentation
+throughout)
 
 version 0.3.8 (10 January 2023)
 * Energy Histogram Computation:

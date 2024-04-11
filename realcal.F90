@@ -207,6 +207,7 @@ contains
                if(is_cuboid) then
                   xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
                else
+                  ! Note some ops can be skipped because cell_normal is upper triangular
                   xst(:) = xst(:) - cell_normal(:, 3) * anint(xst(3) * invcell_normal(3))
                   xst(:) = xst(:) - cell_normal(:, 2) * anint(xst(2) * invcell_normal(2))
                   xst(:) = xst(:) - cell_normal(:, 1) * anint(xst(1) * invcell_normal(1))
@@ -316,6 +317,7 @@ contains
             if(is_cuboid) then
                xst(:) = half_cell(:) - abs(half_cell(:) - abs(xst(:)))
             else
+               ! Note some ops can be skipped because cell_normal is upper triangular
                xst(:) = xst(:) - cell_normal(:, 3) * anint(xst(3) * invcell_normal(3))
                xst(:) = xst(:) - cell_normal(:, 2) * anint(xst(2) * invcell_normal(2))
                xst(:) = xst(:) - cell_normal(:, 1) * anint(xst(1) * invcell_normal(1))

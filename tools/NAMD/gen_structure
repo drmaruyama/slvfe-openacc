@@ -7,6 +7,9 @@ import pickle
 import math
 from argparse import ArgumentParser
 
+print("""Note: NAMD tools are not actively maintained (no active users in devs).
+If you find any strange behavior please let us know (on sourcefoge issue, ermod-user mailing list or direct mail to devs).""")
+
 parser = ArgumentParser()
 
 # only have to specify one of three:
