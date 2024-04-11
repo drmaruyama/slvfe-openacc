@@ -1,5 +1,5 @@
-version 1.0.0 (TBD)
-* Moved toolchain to python3
+version 1.0.0 (11 Apr 2024)
+* Moved toolchain to python3 and Fortran2008
     * Requirement: Python 3.5+
 * SltInfo / MolPrm format was changed. Old format is still accepted.
 * engsln/engref output formats were changed.

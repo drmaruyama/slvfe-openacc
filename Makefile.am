@@ -86,7 +86,8 @@ $(top_builddir)/erdst-engproc.$(OBJEXT): $(top_srcdir)/engproc.F90 \
     $(top_builddir)/erdst-engmain.$(OBJEXT)
 $(top_builddir)/erdst-randgen.$(OBJEXT): $(top_srcdir)/randgen.F90
 $(top_builddir)/erdst-realcal.$(OBJEXT): $(top_srcdir)/realcal.F90 \
-    $(top_builddir)/erdst-engmain.$(OBJEXT)
+    $(top_builddir)/erdst-engmain.$(OBJEXT) \
+    $(top_builddir)/erdst-mpiproc.$(OBJEXT)
 $(top_builddir)/erdst-recpcal.$(OBJEXT): $(top_srcdir)/recpcal.F90 \
     $(top_builddir)/erdst-spline.$(OBJEXT) \
     $(top_builddir)/erdst-fft_iface.$(OBJEXT) \
