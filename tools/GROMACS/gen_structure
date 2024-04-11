@@ -66,7 +66,6 @@ def find_gmx():
     candidates = ["gmx", "gmx_d", "gmx_mpi", "gmx_mpi_d"]
     for cmd in candidates:
         p = subprocess.Popen(["which", cmd], stdout=subprocess.PIPE) # this will call /usr/bin/which (not shell builtin which) in most of environments
-        # May block if PIPE bufsize is extremely small, but should be enough for which(1) output
         (stdout, _stderr) = p.communicate()
         if p.returncode == 0 and stdout != b"":
             return stdout.decode()
@@ -377,6 +376,12 @@ mols = []
 if solute_single:
     # output as in topology (supports multiple solute)
     for (s, n) in top.system:
+        if s not in top.moleculetypes:
+            # Issue 38
+            for x in top.moleculetypes.keys():
+                if s.lower() == x.lower() :
+                    error(f"Moleculetype in [ sytem ] read as \"{s}\" but defined in [ moleculetype ] as \"{x}\"; gen_structure is case sensitive (unlike GROMACS)")
+            error(f"Moleculetype {s} exists in [ system ] section but no corresponding [ moleculetype ] defined")
         molno = top.moleculetypes[s]
         mols.append(([s], n, s in solutes, top.molecules[molno]))
 else:
