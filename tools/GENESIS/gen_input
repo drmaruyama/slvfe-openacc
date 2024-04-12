@@ -257,7 +257,7 @@ def parse_log():
 
     carryover = {}
     try: 
-        ifh = open(".extraparam", "rt")
+        ifh = open(".extraparam", "rb")
         carryover = pickle.load(ifh)
         ifh.close()
         # read ljformat from carryover
