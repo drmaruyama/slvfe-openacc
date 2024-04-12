@@ -38,13 +38,8 @@ module realcal
    integer, allocatable :: belong_el(:, :)
    real, allocatable :: e_t(:, :)
 
-   ! subcell_neighbour only stores the neighbour list on y-z plane. x direction is stored on subcell_xlen.
-   ! (looks like sub"pillar" rather than cell)
-   ! each subcell spans x=(-subcell_xlen(ix) .. 1+subcell_xlen(ix)),  y=subcell_neighbour(2, ix), z=subcell_neighbour(3, ix)
-   integer, allocatable :: subcell_neighbour(:, :) ! of (2:3, subcell_num_neighbour)
-   integer, allocatable :: subcell_xlen(:)
-   integer :: subcell_num_neighbour
-
+   ! subcell_neighbour unit length and its number 
+   real :: block_unit_axes(3), block_unit_axes_inv(3)
    integer :: block_size(3)
 
    ! "straight" coordinate system
@@ -99,7 +94,7 @@ contains
 
       allocate(sitepos_solv(3, nsolv_atom + 1))
       sitepos_solv(1:3, 1:nsolv_atom) = sitepos_normal(1:3, atomno_solv(1:nsolv_atom))
-      sitepos_solv(1:3, nsolv_atom+1) = 0
+      sitepos_solv(1:3, nsolv_atom+1) = 0 ! sentinel
 
       max_solu_block = maxval(counts_solu)
       max_solv_block = 0
@@ -136,7 +131,6 @@ contains
       deallocate(block_solu, belong_solu, atomno_solu, counts_solu, psum_solu)
       deallocate(block_solv, belong_solv, atomno_solv, counts_solv, psum_solv)
       deallocate(sitepos_solv)
-      deallocate(subcell_neighbour, subcell_xlen)
    end subroutine realcal_proc
 
    subroutine realcal_prepare
@@ -386,67 +380,13 @@ contains
    subroutine set_block_info()
       use engmain, only: block_threshold, upljcut, elecut
       implicit none
-      real :: unit_axes(3), cut2, l
-      integer :: i, j, k, bmax, ix, xlen
-      real, allocatable :: grid_dist(:, :)
-      real, allocatable :: box_dist(:, :)
 
       ! get the length of axes
       ! assumes cell's 1st axis being x-axis, 2nd axis on x-y plane
-
       ! set block size
       block_size(:) = ceiling(cell_len_normal(:) / block_threshold)
-
-      ! pre-calculate grid-grid distance and box-box distance
-      bmax = maxval(block_size(:))
-      allocate(grid_dist(0:bmax-1, 3))
-      allocate(box_dist(0:bmax-1, 3))
-      unit_axes(:) = cell_len_normal(:) / block_size(:)
-
-      ! only have to calculate axis-wise distance (because of orthogonality)
-      do j = 1, 3
-         do i = 0, block_size(j) - 1
-            grid_dist(i, j) = min(i, modulo(-i, block_size(j))) * unit_axes(j)
-         end do
-      end do
-      do j = 1, 3
-         do i = 0, block_size(j) - 1
-            box_dist(i, j) = min(grid_dist(i, j),&
-               grid_dist(modulo(i - 1, block_size(j)), j), &
-               grid_dist(modulo(i + 1, block_size(j)), j))
-         end do
-      end do
-
-      deallocate(grid_dist)
-
-      ! make a subcell list
-      cut2 = max(upljcut, elecut) ** 2
-      ! count...
-      subcell_num_neighbour = 0
-      do k = 0, block_size(3) - 1
-         do j = 0, block_size(2) - 1
-            l = box_dist(j, 2) ** 2 + box_dist(k, 3) ** 2
-            if(l < cut2) subcell_num_neighbour = subcell_num_neighbour + 1
-         end do
-      end do
-      allocate(subcell_neighbour(2:3, subcell_num_neighbour))
-      allocate(subcell_xlen(subcell_num_neighbour))
-
-      ! then generate the list
-      ix = 1
-      do k = 0, block_size(3) - 1
-         do j = 0, block_size(2) - 1
-            l = box_dist(j, 2) ** 2 + box_dist(k, 3) ** 2
-            if(l < cut2) then
-               xlen = ceiling(sqrt(cut2 - l) / unit_axes(1))
-               subcell_neighbour(2, ix) = j
-               subcell_neighbour(3, ix) = k
-               subcell_xlen(ix) = xlen ! this subpillar contains subcell [-xlen .. xlen]; note the end of region is inclusive
-               ix = ix + 1
-            endif
-         end do
-      end do
-      deallocate(box_dist)
+      block_unit_axes(:) = cell_len_normal(:) / block_size(:)
+      block_unit_axes_inv(:) = 1. / block_unit_axes(:)
    end subroutine set_block_info
 
    subroutine blockify(natom, atomlist, blk)
@@ -541,15 +481,21 @@ contains
    subroutine get_pair_energy(energy_vec)
       ! calculate for each subcell
       ! cut-off by subcell distance
+      use engmain, only: upljcut, elecut
       implicit none
       real, intent(inout) :: energy_vec(:, :)
       integer :: u1, u2, u3
       integer :: vbs(3)
       integer :: i, upos, vpos_base, vpos_line_end, vpos_begin, vpos_end
       integer :: xlen
-
+      integer :: pbcvshift(3), pbc_solushift(3)
+      integer :: psx, psy, psz, bpx, bpy, bpz
+      integer :: zmin, zmax, ymin, ymax, xmin, xmax
+      real :: p(3), cutxyz, cutxy2, cutx2
       !$omp parallel &
-      !$omp   private(u1, u2, u3, upos, i, vbs, vpos_begin, vpos_base, vpos_end, vpos_line_end, xlen) &
+      !$omp   private(u1, u2, u3, upos, vpos_begin, vpos_end, pbc_solushift) &
+      !$omp   private(cutxyz, cutxy2, cutx2) &
+      !$omp   private(psx, psy, psz, bpx, bpy, bpz, zmin, zmax, ymin, ymax, xmin, xmax) &
       !$omp   shared(energy_vec)
       !$omp single
       do u3 = 0, block_size(3) - 1
@@ -557,50 +503,98 @@ contains
             do u1 = 0, block_size(1) - 1
                ! At this moment solute block (u1, u2, u3) is considered.
                upos = u1 + block_size(1) * (u2 + block_size(2) * u3)
-               if(psum_solu(upos + 1) /= psum_solu(upos)) then ! if solute have atoms in the block
-                  ! each solute block will interact with [subcell_num_neighbour] solvent block-chunks.
-                  ! Here, "block-chunks" mean (-dx,dy,dz) to (dx,dy,dz) blocks relative to the solute block.
-                  ! This tuple of (dx, dy, dz) is stored in subcell_neighbour().
-                  !$omp task
-                  do i = 1, subcell_num_neighbour
-                     vbs(2) = mod(u2 + subcell_neighbour(2, i) , block_size(2))
-                     vbs(3) = mod(u3 + subcell_neighbour(3, i) , block_size(3))
-                     vpos_base = block_size(1) * (vbs(2) + block_size(2) * vbs(3))
+               if(psum_solu(upos + 1) == psum_solu(upos)) cycle
+               do psz = -1, 1
+                  pbc_solushift(3) = psz
+                  do psy = -1, 1
+                     pbc_solushift(2) = psy
+                     do psx = -1, 1
+                        pbc_solushift(1) = psx
+                        !$omp task
+                        ! find interacting solvent box, with solute shifted by (pvx, pvy, pvz) <dot> cell vector
+                        ! note this interacting solvent box may target the same box twice;
+                        ! but the cutoff operation shall prevent the double counting.
+                        ! leftbottom-like position
+                        p(:) = matmul(cell_normal, real(pbc_solushift)) + (/ u1, u2, u3 /) * block_unit_axes(:)
+                        ! At this moment p(:) is periodic image (of 27).
 
-                     xlen = subcell_xlen(i)
-                     if(2 * xlen + 1 >= block_size(1)) then
-                        ! spans all over x-axis
-                        call get_pair_energy_block(upos, vpos_base, vpos_base + block_size(1), energy_vec)
-                     else
-                        vpos_begin = vpos_base + u1 - xlen
-                        vpos_end = vpos_base + u1 + xlen + 1
-                        vpos_line_end = vpos_base + block_size(1)
-
-                        if(vpos_begin < vpos_base) then
-                           ! spans over periodic boundary, case 1
-                           call get_pair_energy_block(upos, vpos_begin + block_size(1), vpos_line_end, energy_vec)
-                           call get_pair_energy_block(upos, vpos_base, vpos_end, energy_vec)
-                        elseif(vpos_end > vpos_line_end) then
-                           ! spans over periodic boundary, case 2
-                           call get_pair_energy_block(upos, vpos_begin, vpos_line_end, energy_vec)
-                           call get_pair_energy_block(upos, vpos_base, vpos_end - block_size(1), energy_vec)
-                        else
-                           ! standard case
-                           call get_pair_energy_block(upos, vpos_begin, vpos_end, energy_vec)
-                        endif
-                     endif
+                        cutxyz = max(upljcut, elecut)
+                        zmin = floor((p(3) - cutxyz) * block_unit_axes_inv(3))
+                        zmax = floor((p(3) + block_unit_axes(3) + cutxyz) * block_unit_axes_inv(3))
+                        zmin = max(zmin, 0)
+                        zmax = min(zmax, block_size(3) - 1)
+                        do bpz = zmin, zmax
+                           cutxy2 = cutxyz ** 2 - &
+                              range_distance(bpz * block_unit_axes(3), &
+                                             (bpz + 1) * block_unit_axes(3), &
+                                             p(3), p(3) + block_unit_axes(3)) ** 2
+                           if(cutxy2 <= 0) cycle
+                           ymin = floor((p(2) - sqrt(cutxy2)) * block_unit_axes_inv(2))
+                           ymax = floor((p(2) + block_unit_axes(2) + sqrt(cutxy2)) * block_unit_axes_inv(2))
+                           ymin = max(ymin, 0)
+                           ymax = min(ymax, block_size(2) - 1)
+                           do bpy = ymin, ymax
+                              cutx2 = cutxy2 - &
+                                 range_distance(bpy * block_unit_axes(2), &
+                                                (bpy + 1) * block_unit_axes(2), &
+                                                p(2), p(2) + block_unit_axes(2)) ** 2
+                              if(cutx2 <= 0) cycle
+                              xmin = floor((p(1) - sqrt(cutx2)) * block_unit_axes_inv(1))
+                              xmax = floor((p(1) + block_unit_axes(1) + sqrt(cutx2)) * block_unit_axes_inv(1))
+                              xmin = max(xmin, 0)
+                              xmax = min(xmax, block_size(1) - 1)
+                              vpos_begin = xmin + block_size(1) * (bpy + block_size(2) * bpz)
+                              vpos_end = xmax + block_size(1) * (bpy + block_size(2) * bpz) + 1 ! [vpos_begin, vpos_end)
+                              !print *, xmin, xmax, bpy, bpz, block_size(:)
+                              if(xmin > xmax) cycle
+                              call get_pair_energy_block(upos, vpos_begin, vpos_end, energy_vec, pbc_solushift)
+                           end do
+                        end do
+                        !$omp end task
+                     end do
                   end do
-                  !$omp end task
-               end if
+               end do
             end do
          end do
       end do
       !$omp end single
       !$omp end parallel
+
+      contains
+         function range_distance(mina, maxa, minb, maxb)
+            real :: range_distance
+            real, intent(in) :: mina, maxa, minb, maxb
+            real :: minaa, maxaa, minbb, maxbb
+            real :: temp
+            
+            if(mina <= minb) then
+               minaa = mina; maxaa = maxa
+               minbb = minb; maxbb = maxb
+            else
+               minaa = minb; maxaa = maxb
+               minbb = mina; maxbb = maxa
+            end if
+            ! Now minaa is the minimum. There can be 3!=6 patterns (ignoring equality):
+            ! 1. minaa < minbb < maxaa < maxbb
+            ! 2. minaa < minbb < maxbb < maxaa
+            ! 3. minaa < maxaa < minbb < maxbb
+            ! 4. minaa < maxaa < maxbb < minbb    but impossible due to minbb < maxbb
+            ! 5. minaa < maxbb < minbb < maxaa    but impossible due to minbb < maxbb
+            ! 6. minaa < maxbb < maxaa < minbb    but` impossible due to minbb < maxbb
+            if(minbb <= maxaa .and. maxaa <= maxbb) then
+               ! case 1, overlapping
+               range_distance = 0
+            elseif(minbb <= maxbb .and. maxbb <= maxaa) then
+               ! case 2, included
+               range_distance = 0
+            else
+               range_distance = minbb - maxaa
+            endif
+         end function range_distance
    end subroutine get_pair_energy
 
    ! Computational kernel to calculate pair-energy between particles between solute-block and contiguous solvent-blocks
-   subroutine get_pair_energy_block(upos, vpos_b, vpos_e, energy_vec)
+   subroutine get_pair_energy_block(upos, vpos_b, vpos_e, energy_vec, pbcushift)
       use engmain, only: cltype, boxshp, &
          upljcut, lwljcut, elecut, screen, charge,&
          ljswitch, ljtype, ljtype_max, ljene_mat, ljlensq_mat, &
@@ -608,7 +602,7 @@ contains
          LJSWT_POT_CHM, LJSWT_POT_GMX, LJSWT_FRC_CHM, LJSWT_FRC_GMX
 !$    use omp_lib, only: omp_get_thread_num
       implicit none
-      integer, intent(in) :: upos, vpos_b, vpos_e
+      integer, intent(in) :: upos, vpos_b, vpos_e, pbcushift(3)
       real, intent(inout) :: energy_vec(:, :)
       integer :: ui, vi, ua, va, i, curp
       integer :: n_lowlj, n_switch, n_el
@@ -618,6 +612,7 @@ contains
       real :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swfac
       real :: repA, repB, repC, attA, attB, attC
       real :: elecut2, half_cell(3)
+      real :: pbcushift_real(3)
 
       if(cltype == EL_COULOMB) stop "realcal%get_pair_energy_block: cltype assertion failure"
       if(boxshp == SYS_NONPERIODIC) stop "realcal%get_pair_energy_block: boxshp assertion failure"
@@ -645,6 +640,7 @@ contains
       endif
 
       elecut2 = elecut ** 2
+      pbcushift_real(:) = matmul(cell_normal, real(pbcushift))
 
       ! Here we first calculate and list distance between particles in the first loop,
       ! then calculate actual energy in the second loop.
@@ -662,14 +658,7 @@ contains
          crdu(:) = sitepos_normal(:, ua)
 
          ! hide latency by calculating distance of next coordinate set
-         d(:) = crdu(:) - sitepos_solv(:, psum_solv(vpos_b))
-         if(is_cuboid) then
-            d(:) = half_cell(:) - abs(half_cell(:) - abs(d(:)))
-         else
-            d(:) = d(:) - cell_normal(:, 3) * anint(d(3) * invcell_normal(3))
-            d(:) = d(:) - cell_normal(:, 2) * anint(d(2) * invcell_normal(2))
-            d(:) = d(:) - cell_normal(:, 1) * anint(d(1) * invcell_normal(1))
-         end if
+         d(:) = crdu(:) - sitepos_solv(:, psum_solv(vpos_b)) + pbcushift_real(:)
 
          dist_next = sum(d(:) ** 2)
 
@@ -680,14 +669,7 @@ contains
 
             crdv(:) = sitepos_solv(:, vi + 1)
 
-            d(:) = crdv(:) - crdu(:)
-            if(is_cuboid) then
-               d(:) = half_cell(:) - abs(half_cell(:) - abs(d(:))) ! get nearest image
-            else
-               d(:) = d(:) - cell_normal(:, 3) * anint(d(3) * invcell_normal(3))
-               d(:) = d(:) - cell_normal(:, 2) * anint(d(2) * invcell_normal(2))
-               d(:) = d(:) - cell_normal(:, 1) * anint(d(1) * invcell_normal(1))
-            end if
+            d(:) = crdu(:) - crdv(:) + pbcushift_real(:)
 
             ! assumes that only a single image matters for both electrostatic and LJ.
             ! if the box is very small and strongly anisotropic,
@@ -934,6 +916,13 @@ contains
          ! shift X
          sitepos_normal(1:3, i) = sitepos_normal(1:3, i) - &
             cell_normal(:, 1) * floor(invcell_normal(1) * sitepos_normal(1, i))
+         
+         if(sitepos_normal(1, i) < 0 .or. sitepos_normal(1, i) > cell_len_normal(1) .or.&
+            sitepos_normal(2, i) < 0 .or. sitepos_normal(2, i) > cell_len_normal(2) .or.&
+            sitepos_normal(3, i) < 0 .or. sitepos_normal(3, i) > cell_len_normal(3)) then
+            print *, sitepos_normal(:, i), cell_len_normal
+            stop "INVALID sitepos"
+         endif
       end do
    end subroutine normalize_periodic
 
