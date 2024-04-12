@@ -275,8 +275,9 @@ contains
                   slfslt = 'not'
                   write(6, '(A)') " Warning: Although the slfslt parameter " // &
                      "was set to 'yes', it is changed into 'not'. Maybe " // &
-                     "the MD was done without periodic boundary condition " // &
-                     "and/or with Coulombic interaction in its bare form."
+                     "the MD was done without periodic boundary condition, " // &
+                     "with PME employed for the isolated solute, " // &
+                     "or with Coulombic interaction in its bare form."
                   exit
                endif
                slfeng = slfeng + wgtref(i) * factor
