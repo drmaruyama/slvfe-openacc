@@ -181,7 +181,7 @@ def read_psf(fname):
     atoms = None
     try:
         while True:
-            section = fh.next().split()
+            section = next(fh).split()
             if section == []:
                 continue
             if len(section) <= 1:
@@ -199,7 +199,7 @@ def read_psf(fname):
                 atoms = [None] * natoms
 
                 for i in range(natoms):
-                    l = fh.next().split()
+                    l = next(fh).split()
                     #         serial     segname resid    resname aname atype charge mass
                     atom = (int(l[0]), l[1], int(l[2]), l[3], l[4], l[5], float(l[6]), float(l[7]))
                     atoms[i] = atom
@@ -215,7 +215,7 @@ def read_psf(fname):
                         break
                     elms = [int(e) - 1 for e in l.split()] # 1-origin to 0-origin
                     m = len(elms)
-                    for i in range(m/2):
+                    for i in range(m//2):
                         uft.union(elms[i * 2], elms[i * 2 + 1])
                 if options.verbose:
                     print("Finished reading bonds section", file=sys.stderr)
