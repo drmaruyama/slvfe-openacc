@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-# popen and others are used only for 2.3 compatibility
-import warnings
-warnings.simplefilter("ignore", DeprecationWarning)
-
 import os
 import os.path
 import sys
