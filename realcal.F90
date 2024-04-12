@@ -54,6 +54,8 @@ module realcal
    real, parameter :: check_rotate = 1e-8, cuboid_thres = 1e-8, cutoff_thres = 1e-4
 
 contains
+   ! The big super subroutine for allocating - calculate - deallocating combo.
+   ! After calling this routine, [uvengy] stores the interaction energy between solute and solvent.
    subroutine realcal_proc(target_solu, tagpt, slvmax, uvengy)
       use engmain, only: numsite
 !$    use omp_lib, only: omp_get_num_procs
@@ -70,6 +72,7 @@ contains
       nsolu_atom = numsite(target_solu)
       nsolv_atom = count_solv(target_solu, tagpt, slvmax)
 
+      ! In realcal, first system are split into blocks, then calculation is perfomed block-wise.
       call set_block_info()
 
       allocate(block_solu(3, nsolu_atom), block_solv(3, nsolv_atom))
@@ -89,6 +92,8 @@ contains
       call blockify(nsolu_atom, atomno_solu, block_solu)
       call blockify(nsolv_atom, atomno_solv, block_solv)
 
+      ! We sort both blocks (solute, solvent). This is because the two close atoms will interact with similar atoms.
+      ! We speedup the calculation using the access locality.
       call sort_block(block_solu, nsolu_atom, belong_solu, atomno_solu, counts_solu, psum_solu)
       call sort_block(block_solv, nsolv_atom, belong_solv, atomno_solv, counts_solv, psum_solv)
 
@@ -115,6 +120,7 @@ contains
       ! assertion
       ! if (.not. all(belong_solu(:) == target_solu)) stop "realcal_blk: target_solu bugged after sorting"
 
+      ! calculate the energy on parallel and sum up after that.
       allocate(eng(1:slvmax, npar))
       eng(:, :) = 0.0
       call get_pair_energy(eng)
@@ -531,6 +537,7 @@ contains
       ! print *, psum
    end subroutine sort_block
 
+   ! Get all-to-all pair interaction, using order of blocks.
    subroutine get_pair_energy(energy_vec)
       ! calculate for each subcell
       ! cut-off by subcell distance
@@ -548,8 +555,11 @@ contains
       do u3 = 0, block_size(3) - 1
          do u2 = 0, block_size(2) - 1
             do u1 = 0, block_size(1) - 1
+               ! At this moment solute block (u1, u2, u3) is considered.
                upos = u1 + block_size(1) * (u2 + block_size(2) * u3)
                if(psum_solu(upos + 1) /= psum_solu(upos)) then ! if solute have atoms in the block
+                  ! each solute block will interact with [subcell_num_neighbour] solvent block-chunks.
+                  ! Here, "block-chunks" mean (-x,y,z) to (x,y,z) blocks relative to the solute block.
                   !$omp task
                   do i = 1, subcell_num_neighbour
                      vbs(2) = mod(u2 + subcell_neighbour(2, i) , block_size(2))
@@ -588,7 +598,7 @@ contains
       !$omp end parallel
    end subroutine get_pair_energy
 
-   ! Computational kernel to calculate distance between particles
+   ! Computational kernel to calculate pair-energy between particles between solute-block and contiguous solvent-blocks
    subroutine get_pair_energy_block(upos, vpos_b, vpos_e, energy_vec)
       use engmain, only: cltype, boxshp, &
          upljcut, lwljcut, elecut, screen, charge,&
@@ -808,6 +818,7 @@ contains
 
       if (cell(2, 1) == 0.0 .and. cell(3, 1) == 0.0 .and. cell(3, 2) == 0.0) then
          ! already upper triangular
+         ! As long as we use modern MD software the program shall go this path.
          cell_normal(:, :) = cell(:, :)
          sitepos_normal(:, :) = sitepos(:, :)
          return
