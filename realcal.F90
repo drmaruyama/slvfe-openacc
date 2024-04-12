@@ -1,7 +1,7 @@
 ! -*- F90 -*-
 ! ERmod - Eneregy Representation Module
-! Copyright (C) 2000-2019 Nobuyuki Matubayasi
-! Copyright (C) 2010-2019 Shun Sakuraba
+! Copyright (C) 2000-2024 Nobuyuki Matubayasi
+! Copyright (C) 2010-2024 Shun Sakuraba
 !
 ! This program is free software; you can redistribute it and/or
 ! modify it under the terms of the GNU General Public License
@@ -559,7 +559,8 @@ contains
                upos = u1 + block_size(1) * (u2 + block_size(2) * u3)
                if(psum_solu(upos + 1) /= psum_solu(upos)) then ! if solute have atoms in the block
                   ! each solute block will interact with [subcell_num_neighbour] solvent block-chunks.
-                  ! Here, "block-chunks" mean (-x,y,z) to (x,y,z) blocks relative to the solute block.
+                  ! Here, "block-chunks" mean (-dx,dy,dz) to (dx,dy,dz) blocks relative to the solute block.
+                  ! This tuple of (dx, dy, dz) is stored in subcell_neighbour().
                   !$omp task
                   do i = 1, subcell_num_neighbour
                      vbs(2) = mod(u2 + subcell_neighbour(2, i) , block_size(2))
@@ -645,6 +646,10 @@ contains
 
       elecut2 = elecut ** 2
 
+      ! Here we first calculate and list distance between particles in the first loop,
+      ! then calculate actual energy in the second loop.
+      ! This was faster when I first wrote this code, but for any modern compiler + architecture
+      ! I am not sure whether it's needed.
       ! TODO optimize:
       ! if you sort / reorder atomno, ljtype etc.
       ! this loop can be vectorized
