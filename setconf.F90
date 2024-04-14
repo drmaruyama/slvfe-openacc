@@ -718,7 +718,7 @@ contains
                read(linebuf,*, iostat=ierr) m, mass, atmtype, atmname, xst(1:3)
                if(ierr/=0) then
                   ! old format
-                  read(linebuf,*, iostat=ierr) m, mass, atmtype, xst(1:3)
+                  read(linebuf,*) m, atmtype, xst(1:3)
                   call getmass(mass, atmtype)
                end if
             endif
