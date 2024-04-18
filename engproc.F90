@@ -895,7 +895,7 @@ contains
       if(cltype == EL_COULOMB) return
       epcl = PI * mol_charge(i) * mol_charge(j) / screen / screen / volume
       if(i == j) epcl = epcl / 2.0   ! self-interaction
-      pairep = pairep - epcl
+      pairep = - epcl
    end function residual_ene
    !
    subroutine volcorrect(weight)
