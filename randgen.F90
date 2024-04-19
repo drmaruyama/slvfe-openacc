@@ -28,114 +28,114 @@
 ! print *, next_real(s)
 ! print *, next_int31(s)
 module randgen
-    use, intrinsic :: iso_c_binding
-    implicit none
-    type :: randstate
-        private
-        type(c_ptr) :: st
-        contains
-        final :: dtor_randstate
-    end type
+   use, intrinsic :: iso_c_binding
+   implicit none
+   type :: randstate
+      private
+      type(c_ptr) :: st
+   contains
+      final :: dtor_randstate
+   end type
 
-    interface randstate
-        module procedure impl_init_state
-    end interface randstate
+   interface randstate
+      module procedure impl_init_state
+   end interface randstate
 
-    private impl_init_state
+   private impl_init_state
 contains
-    function impl_init_state(seed)
-        type(randstate) :: impl_init_state
-        integer(8), intent(in) :: seed
-        integer(kind=c_int64_t) :: seed_in
-        interface
-            function xoshiro256ss_init_state_with_seed(seed) bind(C)
-                use, intrinsic :: iso_c_binding
-                integer(kind=c_int64_t), intent(in), value :: seed
-                type(c_ptr) :: xoshiro256ss_init_state_with_seed
-            end function
-        end interface
+   function impl_init_state(seed)
+      type(randstate) :: impl_init_state
+      integer(8), intent(in) :: seed
+      integer(kind=c_int64_t) :: seed_in
+      interface
+         function xoshiro256ss_init_state_with_seed(seed) bind(C)
+            use, intrinsic :: iso_c_binding
+            integer(kind=c_int64_t), intent(in), value :: seed
+            type(c_ptr) :: xoshiro256ss_init_state_with_seed
+         end function
+      end interface
 
-        seed_in = int(seed, c_int64_t)
-        impl_init_state%st = xoshiro256ss_init_state_with_seed(seed_in)
-    end function
+      seed_in = int(seed, c_int64_t)
+      impl_init_state%st = xoshiro256ss_init_state_with_seed(seed_in)
+   end function
 
-    subroutine dtor_randstate(this)
-        type(randstate) :: this
-        interface
-            subroutine xoshiro256ss_fini(st) bind(C)
-                use, intrinsic :: iso_c_binding
-                type(c_ptr), intent(in), value :: st
-            end subroutine
-        end interface
+   subroutine dtor_randstate(this)
+      type(randstate) :: this
+      interface
+         subroutine xoshiro256ss_fini(st) bind(C)
+            use, intrinsic :: iso_c_binding
+            type(c_ptr), intent(in), value :: st
+         end subroutine
+      end interface
 
-        call xoshiro256ss_fini(this%st)
-        this%st = c_null_ptr
-    end subroutine
+      call xoshiro256ss_fini(this%st)
+      this%st = c_null_ptr
+   end subroutine
 
-    ! returns [0..1)
-    function next_double(st)
-        type(randstate) :: st
-        real(8) :: next_double
-        real(kind=c_double) :: xvalue
-        interface
-            function xoshiro256ss_next_double(st) bind(C)
-                use, intrinsic :: iso_c_binding
-                type(c_ptr), intent(in), value :: st
-                real(kind=c_double) :: xoshiro256ss_next_double
-            end function
-        end interface
+   ! returns [0..1)
+   function next_double(st)
+      type(randstate) :: st
+      real(8) :: next_double
+      real(kind=c_double) :: xvalue
+      interface
+         function xoshiro256ss_next_double(st) bind(C)
+            use, intrinsic :: iso_c_binding
+            type(c_ptr), intent(in), value :: st
+            real(kind=c_double) :: xoshiro256ss_next_double
+         end function
+      end interface
 
-        xvalue = xoshiro256ss_next_double(st%st)
-        next_double = xvalue
-    end function next_double
+      xvalue = xoshiro256ss_next_double(st%st)
+      next_double = xvalue
+   end function next_double
 
-    function next_real(st)
-        type(randstate) :: st
-        real :: next_real
-        real(8) :: temp
+   function next_real(st)
+      type(randstate) :: st
+      real :: next_real
+      real(8) :: temp
 
-        temp = next_double(st)
-        next_real = real(temp)
-    end function next_real
+      temp = next_double(st)
+      next_real = real(temp)
+   end function next_real
 
-    ! returns 0 <= x < 2^31
-    function next_int31(st)
-        type(randstate) :: st
-        integer :: next_int31
-        integer(kind=c_int32_t) :: xvalue
-        interface
-            function xoshiro256ss_next_int31(st) bind(C)
-                use, intrinsic :: iso_c_binding
-                type(c_ptr), intent(in), value :: st
-                integer(kind=c_int32_t) :: xoshiro256ss_next_int31
-            end function
-        end interface
+   ! returns 0 <= x < 2^31
+   function next_int31(st)
+      type(randstate) :: st
+      integer :: next_int31
+      integer(kind=c_int32_t) :: xvalue
+      interface
+         function xoshiro256ss_next_int31(st) bind(C)
+            use, intrinsic :: iso_c_binding
+            type(c_ptr), intent(in), value :: st
+            integer(kind=c_int32_t) :: xoshiro256ss_next_int31
+         end function
+      end interface
 
-        xvalue = xoshiro256ss_next_int31(st%st)
-        next_int31 = xvalue
-    end function next_int31
+      xvalue = xoshiro256ss_next_int31(st%st)
+      next_int31 = xvalue
+   end function next_int31
 
-    subroutine jump(st)
-        type(randstate) :: st
-        interface
-            subroutine xoshiro256ss_jump(st) bind(C)
-                use, intrinsic :: iso_c_binding
-                type(c_ptr), intent(in), value :: st
-            end subroutine
-        end interface
+   subroutine jump(st)
+      type(randstate) :: st
+      interface
+         subroutine xoshiro256ss_jump(st) bind(C)
+            use, intrinsic :: iso_c_binding
+            type(c_ptr), intent(in), value :: st
+         end subroutine
+      end interface
 
-        call xoshiro256ss_jump(st%st)
-    end subroutine
+      call xoshiro256ss_jump(st%st)
+   end subroutine
 
-    subroutine long_jump(st)
-        type(randstate) :: st
-        interface
-            subroutine xoshiro256ss_long_jump(st) bind(C)
-                use, intrinsic :: iso_c_binding
-                type(c_ptr), intent(in), value :: st
-            end subroutine
-        end interface
+   subroutine long_jump(st)
+      type(randstate) :: st
+      interface
+         subroutine xoshiro256ss_long_jump(st) bind(C)
+            use, intrinsic :: iso_c_binding
+            type(c_ptr), intent(in), value :: st
+         end subroutine
+      end interface
 
-        call xoshiro256ss_long_jump(st%st)
-    end subroutine
+      call xoshiro256ss_long_jump(st%st)
+   end subroutine
 end module randgen
