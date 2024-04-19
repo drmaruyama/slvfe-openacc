@@ -167,12 +167,11 @@ contains
       real :: ljeps, ljsgm2, ljsgm3, ljsgm6, vdwa, vdwb, swth, swfac
       real :: repA, repB, repC, attA, attB, attC
       integer :: ljtype_i, ljtype_j
-      real, parameter :: infty = 1.0e50      ! essentially equal to infinity
       !
       if(i == j) stop "cannot happen: two particle arguments should not be the same"
       if(cltype /= EL_COULOMB) stop "cannot happen: realcal_bare is called only when cltype is 'bare coulomb'."
 
-      if(boxshp == SYS_NONPERIODIC) reelcut=infty
+      if(boxshp == SYS_NONPERIODIC) reelcut=huge(reelcut)
       if(boxshp == SYS_PERIODIC) then
          reelcut = elecut
          half_cell(:) = 0.5 * cell_len_normal(:)
@@ -498,18 +497,19 @@ contains
       !$omp   private(psx, psy, psz, bpx, bpy, bpz, zmin, zmax, ymin, ymax, xmin, xmax) &
       !$omp   shared(energy_vec)
       !$omp single
-      do u3 = 0, block_size(3) - 1
-         do u2 = 0, block_size(2) - 1
-            do u1 = 0, block_size(1) - 1
-               ! At this moment solute block (u1, u2, u3) is considered.
-               upos = u1 + block_size(1) * (u2 + block_size(2) * u3)
-               if(psum_solu(upos + 1) == psum_solu(upos)) cycle
-               do psz = -1, 1
-                  pbc_solushift(3) = psz
-                  do psy = -1, 1
-                     pbc_solushift(2) = psy
-                     do psx = -1, 1
-                        pbc_solushift(1) = psx
+      do psz = -1, 1
+         pbc_solushift(3) = psz
+         do psy = -1, 1
+         pbc_solushift(2) = psy
+            do psx = -1, 1
+               pbc_solushift(1) = psx
+               do u3 = 0, block_size(3) - 1
+                  do u2 = 0, block_size(2) - 1
+                     do u1 = 0, block_size(1) - 1
+                        ! At this moment solute block (u1, u2, u3) is considered.
+                        upos = u1 + block_size(1) * (u2 + block_size(2) * u3)
+                        if(psum_solu(upos + 1) == psum_solu(upos)) cycle
+
                         !$omp task
                         ! find interacting solvent box, with solute shifted by (pvx, pvy, pvz) <dot> cell vector
                         ! note this interacting solvent box may target the same box twice;
@@ -545,7 +545,6 @@ contains
                               xmax = min(xmax, block_size(1) - 1)
                               vpos_begin = xmin + block_size(1) * (bpy + block_size(2) * bpz)
                               vpos_end = xmax + block_size(1) * (bpy + block_size(2) * bpz) + 1 ! [vpos_begin, vpos_end)
-                              !print *, xmin, xmax, bpy, bpz, block_size(:)
                               if(xmin > xmax) cycle
                               call get_pair_energy_block(upos, vpos_begin, vpos_end, energy_vec, pbc_solushift)
                            end do
