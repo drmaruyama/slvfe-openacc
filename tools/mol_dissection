@@ -75,10 +75,10 @@ if os.path.exists("soln/PermIndex"):
 # read topology from MDinfo
 
 fh = open("soln/MDinfo", "rt")
-mols = int(fh.next().split()[1])
-ms = fh.next().split()
+mols = int(next(fh).split()[1])
+ms = next(fh).split()
 ms = [int(i) for i in ms]
-ns = fh.next().split()
+ns = next(fh).split()
 ns = [int(i) for i in ns]
 
 assert mols == len(ms), "number of molecules does not match to MDinfo's 1st line"

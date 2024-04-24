@@ -360,10 +360,10 @@ def parse_log():
 if frames:
     ifh = open("MDinfo", "rt")
     ofh = open("MDinfo.new", "wt")
-    l = ifh.next().split()
+    l = next(ifh).split()
     print(frames, l[1], file=ofh)
-    print(ifh.next().strip(), file=ofh)
-    print(ifh.next().strip(), file=ofh)
+    print(next(ifh).strip(), file=ofh)
+    print(next(ifh).strip(), file=ofh)
     ifh.close()
     safe_close(ofh)
     shutil.move("MDinfo", "MDinfo.bak")

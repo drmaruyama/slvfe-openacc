@@ -108,7 +108,7 @@ def read_mdat(fname):
     natoms = int(l.strip())
     atoms = [None] * natoms
     for i in range(natoms):
-        l = fh.next().split()
+        l = next(fh).split()
         # serial aname atype atypeno charge mass
         #if options.verbose:
         #    print >> sys.stderr, l[4], float(l[4]), l[5]
@@ -125,26 +125,26 @@ def read_mdat(fname):
         l = next(fh)
     if options.verbose:
         print("Finished reading residues:", nres, file=sys.stderr)
-    l = fh.next().split()
+    l = next(fh).split()
     nmols = int(l[0].strip())
     nsolutemol = int(l[1].strip())
     istartatom = 0
     mols = [None] * nmols
     for i in range(nmols):
-        l = fh.next().split()
+        l = next(fh).split()
         mol = (int(l[0]), istartatom)
         istartatom += mol[0]
         mols[i] = mol
     if options.verbose:
         print("Finished reading molecules:", nmols, file=sys.stderr)
-    l = fh.next().split()
+    l = next(fh).split()
     ntypes = int(l[0].strip())
     l = next(fh)  # skip 1 line
     nindex = ntypes*ntypes
     ii = 0
     index = [None] * nindex
     while ii < nindex:
-        l = fh.next().split()
+        l = next(fh).split()
         #print l
         for item in l:
             index[ii] = int(item)
@@ -155,13 +155,13 @@ def read_mdat(fname):
         vdw6  = [None] * ntable
         ii = 0
         while ii < ntable:
-            l = fh.next().split()
+            l = next(fh).split()
             for item in l:
                 vdw12[ii] = float(item)
                 ii += 1
         ii = 0
         while ii < ntable:
-            l = fh.next().split()
+            l = next(fh).split()
             for item in l:
                 vdw6[ii] = float(item)
                 ii += 1
@@ -181,13 +181,13 @@ def read_mdat(fname):
         rmin = [None] * ntable
         ii = 0
         while ii < ntable:
-            l = fh.next().split()
+            l = next(fh).split()
             for item in l:
                 eps[ii] = float(item)
                 ii += 1
         ii = 0
         while ii < ntable:
-            l = fh.next().split()
+            l = next(fh).split()
             for item in l:
                 rmin[ii] = float(item)
                 ii += 1

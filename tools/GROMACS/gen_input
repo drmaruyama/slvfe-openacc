@@ -332,7 +332,7 @@ elif options.rigid:
         coords = []
         with open(options.rigid, "rt") as fh:
             _l = next(fh) # header
-            natoms = int(fh.next().strip())
+            natoms = int(next(fh).strip())
             for _i in range(natoms):
                 line = next(fh)
                 x = float(line[20:28].strip())
