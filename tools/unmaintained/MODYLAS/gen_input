@@ -415,7 +415,10 @@ elif options.rigid:
     ofh = open("SltInfo.new", "wt")
     pos = 0
     for l in ifh:
-        print(' '.join((l.split())[0:5]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
+        ls = l.split()
+        if len(ls) in [5, 8]:
+            raise RuntimeError("SltInfo format is old, please restart from gen_structure")
+        print(' '.join((l.split())[0:7]), coords[pos][0], coords[pos][1], coords[pos][2], file=ofh)
         pos += 1
 
     ifh.close()
