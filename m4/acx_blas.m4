@@ -110,11 +110,11 @@ if test $acx_blas_ok = no; then
 	LIBS="$save_LIBS"
 fi
 
-# BLAS linked to by -mkl=parallel? (Intel compiler + MKL)
+# BLAS linked to by -qmkl=parallel? (Intel compiler + MKL)
 if test $acx_blas_ok = no; then
-	save_LIBS="$LIBS"; LIBS="-mkl=parallel $LIBS"
-	AC_MSG_CHECKING([if $sgemm is available with -mkl=parallel])
-	AC_TRY_LINK_FUNC($sgemm, [acx_blas_ok=yes;BLAS_LIBS="-mkl=parallel"])
+	save_LIBS="$LIBS"; LIBS="-qmkl=parallel $LIBS"
+	AC_MSG_CHECKING([if $sgemm is available with -qmkl=parallel])
+	AC_TRY_LINK_FUNC($sgemm, [acx_blas_ok=yes;BLAS_LIBS="-qmkl=parallel"])
         AC_MSG_RESULT($acx_blas_ok)
 	LIBS="$save_LIBS"
 fi

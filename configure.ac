@@ -21,7 +21,7 @@ AC_PROG_CPP
 AC_PROG_CC([icc fcc gcc cc])
 AC_PROG_CC_C_O
 AM_PROG_CC_C_O
-AC_PROG_FC([ifort xlf90 xlf f95 f90 frt gfortran g95])
+AC_PROG_FC([ifx ifort xlf90 xlf f95 f90 frt gfortran g95])
 AC_PROG_LN_S
 
 # Check for buggy variant of ifort.
@@ -87,11 +87,11 @@ AS_IF([test "x$with_mkl" != "x"],
       [AC_MSG_FAILURE([could not get MKL version; set MKLROOT or use --with-mkl=(version number)])],
       mklroot="$MKLROOT"),
     mklroot="/opt/intel/mkl/$with_mkl")
-  # Check for recent Intel Composer (-mkl=parallel works)
-  with_blas="-mkl=parallel"
+  # Check for recent Intel Composer (-qmkl=parallel works; super old format "-mkl=" is now assumed extinct)
+  with_blas="-qmkl=parallel"
   MY_CHECK_BLAS([Intel composer default], [$with_blas])
   AS_IF([test "x$blas_ok" = "xyes"],
-        [FCFLAGS="-mkl=parallel $FCFLAGS"],
+        [FCFLAGS="-qmkl=parallel $FCFLAGS"],
         [
          # Here comes super-duper crazily dirty MKL versioning checker
          # check 10.0 - 10.2
@@ -333,7 +333,7 @@ AS_IF([test x$enable_opt = xyes || test x$enable_opt = x],
          AS_IF([test x$my_fc_opt_accept_native = xyes],
                 optflag="$optflag -march=native")],
         [case x$FC in #(
-           xmpiifort|xifort)
+           xmpiifort|xifort|xmpiifx|xifx)
              optflag="-O3 -no-prec-div -xHost"
              ;; #(
            *)
