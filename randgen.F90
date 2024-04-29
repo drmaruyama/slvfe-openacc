@@ -24,27 +24,33 @@
 ! use randgen
 ! type(randstate) :: s
 !
-! s = randstate(seed)
-! print *, next_real(s)
-! print *, next_int31(s)
+! call s%init(seed)
+! print *, s%next_real()
+! print *, s%next_int31()
+! FIXME TODO: you can't copy and assign randstate variables.
+! To fix, we will need to implement the assignment operator.
+! In other words:
+! copy = s  !doesn't work!
 module randgen
    use, intrinsic :: iso_c_binding
    implicit none
-   type :: randstate
-      private
-      type(c_ptr) :: st
+   type, public :: randstate
+      type(c_ptr), private :: st = c_null_ptr
    contains
-      final :: dtor_randstate
+      ! I know in principle I should make dtor to be a "final" keyword, 
+      ! But finalization timing is currently compiler dependent (https://stackoverflow.com/questions/59985499/are-fortrans-final-subroutines-reliable-enough-for-practical-use)
+      ! This result in the function return value (i.e., module procedure function used as ctor) may or may not be finalized and may end up double-free.
+      ! Thus I decided to leave the dtor handled manually for a while.
+      procedure, public :: init, dtor
+      procedure, public :: next_double, next_real, next_int31
+      procedure, public :: jump, long_jump
    end type
 
-   interface randstate
-      module procedure impl_init_state
-   end interface randstate
-
-   private impl_init_state
+   private
 contains
-   function impl_init_state(seed)
-      type(randstate) :: impl_init_state
+   subroutine init(this, seed)
+      implicit none
+      class(randstate) :: this
       integer(8), intent(in) :: seed
       integer(kind=c_int64_t) :: seed_in
       interface
@@ -56,11 +62,12 @@ contains
       end interface
 
       seed_in = int(seed, c_int64_t)
-      impl_init_state%st = xoshiro256ss_init_state_with_seed(seed_in)
-   end function
+      this%st = xoshiro256ss_init_state_with_seed(seed_in)
+      end subroutine
 
-   subroutine dtor_randstate(this)
-      type(randstate) :: this
+   subroutine dtor(this)
+      implicit none
+      class(randstate) :: this
       interface
          subroutine xoshiro256ss_fini(st) bind(C)
             use, intrinsic :: iso_c_binding
@@ -73,8 +80,9 @@ contains
    end subroutine
 
    ! returns [0..1)
-   function next_double(st)
-      type(randstate) :: st
+   function next_double(this)
+      implicit none
+      class(randstate) :: this
       real(8) :: next_double
       real(kind=c_double) :: xvalue
       interface
@@ -85,22 +93,24 @@ contains
          end function
       end interface
 
-      xvalue = xoshiro256ss_next_double(st%st)
+      xvalue = xoshiro256ss_next_double(this%st)
       next_double = xvalue
    end function next_double
 
-   function next_real(st)
-      type(randstate) :: st
+   function next_real(this)
+      implicit none
+      class(randstate) :: this
       real :: next_real
       real(8) :: temp
 
-      temp = next_double(st)
+      temp = next_double(this)
       next_real = real(temp)
    end function next_real
 
    ! returns 0 <= x < 2^31
-   function next_int31(st)
-      type(randstate) :: st
+   function next_int31(this)
+      implicit none
+      class(randstate) :: this
       integer :: next_int31
       integer(kind=c_int32_t) :: xvalue
       interface
@@ -111,12 +121,13 @@ contains
          end function
       end interface
 
-      xvalue = xoshiro256ss_next_int31(st%st)
+      xvalue = xoshiro256ss_next_int31(this%st)
       next_int31 = xvalue
    end function next_int31
 
-   subroutine jump(st)
-      type(randstate) :: st
+   subroutine jump(this)
+      implicit none
+      class(randstate) :: this
       interface
          subroutine xoshiro256ss_jump(st) bind(C)
             use, intrinsic :: iso_c_binding
@@ -124,11 +135,12 @@ contains
          end subroutine
       end interface
 
-      call xoshiro256ss_jump(st%st)
+      call xoshiro256ss_jump(this%st)
    end subroutine
 
-   subroutine long_jump(st)
-      type(randstate) :: st
+   subroutine long_jump(this)
+      implicit none
+      class(randstate) :: this
       interface
          subroutine xoshiro256ss_long_jump(st) bind(C)
             use, intrinsic :: iso_c_binding
@@ -136,6 +148,6 @@ contains
          end subroutine
       end interface
 
-      call xoshiro256ss_long_jump(st%st)
+      call xoshiro256ss_long_jump(this%st)
    end subroutine
 end module randgen

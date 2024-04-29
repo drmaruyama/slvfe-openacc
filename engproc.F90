@@ -956,8 +956,8 @@ contains
    ! v > coord(n)  ==>  ret = n (infinite)
    subroutine binsearch(coord, n, v, ret)
       implicit none
-      real, intent(in) :: coord(n)
       integer, intent(in) :: n
+      real, intent(in) :: coord(n)
       real, intent(in) :: v
       integer, intent(out) :: ret
       integer :: rmin, rmax, rmid

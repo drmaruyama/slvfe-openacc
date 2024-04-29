@@ -19,9 +19,9 @@
 
 module ptinsrt
    ! test particle insertion of the solute
-   use randgen
+   use randgen, only: randstate
    implicit none
-   type(randstate), save :: randst
+   type(randstate) :: randst
    !
    ! insertion against reference structure
    !   insorigin = INSORG_REFSTR: solvent species as superposition reference
@@ -35,7 +35,7 @@ module ptinsrt
    real, dimension(:,:), allocatable  :: refhost_crd,     refslt_crd
    real, dimension(:),   allocatable  :: refhost_weight,  refslt_weight
    real, dimension(:,:), allocatable  ::                  refslt_bestfit
-   !
+   save
 contains
    subroutine instslt(caltype, cntdst, stat_weight_solute)
       use engmain, only: nummol, slttype, numslt, sltlist, iseed, SLT_REFS_FLEX
@@ -540,7 +540,7 @@ contains
       use randgen
       implicit none
       real, intent(out) :: rndm
-      rndm = next_real(randst)
+      rndm = randst%next_real()
    end subroutine urand
 
    ! Normal random variable N(0,1)
@@ -576,16 +576,16 @@ contains
       if (myrank /= 0) then
          seed_in = 0
       end if
-      call mpi_allreduce(seed_in, buf, 1, mpi_integer8, mpi_sum, mpi_sum, ierr)
+      call mpi_allreduce(seed_in, buf, 1, mpi_integer8, mpi_sum, mpi_comm_world, ierr)
       if(ierr /= 0) stop "Allreduce failed"
       seed_in = buf
 #endif
 
-      randst = randstate(seed_in)
+      call randst%init(seed_in)
 
       ! Each MPI process must have completely different state
       do i = 1, myrank
-         call long_jump(randst)
+         call randst%long_jump()
       end do
    end subroutine urand_init
 
