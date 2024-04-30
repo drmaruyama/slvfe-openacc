@@ -9,6 +9,7 @@ nobase_pkgdata_SCRIPTS = \
 	tools/CHARMM/gen_structure tools/CHARMM/gen_input \
 	tools/GENESIS/gen_structure tools/GENESIS/gen_input \
 	tools/GENESIS/gen_structure_AMBER tools/GENESIS/gen_structure_CHARMM \
+	tools/bootstrap \
 	tools/refs_converge
 
 #	tools/GENESIS/gen_structure_GROMACS # <- In GENESIS, GROMACS is unsupported officially so not included in SCRIPTS
@@ -35,6 +36,7 @@ EXTRA_DIST += tools/CHARMM/*
 EXTRA_DIST += tools/GENESIS/*
 EXTRA_DIST += tools/mol_dissection
 EXTRA_DIST += tools/refs_converge
+EXTRA_DIST += tools/bootstrap
 EXTRA_DIST += vmdplugins/*.C vmdplugins/*.c vmdplugins/*.h vmdplugins/*.cxx vmdplugins/*.hxx vmdplugins/Makefile vmdplugins/LICENSE
 CLEANFILES = *.mod
 
