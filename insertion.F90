@@ -389,6 +389,9 @@ contains
       use OUTname, only: OUTconfig, solute_trajectory
       use mpiproc
       use bestfit, only: rmsd_bestfit
+#ifdef MPI
+      use mpi, only: mpi_comm_world, mpi_send, mpi_recv
+#endif
       implicit none
       character(len=4),  intent(in) :: caltype
       integer,           intent(in) :: insml
