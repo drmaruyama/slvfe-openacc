@@ -177,15 +177,17 @@ contains
       real, parameter :: lencnv = 1.0e1                ! from nm to Angstrom
       real, parameter :: engcnv = 1.0e0/4.184e0        ! from kJ/mol to kcal/mol
       integer :: pti, sid, stmax, maxsite, i, m
-      real :: factor, xst(3)
+      real :: factor, xst(3), mass
       integer, allocatable :: ljtype_temp(:)
       real, dimension(:), allocatable :: ljlen_temp, ljene_temp
       real, dimension(:), allocatable :: ljlen_temp_table, ljene_temp_table
       integer :: ljtype_found
       logical :: lj_is_new
-      character(len=5) :: atmtype
+      character(len=12) :: atmtype
+      character(len=8) :: atmname
       character(len=80) :: molfile
       character(len=9) :: numbers = '123456789'
+      integer :: ierr
 
       allocate( ptsite(0:numslv) )
       do pti = 0, numslv
@@ -225,7 +227,13 @@ contains
          stmax = ptsite(pti)
          open(unit = mol_io, file = molfile, status = 'old')
          do sid = 1, stmax
-            read(mol_io,*) m, atmtype, xst(1:3)
+            ! new format
+            read(mol_io,*,iostat=ierr) m, mass, atmtype, atmname, xst(1:3)
+            if(ierr/=0) then
+               ! old format
+               read(mol_io,*) m, atmtype, xst(1:3)
+            end if
+
             if(ljformat == LJFMT_EPS_Rminh) xst(3) = sgmcnv * xst(3)
             if((ljformat == LJFMT_A_C) .or. (ljformat == LJFMT_C12_C6)) then
                if(xst(3) /= 0.0) then
