@@ -187,6 +187,7 @@ contains
       character(len=8) :: atmname
       character(len=80) :: molfile
       character(len=9) :: numbers = '123456789'
+      character(len=120) :: linebuf
       integer :: ierr
 
       allocate( ptsite(0:numslv) )
@@ -227,11 +228,12 @@ contains
          stmax = ptsite(pti)
          open(unit = mol_io, file = molfile, status = 'old')
          do sid = 1, stmax
-            ! new format
-            read(mol_io,*,iostat=ierr) m, mass, atmtype, atmname, xst(1:3)
+            read(mol_io, '(A)') linebuf ! read entire line into buf
+            ! new format, covering both rigid and flexible
+            read(linebuf,*,iostat=ierr) m, mass, atmtype, atmname, xst(1:3)
             if(ierr/=0) then
-               ! old format
-               read(mol_io,*) m, atmtype, xst(1:3)
+               ! old format, covering both rigid and flexible
+               read(linebuf,*) m, atmtype, xst(1:3)
             end if
 
             if(ljformat == LJFMT_EPS_Rminh) xst(3) = sgmcnv * xst(3)
