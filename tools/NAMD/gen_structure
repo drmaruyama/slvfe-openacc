@@ -399,7 +399,7 @@ if use_ljtable:
         except ValueError:
             # one of pairs not used
             continue
-        sig = sgm_from_rmin2 * rmin
+        sig = sgm_from_rmin2 * rmin / 2 # rmin (not rmin/2) is stored in fixtable
         sigtable[i][j] = sig
         epstable[i][j] = eps
 
