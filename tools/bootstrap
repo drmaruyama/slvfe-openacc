@@ -289,16 +289,20 @@ class ERmodDataAverage:
 
 
 class BSManager:
-    def __init__(self, intr_file, n_bs, mode):
+    def __init__(self, intr_file, n_bs, mode, list_files):
         self.intr_file = intr_file 
         self.n_bs = n_bs
+        do_initialize = True
         if os.path.exists(intr_file):
             self.bs_info = read_json(intr_file)
             self.__check_condition(mode)
-        else:
+            do_initialize = self.__check_whether_list_updated(list_files)
+
+        if do_initialize:
             self.bs_info = {}
-            self.bs_info['cnd'] = {'mode': mode}
+            self.bs_info['cnd'] = {'mode': mode, 'tss': []}
             self.bs_info['bs_lst'] = []
+            self.__get_timestamp_of_list_files(list_files)
         self.bs_info['bs_lst'] = self.__initialize_bs_data_list(self.bs_info['bs_lst'], n_bs)
 
     def __initialize_bs_data_list(self, lst, n_bs):
@@ -320,6 +324,31 @@ class BSManager:
             print('Remove the intermediate data file if the mode argument is changed.')
             exit(1)
         return
+
+    def __get_timestamp_of_list_files(self, list_files):
+        for list_file in list_files:
+            if list_file:
+                ts = os.path.getmtime(list_file)
+                self.bs_info['cnd']['tss'].append(ts)
+            else:
+                self.bs_info['cnd']['tss'].append(0.0)
+        return
+
+    def __check_whether_list_updated(self, list_files):
+        do_initialize = False
+        for i, list_file in enumerate(list_files):
+            if list_file:
+                ts = os.path.getmtime(list_file)
+            else:
+                ts = 0.0
+            if ts != self.bs_info['cnd']['tss'][i]:
+                do_initialize = True
+
+        if do_initialize:
+            print('Update of file of soln or refs directory listhas been detected.')
+            print('So all intermediate data from {} is erased and re-calculated.'.format(self.intr_file))
+            print()
+        return do_initialize
 
     def get_n_bs(self):
         return self.n_bs
@@ -674,7 +703,8 @@ def generate_averaged_distribution(smpl_lst_dct, work_dir_lst_dct, er_avgr, cmd_
 
 
 def work(mode, soln_dir_list_file, refs_dir_list_file, n_bs, pfe_file, n_sp, intr_file, bs_file, cmd_slvfe, notify_freq, gen_ave_dist, leave_intr_file):
-    bs_mngr = BSManager(intr_file, n_bs, mode)
+    list_files = [soln_dir_list_file, refs_dir_list_file]
+    bs_mngr = BSManager(intr_file, n_bs, mode, list_files)
     pfe_mngr = ParmFEManager(pfe_file)
     er_avgr = ERmodDataAverage()
 
@@ -748,7 +778,7 @@ def get_args():
                         help='block: a single block within a trajectory as a single sample\n' \
                            + 'traj:  a signle trajectory (all the divided blocks in a soln or refs directory) as a single sample')
     parser.add_argument('-s', '--soln_dir_list_file', type=str, default='',
-                        help='filename to list the solution directories to be read')
+                        help='filename to list the solnution directories to be read')
     parser.add_argument('-r', '--refs_dir_list_file', type=str, default='',
                         help='filename to list the reference-solvent directories to be read')
 
