@@ -27,6 +27,7 @@ except ModuleNotFoundError:
 class ERmodDataAverage:
     def __init__(self):
         self.short_name_dct = {'soln': 'sln', 'refs': 'ref'}
+        self.ver = ''
 
     def make_sample_list(self, dir_lst, sys_type):
         smpl_lst = []
@@ -50,6 +51,12 @@ class ERmodDataAverage:
         if self.__is_end():
             return False
 
+        if not self.ver:
+            self.__identify_version()
+
+        if self.ver == '10':
+            self.__put_parameters_er()
+
         ws = self.__get_weight()
 
         self.__average_weight(ws)
@@ -72,6 +79,28 @@ class ERmodDataAverage:
                 return True
         return False
 
+    def __identify_version(self):
+        file_stem = 'eng{}'.format(self.short_name_dct[self.sys_type])
+
+        if True:
+            dir_path = self.dir_lst[0]
+            blk_id = 1
+
+            file_path = self.__get_engcor_filepath(dir_path, blk_id, file_stem)
+            with open(file_path, 'r') as f:
+                line = f.read()
+                if line.startswith('#'):
+                    self.ver = '10'
+                else:
+                    self.ver = '03'
+        return
+
+    def __put_parameters_er(self):
+        src = '{}/parameters_er'.format(self.dir_lst[0])
+        dst = '{}/parameters_er'.format(self.dst_dir)
+        shutil.copyfile(src, dst)
+        return
+
     def __average_cor(self, ws):
 
         def get_dist_info():
@@ -79,17 +108,24 @@ class ERmodDataAverage:
             file_path = self.__get_engcor_filepath(self.dir_lst[0], 1, file_stem)
 
             with open(file_path, 'r') as f:
-                lines = f.readlines()
+                if self.ver == '10':
+                    _ = f.readline()
+                lines = f.read().splitlines()
+
+            if self.ver == '03':
+                i_col_mol = 1
+            elif self.ver == '10':
+                i_col_mol = 2
 
             n_bin = 0
             for line in lines:
                 items = line.split()
-                i_mol = int(items[1])
+                i_mol = int(items[i_col_mol])
                 if i_mol != 1:
                     break
                 n_bin += 1
 
-            n_mol_spec = int(lines[-1].split()[1])
+            n_mol_spec = int(lines[-1].split()[i_col_mol])
 
             return n_bin, n_mol_spec
 
@@ -169,22 +205,40 @@ class ERmodDataAverage:
 
             file_path = self.__get_engcor_filepath(dir_path, blk_id, file_stem)
             with open(file_path, 'r') as f:
+                if self.ver == '10':
+                    _ = f.readline()
                 lines = f.read().splitlines()
             
             if vals_lst is None:
                 vals_lst = np.zeros((len(self.sel_ids), len(lines)), dtype=np.float64)
+                if self.ver == '10':
+                    val2s_lst = np.zeros((len(self.sel_ids), len(lines)), dtype=np.float64)
 
-            vals = [float(line.split()[2]) for line in lines]
-            vals_lst[i_smpl, :] = vals[:]
+            if self.ver == '03':
+                vals = [float(line.split()[2]) for line in lines]
+                vals_lst[i_smpl, :] = vals[:]
+            elif self.ver == '10':
+                vals = [float(line.split()[3]) for line in lines]
+                vals_lst[i_smpl, :] = vals[:]
+                vals = [float(line.split()[4]) for line in lines]
+                val2s_lst[i_smpl, :] = vals[:]
 
         # output
         src = self.__get_engcor_filepath(self.dir_lst[0], 1, file_stem)
         dst = self.__get_engcor_filepath(self.dst_dir, 1, file_stem, is_input=False)
         ws_sum = np.sum(ws)
         with open(src, 'r') as fs, open(dst, 'w') as fd:
-            for i, line in enumerate(fs):
-                ave = np.sum(vals_lst[:, i] * ws[:]) / ws_sum
-                fd.write('{}{:>24.15E}\n'.format(line[:21], ave))
+            if self.ver == '03':
+                for i, line in enumerate(fs):
+                    ave = np.sum(vals_lst[:, i] * ws[:]) / ws_sum
+                    fd.write('{}{:>24.15E}\n'.format(line[:21], ave))
+            elif self.ver == '10':
+                fd.write(fs.readline())
+                for i, line in enumerate(fs):
+                    ave1 = np.sum(vals_lst[:, i] * ws[:]) / ws_sum
+                    ave2 = np.sum(val2s_lst[:, i] * ws[:]) / ws_sum
+                    fd.write('{} {:>24.15E} {:>24.15E}\n'.format(line[:35], ave1, ave2))
+
         return
 
     def __get_engcor_filepath(self, dir_path, blk_id, file_stem, is_input=True):
@@ -331,7 +385,7 @@ class BSManager:
                 print('Average mesh error is {:.3f} kcal/mol {}'.format(merr_ave, type_str))
             elif merr_ave < float(pfe_d['mesherr']):
                 pass
-            elif pfe_d['clcond'] == 'merge' and merr_ave > fene_err:
+            elif 'merge' in pfe_d['clcond'] and merr_ave > fene_err:
                 print('Warning: average mesh error is {:.3f} kcal/mol {}and is larger than the 95% error of {:.3f} kcal/mol'.format(merr_ave, type_str, fene_err))
             elif float(pfe_d['mesherr']) > 0.0 and merr_ave > float(pfe_d['mesherr']):
                 print('Warning: average mesh error is {:.3f} kcal/mol {}and is larger than the threshold value of {} kcal/mol'.format(merr_ave, type_str, pfe_d['mesherr']))
@@ -387,7 +441,7 @@ class ParmFEManager:
         if 'mesherr' not in d:
             d['mesherr'] = 0.1
         if 'clcond' not in d:
-            d['clcond'] = 'merge'
+            d['clcond'] = '\"merge\"'
 
         # set values
         d['numsln'] = 1
@@ -501,8 +555,14 @@ def get_slvfe_output(proc=None, slvfe_file=None):
     with open(slvfe_file, 'r') as f:
         lines = f.read().splitlines()
 
+    # error check
+    lst = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line]
+    if len(lst) == 0:
+        print('make sure that slvfe works properly')
+        exit(1)
+
     # free energy
-    i_pre_fene = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line][0]
+    i_pre_fene = lst[0]
     if 'component' in lines[i_pre_fene+1]:
         i_pre_fene += 1
     fenes = list(map(float, lines[i_pre_fene+1].split()[1:]))
@@ -602,6 +662,9 @@ def generate_averaged_distribution(smpl_lst_dct, work_dir_lst_dct, er_avgr, cmd_
     work_dir = 'average'
     
     for sys_type, smpl_lst in smpl_lst_dct.items():
+        if not smpl_lst:
+            continue
+
         dir_lst = work_dir_lst_dct[sys_type]
         ave_dir = os.path.join(work_dir, sys_type)
         mkdir(ave_dir)
@@ -678,7 +741,7 @@ def get_args():
     message = ''
     parser = argparse.ArgumentParser(description=message, formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('-nb', '--n_bs', type=int, default=200,
+    parser.add_argument('-nb', '--n_bs', type=int, default=100,
                         help='number of bootstrap samples')
     parser.add_argument('-m', '--mode', type=str, default='block',
                         choices=['block', 'traj'],
