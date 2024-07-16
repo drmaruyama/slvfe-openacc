@@ -68,6 +68,9 @@ AC_ARG_WITH([mkl],
   AS_HELP_STRING([--with-mkl[[=(MKL version)]]],
     [Automatically set environmental variables for MKL; for a specific version, use this option like --with-mkl=10.2.3]))
 
+AS_IF([test "x$with_mkl" != "x" -a "x$with_mkl" != "xyes"],
+      [AC_MSG_FAILURE([Specifying version to --with-mkl=(version) is now deprecated because of Intel MKl update])])
+
 AS_IF([test "x$with_mkl" != "x"],
   [case x`uname -m` in # (
   xx86_64) :
@@ -77,37 +80,30 @@ AS_IF([test "x$with_mkl" != "x"],
   xi386) :
   mkl_plat=32
   mkl_platnew=ia32
+  AC_MSG_WARN([i386 platform is no longer actively maintained; if you have trouble please contact ERmod usergroup])
   ;; # (
   *) :
   ;;
   esac
 
-  AS_IF([test "x$with_mkl" = "xyes"],
-    AS_IF([test "x$MKLROOT" = "x"],
-      [AC_MSG_FAILURE([could not get MKL version; set MKLROOT or use --with-mkl=(version number)])],
-      mklroot="$MKLROOT"),
-    mklroot="/opt/intel/mkl/$with_mkl")
+  AS_IF([test "x$MKLROOT" = "x"],
+    [AC_MSG_FAILURE([could not get MKL version; set MKLROOT or source /path/to/mkl/env/vars.sh])])
+  mklroot=$MKLROOT
+  AC_MSG_NOTICE([Using MKL installed at $MKLROOT])
   # Check for recent Intel Composer (-qmkl=parallel works; super old format "-mkl=" is now assumed extinct)
   with_blas="-qmkl=parallel"
   MY_CHECK_BLAS([Intel composer default], [$with_blas])
   AS_IF([test "x$blas_ok" = "xyes"],
         [FCFLAGS="-qmkl=parallel $FCFLAGS"],
         [
-         # Here comes super-duper crazily dirty MKL versioning checker
-         # check 10.0 - 10.2
-         with_blas="-L$mklroot/lib/$mkl_plat -lmkl_solver_lp64 -Wl,--start-group -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -Wl,--end-group -lguide -lpthread"
-         MY_CHECK_BLAS([MKL 10.0-10.2], 
+         # check 2017-format
+         with_blas="-L$mklroot/lib/$mkl_platnew -lmkl_rt -Wl,--no-as-needed -lpthread -lm -ldl"
+         MY_CHECK_BLAS([MKL 2017+], 
                        [$with_blas])
          AS_IF([test "x$blas_ok" = "xyes"],
                [],
-               # check for 10.3
-               [with_blas="-L$mklroot/lib/$mkl_platnew -lmkl_rt $OPENMP_FCFLAGS -lpthread"
-                MY_CHECK_BLAS([MKL 10.3+],
-                              [$with_blas])
-                AS_IF([test "x$blas_ok" = "xyes"],
-                      [],
-                      [AC_MSG_WARN([Failed to find appropriate MKL. If you are using old mkl, please update])])])
-         with_lapack="-L$mklroot/lib/$mkl_plat -lmkl_lapack"
+               [AC_MSG_WARN([Failed to find appropriate MKL. If you are using old mkl, please update])])
+         with_lapack=""
          FCFLAGS="-I$mklroot/include $FCFLAGS"
         ])
 ])
@@ -379,6 +375,13 @@ AS_IF([test "$enable_openmp" != "no" && test "$with_fft" = "fftw" && test "$have
 OpenMP is enabled, but your FFTW does not support multithreading.
 This results in lower FFTW performance.
 It is recommended to recompile FFTW library with --enable-omp or --enable-threads; see the FFTW manual for details.])])
+  
+case "x/$mklroot" in
+  */2020.?.?/*|*/2021.?.?/*)
+    AS_IF([test "x$enable_openmp" = "xyes" -a "x$with_fft" = "xmkl"],
+          [AC_MSG_ERROR([MKL -2021.x's FFT is known to have problem with OpenMP. Please choose one from (1) disabling OpenMP (recommended), (2) using newer MKL, or (3) compiling FFTW then adding --with-fft=fftw. Note ERmod works the best without OpenMP.])])
+  ;;
+esac
 
 AC_MSG_RESULT([dnl
 LAPACK: $lapack_result
@@ -388,6 +391,8 @@ OpenMP: $enable_openmp
 FC(for erdst)=$FC
 FC_CANONICAL(for slvfe)=$FC_CANONICAL
 FCFLAGS=$FCFLAGS
+LDFLAGS=$LDFLAGS
+LIBS=$LIBS
 
 Configuration complete; type "make" to start compiling])
 
