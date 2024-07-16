@@ -377,9 +377,9 @@ This results in lower FFTW performance.
 It is recommended to recompile FFTW library with --enable-omp or --enable-threads; see the FFTW manual for details.])])
   
 case "x/$mklroot" in
-  */2020.?.?/*|*/2021.?.?/*)
+  */2020.?.?/*|*/2021.?.?/*|*/2022.[01].?/*)
     AS_IF([test "x$enable_openmp" = "xyes" -a "x$with_fft" = "xmkl"],
-          [AC_MSG_ERROR([MKL -2021.x's FFT is known to have problem with OpenMP. Please choose one from (1) disabling OpenMP (recommended), (2) using newer MKL, or (3) compiling FFTW then adding --with-fft=fftw. Note ERmod works the best without OpenMP.])])
+          [AC_MSG_ERROR([MKL -2022.1.0's FFT is suspected to have problem with OpenMP. Please choose one from (1) disabling OpenMP (recommended), (2) using newer MKL, or (3) compiling FFTW then adding --with-fft=fftw. Note ERmod works the best without OpenMP.])])
   ;;
 esac
 
