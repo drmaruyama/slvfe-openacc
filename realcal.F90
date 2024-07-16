@@ -493,7 +493,7 @@ contains
       real :: p(3), cutxyz, cutxy2, cutx2
       !$omp parallel &
       !$omp   private(u1, u2, u3, upos, vpos_begin, vpos_end, pbc_solushift) &
-      !$omp   private(cutxyz, cutxy2, cutx2) &
+      !$omp   private(p, cutxyz, cutxy2, cutx2) &
       !$omp   private(psx, psy, psz, bpx, bpy, bpz, zmin, zmax, ymin, ymax, xmin, xmax) &
       !$omp   shared(energy_vec)
       !$omp single
