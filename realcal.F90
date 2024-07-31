@@ -53,7 +53,7 @@ contains
    ! After calling this routine, [uvengy] stores the interaction energy between solute and solvent.
    subroutine realcal_proc(target_solu, tagpt, slvmax, uvengy)
       use engmain, only: numsite
-!$    use omp_lib, only: omp_get_num_procs
+!$    use omp_lib, only: omp_get_max_threads
       implicit none
       integer, intent(in) :: target_solu, tagpt(:), slvmax
       real, intent(out) :: uvengy(0:slvmax)
@@ -106,7 +106,7 @@ contains
       lsize = max_solu_block * max_solv_block
 
       npar = 1
-!$    npar = omp_get_num_procs()
+!$    npar = omp_get_max_threads()
 
       allocate(ljeps_lowlj(lsize, npar), ljsgm2_lowlj(lsize, npar), dist_lowlj(lsize, npar), belong_lowlj(lsize, npar))
       allocate(ljeps_switch(lsize, npar), ljsgm2_switch(lsize, npar), dist_switch(lsize, npar), belong_switch(lsize, npar))
