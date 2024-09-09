@@ -103,37 +103,10 @@ class ERmodDataAverage:
 
     def __average_cor(self, ws):
 
-        def get_dist_info():
-            file_stem = 'eng{}'.format(self.short_name_dct[self.sys_type])
-            file_path = self.__get_engcor_filepath(self.dir_lst[0], 1, file_stem)
-
-            with open(file_path, 'r') as f:
-                if self.ver == '10':
-                    _ = f.readline()
-                lines = f.read().splitlines()
-
-            if self.ver == '03':
-                i_col_mol = 1
-            elif self.ver == '10':
-                i_col_mol = 2
-
-            n_bin = 0
-            for line in lines:
-                items = line.split()
-                i_mol = int(items[i_col_mol])
-                if i_mol != 1:
-                    break
-                n_bin += 1
-
-            n_mol_spec = int(lines[-1].split()[i_col_mol])
-
-            return n_bin, n_mol_spec
-
-        def read_cor(file_path, n_bin, n_mol_spec, corr):
+        def read_cor(file_path, corr):
             with FortranFile(file_path, 'r') as f:
                 if corr is None:
                     corr = f.read_reals()
-                    #corr = f.read_reals().reshape((n_mol_spec*n_mol_spec, n_bin, n_bin))
                 else:
                     corr[:] = f.read_reals()
             return corr
@@ -144,7 +117,6 @@ class ERmodDataAverage:
             return
 
 
-        n_bin, n_mol_spec = get_dist_info()
         file_stem = 'cor{}'.format(self.short_name_dct[self.sys_type])
 
         # read data
@@ -155,7 +127,7 @@ class ERmodDataAverage:
             blk_id = sel_id[1] + 1
             file_path = self.__get_engcor_filepath(dir_path, blk_id, file_stem)
 
-            corr = read_cor(file_path, n_bin, n_mol_spec, corr)
+            corr = read_cor(file_path, corr)
             if sum_corr is None:
                 sum_corr = np.zeros_like(corr)
             sum_corr += corr * ws[i]
