@@ -132,9 +132,10 @@ class ERmodDataAverage:
         def read_cor(file_path, n_bin, n_mol_spec, corr):
             with FortranFile(file_path, 'r') as f:
                 if corr is None:
-                    corr = f.read_reals().reshape((n_mol_spec*n_mol_spec, n_bin, n_bin))
+                    corr = f.read_reals()
+                    #corr = f.read_reals().reshape((n_mol_spec*n_mol_spec, n_bin, n_bin))
                 else:
-                    corr[:,:,:] = f.read_reals().reshape((n_mol_spec*n_mol_spec, n_bin, n_bin))
+                    corr[:] = f.read_reals()
             return corr
 
         def write_cor(file_path, corr):
@@ -453,12 +454,21 @@ class ParmFEManager:
         return
 
     def __make_parm_dict(self, pfe_file):
+
+        def __clean_val(str_in):
+            if str_in.endswith(','):
+                temp = str_in[:-1].strip()
+            else:
+                temp = str_in.strip()
+            return temp
+
+
         d = {}
         with open(pfe_file, 'r') as f:
             for line in f:
                 if '=' in line:
                     items = line.strip().split('=')
-                    d[items[0]] = items[1]
+                    d[items[0].strip()] = __clean_val(items[1])
 
         # set default values
         if 'solndirec' not in d:
@@ -587,7 +597,10 @@ def get_slvfe_output(proc=None, slvfe_file=None):
     # error check
     lst = [i for i, line in enumerate(lines) if '95% error for solvation free energy' in line]
     if len(lst) == 0:
-        print('make sure that slvfe works properly')
+        print()
+        print('- make sure that slvfe works properly')
+        print('- stderr is')
+        print(stderr.decode())
         exit(1)
 
     # free energy
@@ -739,8 +752,18 @@ def work(mode, soln_dir_list_file, refs_dir_list_file, n_bs, pfe_file, n_sp, int
 def main():
     args = get_args()
     cmd_slvfe_work, notify_freq = check_condition(args.cmd_slvfe, args.notify_freq)
+    print_message(args.intr_file)
     work(args.mode, args.soln_dir_list_file, args.refs_dir_list_file, args.n_bs, args.pfe_file, \
          args.n_sp, args.intr_file, args.bs_file, cmd_slvfe_work, notify_freq, args.gen_ave_dist, args.leave_intr_file)
+    return
+
+
+def print_message(intr_file):
+    if os.path.exists(intr_file):
+        print('intermediate data is obtained from {}'.format(intr_file))
+    else:
+        print('intermediate data is stored in {}'.format(intr_file))
+    print()
     return
 
 
