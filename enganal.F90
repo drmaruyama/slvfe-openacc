@@ -66,6 +66,7 @@ program trjmain
    if(myrank == 0) then
       print *, "ERmod " // PACKAGE_VERSION // ", Copyright (C) 2000-2024 Nobuyuki Matubayasi"
       print *, "                           2010-2024 Shun Sakuraba"
+      print *, "                           2024-2024 Yutaka Maruyama"
       print *, "ERmod comes with ABSOLUTELY NO WARRANTY."
       print *, "This is free software, and you can redistribute it"
       print *, "and/or modify it under certain conditions."
