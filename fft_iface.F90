@@ -52,7 +52,11 @@ contains
     integer, intent(in) :: fftsize_in(3)  
     fftsize(:) = fftsize_in(:)
 #ifdef FFTW
+#ifdef DP
     !$ call dfftw_init_threads(omp_get_num_threads())
+#else
+    !$ call sfftw_init_threads(omp_get_num_threads())
+#endif
 #endif
   end subroutine fft_set_size
 
@@ -171,16 +175,15 @@ contains
     integer :: stat
     real :: dummy
 
-    if(kind(dummy) == 8) then
+#ifdef DP
        call dfftw_import_system_wisdom(stat)
-       call dfftw_plan_dft_r2c_3d(handle%plan, fftsize(1), fftsize(2), fftsize(3), &
-            in, out, &
-            FFTW_MEASURE)
-    else
-       ! FFTW need separate compilation for single precision,
-       ! and many people incorrecly report this as a bug.
-       stop "fftw for single precision not supported"
-    endif
+       call dfftw_plan_dft_r2c_3d(handle%plan, &
+            fftsize(1), fftsize(2), fftsize(3), in, out, FFTW_MEASURE)
+#else
+       call sfftw_import_system_wisdom(stat)
+       call sfftw_plan_dft_r2c_3d(handle%plan, &
+            fftsize(1), fftsize(2), fftsize(3), in, out, FFTW_MEASURE)
+#endif
   end subroutine fft_init_rtc
 
   ! Initialize complex-to-real
@@ -191,14 +194,15 @@ contains
     integer :: stat
     real :: dummy
 
-    if(kind(dummy) == 8) then
+#ifdef DP
        call dfftw_import_system_wisdom(stat)
-       call dfftw_plan_dft_c2r_3d(handle%plan, fftsize(1), fftsize(2), fftsize(3), &
-            in, out, &
-            FFTW_MEASURE)
-    else
-       stop "fftw for single precision not supported"
-    endif
+       call dfftw_plan_dft_c2r_3d(handle%plan, &
+            fftsize(1), fftsize(2), fftsize(3), in, out, FFTW_MEASURE)
+#else
+       call sfftw_import_system_wisdom(stat)
+       call sfftw_plan_dft_c2r_3d(handle%plan, &
+            fftsize(1), fftsize(2), fftsize(3), in, out, FFTW_MEASURE)
+#endif
   end subroutine fft_init_ctr
 
   subroutine fft_ctr(handle, in, out)
@@ -206,11 +210,11 @@ contains
     complex, intent(in) :: in(fftsize(1)/2+1, fftsize(2), fftsize(3))
     real, intent(out) :: out(fftsize(1), fftsize(2), fftsize(3))
     real :: dummy
-    if(kind(dummy) == 8) then
+#ifdef DP
        call dfftw_execute(handle%plan)
-    else
-       stop
-    endif
+#else
+       call sfftw_execute(handle%plan)
+#endif
   end subroutine fft_ctr
 
   subroutine fft_rtc(handle, in, out)
@@ -218,33 +222,33 @@ contains
     real, intent(in) :: in(fftsize(1), fftsize(2), fftsize(3))
     complex, intent(out) :: out(fftsize(1)/2+1, fftsize(2), fftsize(3))
     real :: dummy
-    if(kind(dummy) == 8) then
+#ifdef DP
        call dfftw_execute(handle%plan)
-    else
-       stop
-    endif
+#else
+       call sfftw_execute(handle%plan)
+#endif
   end subroutine fft_rtc
 
   ! clean-up fft handle
   subroutine fft_cleanup_ctr(handle)
     type(fft_handle), intent(in) :: handle
     real :: dummy
-    if(kind(dummy) == 8) then
+#ifdef DP
        call dfftw_destroy_plan(handle%plan)
-    else
-       stop
-    endif
+#else
+       call sfftw_destroy_plan(handle%plan)
+#endif
   end subroutine fft_cleanup_ctr
   
   ! clean-up fft handle
   subroutine fft_cleanup_rtc(handle)
     type(fft_handle), intent(in) :: handle
     real :: dummy
-    if(kind(dummy) == 8) then
+#ifdef DP
        call dfftw_destroy_plan(handle%plan)
-    else
-       stop
-    endif
+#else
+       call sfftw_destroy_plan(handle%plan)
+#endif
   end subroutine fft_cleanup_rtc
   
 #endif

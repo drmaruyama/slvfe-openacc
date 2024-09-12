@@ -329,18 +329,23 @@ contains
    end subroutine recpcal_pppm_greenfunc
 
    ! note: this routine is named as "solvent", but may include solute molecule, when mutiple solute is used.
-   subroutine recpcal_prepare_solvent(i)
+   subroutine recpcal_prepare_solvent(tagpt, slvmax)
       use engmain, only: numsite
       use mpiproc, only: halt_with_error
       implicit none
-      integer, intent(in) :: i
-      integer :: svi, stmax
+      integer, intent(in) :: tagpt(:), slvmax
+      integer :: i, k, svi, stmax
 
-      svi = slvtag(i)
-      if(svi <= 0) call halt_with_error('rcp_cns')
+      !$omp parallel do schedule(dynamic) private(k, i)
+      do k = 1, slvmax
+         i = tagpt(k)
+         svi = slvtag(i)
+         if (svi <= 0) call halt_with_error('rcp_cns')
 
-      stmax = numsite(i)
-      call calc_spline_molecule(i, stmax, splslv(:,:,svi:svi+stmax-1), grdslv(:,svi:svi+stmax-1))
+         stmax = numsite(i)
+         call calc_spline_molecule(i, stmax, splslv(:,:,svi:svi+stmax-1), &
+              grdslv(:,svi:svi+stmax-1))
+      end do
    end subroutine recpcal_prepare_solvent
 
    subroutine recpcal_prepare_solute(tagslt)

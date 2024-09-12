@@ -332,7 +332,7 @@ static void calc_sincos_angle(double angle, double *sinx, double *cosx)
   }
 }
 
-int vmdfio_read_traj_step(void *handle, double* xout, double* box, int natoms_aux)
+int vmdfio_read_traj_step(void *handle, float* xout, float* box, int natoms_aux)
 {
   vmdpluginio *p = (vmdpluginio*)handle;
   molfile_plugin_t *plugin = p -> plugin;

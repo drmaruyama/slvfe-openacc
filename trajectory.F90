@@ -47,8 +47,8 @@ module trajectory
       function vmdfio_read_traj_step(handle, xout, box, natoms_aux) bind(C) result(retstatus)
          use, intrinsic :: iso_c_binding
          type(c_ptr), value, intent(in) :: handle
-         real(kind=c_double), intent(out) :: xout(*)
-         real(kind=c_double), intent(out) :: box(3, 3)
+         real(kind=c_float), intent(out) :: xout(*)
+         real(kind=c_float), intent(out) :: box(3, 3)
          integer(kind=c_int), value, intent(in) :: natoms_aux
          integer(kind=c_int) :: retstatus
       end function
@@ -100,11 +100,21 @@ contains
       logical, intent(in) :: is_periodic
       real, intent(out) :: crd(3, natom)
       real, intent(out) :: cell(3, 3)
+#ifdef DP
+      real(kind=4) :: crd_tmp(3, natom)
+      real(kind=4) :: cell_tmp(3, 3)
+#endif
       integer, intent(out) :: status
 
-      if(kind(crd) /= 8) stop "vmdfio: write interfacing wrapper"
+!      if(kind(crd) /= 8) stop "vmdfio: write interfacing wrapper"
 
+#ifdef DP
+      status = vmdfio_read_traj_step(htraj%vmdhandle, crd_tmp, cell_tmp, natom)
+      crd = real(crd_tmp, kind=8)
+      cell = real(cell_tmp, kind=8)
+#else
       status = vmdfio_read_traj_step(htraj%vmdhandle, crd, cell, natom)
+#endif
    end subroutine read_trajectory
 
 end module trajectory

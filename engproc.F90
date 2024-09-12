@@ -56,7 +56,7 @@ contains
       integer pemax, pesoft
       integer :: ecprread, meshread, peread
       !
-      real, parameter :: infty = 1.0e50      ! essentially equal to infinity
+      real, parameter :: infty = huge(infty)    ! essentially equal to infinity
       integer, parameter :: rglmax = 5, large = 10000
       real :: factor, incre, cdrgvl(0:rglmax+1), ecpmrd(large)
       integer :: solute_moltype
@@ -422,11 +422,7 @@ contains
             pme_initialized = .true.
 
             call perf_time("kpre")
-            !$omp parallel do schedule(dynamic) private(k, i)
-            do k = 1, slvmax
-               i = tagpt(k)
-               call recpcal_prepare_solvent(i)
-            enddo
+            call recpcal_prepare_solvent(tagpt, slvmax)
             call perf_time()
          endif
 
