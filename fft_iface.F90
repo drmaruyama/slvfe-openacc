@@ -25,6 +25,9 @@ module fft_iface
 #ifdef MKL
   use MKL_DFTI
 #endif
+#ifdef ACC
+  use cufft
+#endif
   implicit none
   
   integer :: fftsize(3)
@@ -35,6 +38,9 @@ module fft_iface
 #endif
 #ifdef FFTW
      integer(8) :: plan
+#endif
+#ifdef ACC
+     integer :: plan
 #endif
   end type fft_handle
 
@@ -251,6 +257,92 @@ contains
 #endif
   end subroutine fft_cleanup_rtc
   
+#endif
+#ifdef ACC
+  ! 3D-FFT, cufft version
+
+  ! Initialize real-to-complex
+  subroutine fft_init_rtc(handle, in, out)
+    type(fft_handle), intent(out) :: handle
+    real, intent(in) :: in(fftsize(1), fftsize(2), fftsize(3))
+    complex, intent(out) :: out(fftsize(1)/2+1, fftsize(2), fftsize(3))
+    integer :: stat
+    real :: dummy
+#ifdef DP
+       stat = cufftPlan3D(handle%plan, fftsize(1), fftsize(2), fftsize(3), &
+            CUFFT_D2Z)
+#else
+       stat = cufftPlan3D(handle%plan, fftsize(1), fftsize(2), fftsize(3), &
+            CUFFT_R2C)
+#endif
+  end subroutine fft_init_rtc
+
+  ! Initialize complex-to-real
+  subroutine fft_init_ctr(handle, in, out)
+    type(fft_handle), intent(out) :: handle
+    complex, intent(in) :: in(fftsize(1)/2+1, fftsize(2), fftsize(3))
+    real, intent(out) :: out(fftsize(1), fftsize(2), fftsize(3))
+    integer :: stat
+    real :: dummy
+#ifdef DP
+       stat = cufftPlan3D(handle%plan, fftsize(1), fftsize(2), fftsize(3), &
+            CUFFT_Z2D)
+#else
+       stat = cufftPlan3D(handle%plan, fftsize(1), fftsize(2), fftsize(3), &
+            CUFFT_C2R)
+#endif
+  end subroutine fft_init_ctr
+
+  subroutine fft_rtc(handle, in, out)
+    use openacc
+    use cufft
+    type(fft_handle), intent(in) :: handle
+    real, intent(in) :: in(fftsize(1), fftsize(2), fftsize(3))
+    complex, intent(out) :: out(fftsize(1)/2+1, fftsize(2), fftsize(3))
+    integer :: stat
+    real :: dummy
+    !$acc data present(in, out)
+    !$acc host_data use_device(in, out)
+#ifdef DP
+    stat = cufftExecD2Z(handle%plan, in, out)
+#else
+    stat = cufftExecR2C(handle%plan, in, out)
+#endif
+    !$acc end host_data
+    !$acc end data
+  end subroutine fft_rtc
+
+  subroutine fft_ctr(handle, in, out)
+    type(fft_handle), intent(in) :: handle
+    complex, intent(in) :: in(fftsize(1)/2+1, fftsize(2), fftsize(3))
+    real, intent(out) :: out(fftsize(1), fftsize(2), fftsize(3))
+    integer :: stat
+    real :: dummy
+    !$acc data present(in, out)
+    !$acc host_data use_device(in, out)
+#ifdef DP
+    stat = cufftExecZ2D(handle%plan, in, out)
+#else
+    stat = cufftExecC2R(handle%plan, in, out)
+#endif
+    !$acc end host_data
+    !$acc end data
+  end subroutine fft_ctr
+
+  ! clean-up fft handle
+  subroutine fft_cleanup_rtc(handle)
+    type(fft_handle), intent(in) :: handle
+    integer :: stat
+    stat = cufftDestroy(handle%plan)
+  end subroutine fft_cleanup_rtc
+
+  ! clean-up fft handle
+  subroutine fft_cleanup_ctr(handle)
+    type(fft_handle), intent(in) :: handle
+    integer :: stat
+    stat = cufftDestroy(handle%plan)
+  end subroutine fft_cleanup_ctr
+
 #endif
 
 end module fft_iface
