@@ -38,18 +38,19 @@ module sysvars
    integer :: maxsln, maxref, numrun, prmmax
    integer :: numslv, ermax
 
-   real :: inptemp = 300.0              ! temperature in Kelvin, initialized
-   real :: temp, kT, slfeng
-   real :: avevolume = 0.0              ! average volume of system, initialized
+   real(kind=8) :: inptemp = 300.0        ! temperature in Kelvin, initialized
+   real(kind=8) :: temp, kT, slfeng
+   real(kind=8) :: avevolume = 0.0        ! average volume of system, initialized
 
    integer :: pickgr = 3
    integer :: msemin = 1, msemax = 5
-   real :: mesherr = 0.1                ! allowed mesh error in kcal/mol
+   real(kind=8) :: mesherr = 0.1          ! allowed mesh error in kcal/mol
 
    integer :: extthres_soln = 1, extthres_refs = 1
    integer :: minthres_soln = 0, minthres_refs = 0
-   real, parameter :: zero = 0.0
-   real :: error = 1.0e-8, tiny = 1.0e-8
+   real(kind=8), parameter :: zero = 0.0
+!   real(kind=8) :: error = 1.0e-8, tiny = 1.0e-8
+   real(kind=8) :: error = 1.0e-8, tiny = 1.0e-1
    integer :: ermax_limit = 15000
    integer :: large = 500000, itrmax = 100
 
@@ -66,16 +67,16 @@ module sysvars
    character(len=1024) :: cumuintfl = 'cumsfe'
    character(len=10), parameter :: numbers='0123456789'
 
-   real, dimension(:),     allocatable :: nummol
+   real(kind=8), dimension(:),     allocatable :: nummol
    integer, dimension(:),  allocatable :: rduvmax, rduvcore
-   real, dimension(:),     allocatable :: rdcrd, rddst, rddns
-   real, dimension(:,:),   allocatable :: rdslc, rdcor
+   real(kind=8), dimension(:),     allocatable :: rdcrd, rddst, rddns
+   real(kind=8), dimension(:,:),   allocatable :: rdslc, rdcor
    integer, dimension(:),  allocatable :: rdspec
-   real, dimension(:,:,:), allocatable :: chmpt
-   real, dimension(:),     allocatable :: aveuv
-   real, dimension(:,:),   allocatable :: uvene, blockuv
+   real(kind=8), dimension(:,:,:), allocatable :: chmpt
+   real(kind=8), dimension(:),     allocatable :: aveuv
+   real(kind=8), dimension(:,:),   allocatable :: uvene, blockuv
    integer, dimension(:),  allocatable :: svgrp, svinf
-   real, dimension(:),     allocatable :: wgtsln, wgtref
+   real(kind=8), dimension(:),     allocatable :: wgtsln, wgtref
 
    logical :: force_calculation = .false., strict_ewald_parameters = .false.
 
@@ -177,9 +178,9 @@ contains
       use engmain, engmain_force_calculation=>force_calculation
       implicit none
       integer :: boxshp_s, estype_s, insposition_s, insstructure_s
-      real :: lwreg_s, upreg_s, lwstr_s, upstr_s, inptemp_s
+      real(kind=8) :: lwreg_s, upreg_s, lwstr_s, upstr_s, inptemp_s
       integer :: ljformat_s, ljswitch_s, cmbrule_s
-      real :: lwljcut_s, upljcut_s, elecut_s, screen_s, ewtoler_s
+      real(kind=8) :: lwljcut_s, upljcut_s, elecut_s, screen_s, ewtoler_s
       integer :: splodr_s, cltype_s, ms1max_s, ms2max_s, ms3max_s
       logical :: inconsistent
       

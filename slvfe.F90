@@ -39,7 +39,7 @@ contains
       implicit none
       logical :: file_exist
       integer :: group, inft, prmcnt, iduv, i, k, pti, ioerr
-      real :: factor, crdnow, crdprev, crddif_now, crddif_prev
+      real(kind=8) :: factor, crdnow, crdprev, crddif_now, crddif_prev
       character(len=1024) :: opnfile, lineread
 
       select case(clcond)
@@ -296,10 +296,10 @@ contains
       integer, intent(in) :: cntrun
       integer :: slnini, slnfin, refini, reffin, ecmin, ecmax
       integer :: iduv, iduvp, i, k, m, pti, cnt
-      real :: factor, ampl, leftbin
-      real, allocatable :: bin_consistency_check(:)
+      real(kind=8) :: factor, ampl, leftbin
+      real(kind=8), allocatable :: bin_consistency_check(:)
       logical :: num_different
-      real, allocatable :: cormat_temp(:, :)
+      real(kind=4), allocatable :: cormat_temp(:, :)
       character(len=1024) :: opnfile
       character(len=3) :: suffnum
 
@@ -426,7 +426,7 @@ contains
             stop
          endif
          if(cntrun == 1) then
-            nummol(pti) = real(nint(factor))
+            nummol(pti) = real(nint(factor), kind=8)
             write(6, '(A,i3,A,i12)') '  Number of the ', pti, '-th solvent  = ', nint(nummol(pti))
          endif
       end do
@@ -453,27 +453,27 @@ module sfecalc
       rdcrd, rddst, rddns, rdslc, rdcor, rdspec
    implicit none
    integer, dimension(:), allocatable :: idrduv, uvmax
-   real, dimension(:),    allocatable :: uvcrd, edist, edens
-   real, dimension(:,:),  allocatable :: edscr, ecorr
+   real(kind=8), dimension(:),    allocatable :: uvcrd, edist, edens
+   real(kind=8), dimension(:,:),  allocatable :: edscr, ecorr
    integer, dimension(:), allocatable :: uvspec
-   real, dimension(:),    allocatable :: slncv, inscv, sdrcv
-   real, dimension(:),    allocatable :: zrsln, zrref, zrsdr
+   real(kind=8), dimension(:),    allocatable :: slncv, inscv, sdrcv
+   real(kind=8), dimension(:),    allocatable :: zrsln, zrref, zrsdr
    integer gemax
 contains
    ! TODO: write the cases for (kind(real) /= 8).
    subroutine syevr_wrap(n, mat, eigval, info)
       implicit none
       integer, intent(in) :: n
-      real, intent(inout) :: mat(n, n)
-      real, intent(out) :: eigval(n)
+      real(kind=8), intent(inout) :: mat(n, n)
+      real(kind=8), intent(out) :: eigval(n)
       integer, intent(out) :: info
-      real, allocatable :: z(:, :)
-      real, allocatable :: work(:)
-      real :: worksize
+      real(kind=8), allocatable :: z(:, :)
+      real(kind=8), allocatable :: work(:)
+      real(kind=8) :: worksize
       integer :: lwork, liwork
       integer, allocatable :: iwork(:)
       integer, allocatable :: isuppz(:)
-      real :: dummyr, abstol
+      real(kind=8) :: dummyr, abstol
       integer :: dummyi
 
       allocate(isuppz(2 * n))
@@ -535,11 +535,11 @@ contains
       integer, intent(in) :: prmcnt, cntrun
       integer :: group, inft
       integer :: iduv, iduvp, pti, cnt, j, k, m, cntdiv, ge_perslv
-      real :: factor, ampl, slvfe, uvpot, lcent, lcsln, lcref
-      real :: soln_zero, refs_zero
+      real(kind=8) :: factor, ampl, slvfe, uvpot, lcent, lcsln, lcref
+      real(kind=8) :: soln_zero, refs_zero
       integer, dimension(:), allocatable :: gpnum
-      real, dimension(:,:), allocatable, save :: cumsfe
-      real, dimension(:), allocatable :: cumu_coord, cumu_write
+      real(kind=8), dimension(:,:), allocatable, save :: cumsfe
+      real(kind=8), dimension(:), allocatable :: cumu_coord, cumu_write
       logical :: cumu_process, cumu_homoform
       integer, parameter :: cumu_io = 51
       character(len=1024) :: opnfile
@@ -606,7 +606,7 @@ contains
          uvspec(k) = rdspec(iduv)
       end do
       do k = 1, gemax
-         if(gpnum(k) > 0) uvcrd(k) = uvcrd(k) / real(gpnum(k))
+         if(gpnum(k) > 0) uvcrd(k) = uvcrd(k) / real(gpnum(k), kind=8)
       end do
       cnt = rduvmax(1)
       k = uvmax(1)
@@ -717,7 +717,8 @@ contains
       ! cumulative integral stored
       if(cumu_process .and. (cntrun == numrun)) then
          do iduv = 1, gemax                     ! averaged cumsfe
-            cumsfe(iduv, 0) = sum( cumsfe(iduv, 1:numrun) ) / real(numrun)
+            cumsfe(iduv, 0) = sum( cumsfe(iduv, 1:numrun) ) &
+                 / real(numrun, kind=8)
          enddo
 
          do cntdiv = 0, numrun
@@ -802,8 +803,8 @@ contains
       use sysvars, only: extsln, extthres_soln, extthres_refs
       implicit none
       integer :: iduv, iduvp, pti, j, k, m
-      real :: factor, ampl, lcsln, lcref, min_rddst, min_rddns
-      real, dimension(:), allocatable :: work
+      real(kind=8) :: factor, ampl, lcsln, lcref, min_rddst, min_rddns
+      real(kind=8), dimension(:), allocatable :: work
       integer, parameter :: ofdmp = 10 ! factor to suppress the integer overflow
       logical, dimension(:), allocatable :: ext_target
 
@@ -815,14 +816,14 @@ contains
       do iduv = 1, gemax
          factor = edist(iduv) / min_rddst
          m = ofdmp * extthres_soln
-         if(factor > real(m)) then
+         if(factor > real(m, kind=8)) then
             j = m
          else
             j = nint(factor)
          endif
          factor = edens(iduv) / min_rddns
          m = ofdmp * extthres_refs
-         if(factor > real(m)) then
+         if(factor > real(m, kind=8)) then
             k = m
          else
             k = nint(factor)
@@ -932,9 +933,9 @@ contains
    subroutine getinscv
       implicit none
       integer :: iduv, iduvp, pti, cnt, wrksz, k
-      real :: factor, ampl, lcsln, lcref
-      real, dimension(:),   allocatable :: work, egnvl, zerouv
-      real, dimension(:,:), allocatable :: edmcr
+      real(kind=8) :: factor, ampl, lcsln, lcref
+      real(kind=8), dimension(:),   allocatable :: work, egnvl, zerouv
+      real(kind=8), dimension(:,:), allocatable :: edmcr
       !
       do cnt = 1, 2     ! cnt = 1: solution   cnt = 2: reference solvent
          if((cnt == 1) .and. (slncor /= 'yes')) cycle
@@ -1056,16 +1057,16 @@ contains
       return
    end subroutine getinscv
    !
-   real function wgtmxco(pti)
+   real(8) function wgtmxco(pti)
       implicit none
       integer, intent(in) :: pti
-      real :: numpt
+      real(kind=8) :: numpt
       numpt = nummol(pti)
       wgtmxco = 1.0 / numpt
       return
    end function wgtmxco
    !
-   real function cvfcen(pti, cnt, systype, wgttype, engtype)
+   real(8) function cvfcen(pti, cnt, systype, wgttype, engtype)
       implicit none
       ! pti : identifier of solvent species
       ! cnt = 1: solution   cnt = 2: reference solvent
@@ -1075,8 +1076,8 @@ contains
       character(len=3), intent(in) :: engtype
       integer :: iduv
       logical :: errtag
-      real :: factor, cvfnc
-      real, dimension(:), allocatable :: weight
+      real(kind=8) :: factor, cvfnc
+      real(kind=8), dimension(:), allocatable :: weight
       allocate( weight(gemax) )
       call getwght(weight, pti, cnt, systype, wgttype, engtype)
       factor = 0.0
@@ -1106,7 +1107,7 @@ contains
    !
    subroutine getwght(weight, pti, cnt, systype, wgttype, engtype)
       implicit none
-      real, intent(out) :: weight(gemax)
+      real(kind=8), intent(out) :: weight(gemax)
       ! pti : identifier of solvent species
       ! cnt = 1: solution   cnt = 2: reference solvent
       integer, intent(in) :: pti, cnt
@@ -1114,7 +1115,7 @@ contains
       character(len=4), intent(in) :: wgttype
       character(len=3), intent(in) :: engtype
       integer :: iduv
-      real :: minuv, ampl
+      real(kind=8) :: minuv, ampl
       weight(:) = 0.0
       do iduv = 1, gemax
          if(uvspec(iduv) == pti) then
@@ -1147,7 +1148,7 @@ contains
       ! cnt = 1: solution   cnt = 2: reference solvent
       integer, intent(in) :: pti, cnt
       integer :: iduv, k
-      real :: factor, ampl, lcsln, lcref
+      real(kind=8) :: factor, ampl, lcsln, lcref
       do iduv = 1, gemax - 1
          if(uvspec(iduv) == pti) then
             if((uvcrd(iduv) <= 0.0) .and. (uvcrd(iduv + 1) >= 0.0)) then
@@ -1182,14 +1183,14 @@ contains
    end function zeroec
    !
    !
-   real function wgtdst(iduv, cnt, systype, wgttype)
+   real(8) function wgtdst(iduv, cnt, systype, wgttype)
       use sysvars, only: wgtf2smpl
       implicit none
       ! cnt = 1: solution   cnt = 2: reference solvent
       integer, intent(in) :: iduv, cnt
       character(len=5), intent(in) :: systype
       character(len=4), intent(in) :: wgttype
-      real :: fsln, fref, wght, factor
+      real(kind=8) :: fsln, fref, wght, factor
       logical :: errtag
       integer :: jdg
       fsln = edist(iduv)
@@ -1224,10 +1225,10 @@ contains
    end function wgtdst
    !
    !
-   real function sfewgt(fsln, fref)
+   real(8) function sfewgt(fsln, fref)
       implicit none
-      real, intent(in) :: fsln, fref
-      real :: wght, factor
+      real(kind=8), intent(in) :: fsln, fref
+      real(kind=8) :: wght, factor
       if(fsln >= fref) then
          wght = 1.0
       else
@@ -1239,11 +1240,11 @@ contains
    end function sfewgt
    !
    !
-   real function pyhnc(indpmf, cnt)
+   real(8) function pyhnc(indpmf, cnt)
       implicit none
-      real, intent(in) :: indpmf
+      real(kind=8), intent(in) :: indpmf
       integer, intent(in) :: cnt
-      real :: intg, factor
+      real(kind=8) :: intg, factor
       factor = indpmf / kT
       select case(cnt)
        case(1, 2)      ! usual case   1 : solution  2 : referecen solvent
@@ -1270,9 +1271,9 @@ contains
    subroutine distnorm
       implicit none
       integer :: iduv, iduvp, pti, cnt, itrcnt
-      real :: factor, ampl, lcsln, lcref, errtmp
-      real, dimension(:), allocatable :: correc, edhst
-      real, dimension(:,:), allocatable :: edmcr
+      real(kind=8) :: factor, ampl, lcsln, lcref, errtmp
+      real(kind=8), dimension(:), allocatable :: correc, edhst
+      real(kind=8), dimension(:,:), allocatable :: edmcr
       allocate( correc(gemax), edhst(gemax), edmcr(gemax, gemax) )
       do cnt = 1, 2     ! cnt = 1: solution   cnt = 2: reference solvent
          if(cnt == 1) then
@@ -1310,7 +1311,7 @@ contains
                   ampl = sum( correc(:) * edmcr(:, iduv), mask = (uvspec == pti) )
                   if(ampl > zero) lcsln = lcsln + nummol(pti) / ampl
                end do
-               lcsln = lcsln / real(numslv)
+               lcsln = lcsln / real(numslv, kind=8)
                correc(iduv) = lcsln * edhst(iduv)
             end do
             do iduv = 1, gemax
@@ -1347,8 +1348,8 @@ contains
    subroutine distshow
       implicit none
       integer :: iduv, pti, cnt, ecmin, ecmax, k, ilist(gemax)
-      real :: factor, ratio
-      real, dimension(:), allocatable :: edhst
+      real(kind=8) :: factor, ratio
+      real(kind=8), dimension(:), allocatable :: edhst
 
       allocate( edhst(gemax) )
       do iduv = 1, gemax
@@ -1380,7 +1381,7 @@ contains
             ecmax = maxval( ilist, &
                mask = ((uvspec == pti) .and. (edhst > zero)) )
             k = count( mask = (edhst(ecmin:ecmax) > zero) )
-            ratio = real(k) / real(ecmax - ecmin + 1)
+            ratio = real(k, kind=8) / real(ecmax - ecmin + 1, kind=8)
             factor = sum( edhst(ecmin:ecmax), mask = (edhst(ecmin:ecmax) > zero) )
 
             do iduv = ecmin, ecmax
@@ -1418,14 +1419,14 @@ module opwrite
       slfeng, chmpt, aveuv, blockuv, svgrp, svinf
    implicit none
    integer :: grref
-   real :: fe_stat_error     ! 95% error of the solvation free energy
-   real, dimension(:), allocatable :: mshdif
+   real(kind=8) :: fe_stat_error     ! 95% error of the solvation free energy
+   real(kind=8), dimension(:), allocatable :: mshdif
 contains
    !
    subroutine wrtresl
       implicit none
       integer :: prmcnt, pti, k, group, inft
-      real :: totuv, differ, mesh_error, valcp
+      real(kind=8) :: totuv, differ, mesh_error, valcp
       !
       if(slfslt == 'yes') write(6, "(A,f12.4,A)") "  Self-energy of the solute   =   ", slfeng, "  kcal/mol"
       !
@@ -1536,9 +1537,9 @@ contains
    subroutine wrtmerge
       implicit none
       integer :: prmcnt, cntrun, group, inft, pti, i, j, k, m
-      real :: avecp, stdcp, avcp0, recnt, slvfe
-      real, dimension(:),   allocatable :: showcp
-      real, dimension(:,:), allocatable :: wrtdata
+      real(kind=8) :: avecp, stdcp, avcp0, recnt, slvfe
+      real(kind=8), dimension(:),   allocatable :: showcp
+      real(kind=8), dimension(:,:), allocatable :: wrtdata
       !
       allocate( showcp(numrun), wrtdata(0:numslv, numrun) )
       if(uvread /= 'not') then
@@ -1552,7 +1553,7 @@ contains
       !
       do pti = 0, numslv
          if((numslv == 1) .and. (pti /= 0)) cycle
-         avcp0 = sum( chmpt(pti, grref, 1:numrun) ) / real(numrun)
+         avcp0 = sum( chmpt(pti, grref, 1:numrun) ) / real(numrun, kind=8)
          do prmcnt = 1, prmmax
             group = svgrp(prmcnt)
             inft = svinf(prmcnt)
@@ -1563,7 +1564,7 @@ contains
                avecp = avecp + slvfe
                stdcp = stdcp + slvfe ** 2
             end do
-            recnt = real(numrun)
+            recnt = real(numrun, kind=8)
             avecp = avecp / recnt
             if(numrun > 1) then
                stdcp = sqrt(recnt / (recnt - 1.0)) &
@@ -1701,11 +1702,11 @@ contains
 
    subroutine wrtcumu(wrtdata, stat_error)
       implicit none
-      real, intent(in) :: wrtdata(0:numslv, numrun)
-      real, intent(out), optional :: stat_error
+      real(kind=8), intent(in) :: wrtdata(0:numslv, numrun)
+      real(kind=8), intent(out), optional :: stat_error
       integer :: cntrun, pti
-      real :: avecp, factor, slvfe, recnt
-      real, dimension(:), allocatable :: runcp, runer, wrtcp
+      real(kind=8) :: avecp, factor, slvfe, recnt
+      real(kind=8), dimension(:), allocatable :: runcp, runer, wrtcp
 
       allocate( runcp(0:numslv), runer(0:numslv), wrtcp(2 * numslv + 2) )
       runcp(:) = 0.0
@@ -1730,7 +1731,7 @@ contains
       endif
 
       do cntrun = 1, numrun
-         recnt = real(cntrun)
+         recnt = real(cntrun, kind=8)
          do pti = 0, numslv
             slvfe = wrtdata(pti, cntrun)
             runcp(pti) = runcp(pti) + slvfe
