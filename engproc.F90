@@ -391,9 +391,7 @@ contains
       enddo
       allocate( tagpt(slvmax) )
       allocate( uvengy(0:slvmax) )
-      !$acc enter data create(tagpt, uvengy)
       tagpt(1:slvmax) = tplst(1:slvmax)  ! and copied from tplst
-      !$acc update device(tagpt)
       deallocate( tplst )
 
       allocate( flceng_stored(maxdst) )
@@ -490,7 +488,6 @@ contains
 #endif
       endif
 
-      !$acc exit data delete(tagpt, uvengy)
       deallocate( tagpt, uvengy )
       deallocate( flceng, flceng_stored )
 
@@ -695,14 +692,8 @@ contains
       use ptinsrt, only: instslt
       use realcal, only: realcal_prepare, realcal_proc, realcal_self, &
            realcal_bare, realcal_cleanup
-#ifdef ACC
-      use realcal, only: realcal_acc
-#endif
       use reciprocal, only: recpcal_prepare_solute, recpcal_self_energy, &
          recpcal_energy
-#ifdef ACC
-      use reciprocal, only: recpcal_prepare_solute_acc, recpcal_energy_acc
-#endif
       use mpiproc                                                      ! MPI
       implicit none
       integer, intent(in) :: stnum
@@ -739,18 +730,10 @@ contains
       uvrecp = 0.
       ! Calculate system-wide values
       if(cltype == EL_PME .or. cltype == EL_PPPM) then
-#ifdef ACC
-         !$acc update device(uvengy)
-         call recpcal_prepare_solute_acc(tagslt)
-         call realcal_acc(tagslt, tagpt, slvmax, uvengy)
-         call recpcal_energy_acc(tagslt, tagpt, slvmax, uvengy)
-         !$acc update self(uvengy)
-#else
          call recpcal_prepare_solute(tagslt)
          call perf_time("rblk")
          call realcal_proc(tagslt, tagpt, slvmax, uvengy)
          call perf_time()
-#endif
          call perf_time("kslf")
          uvrecp = recpcal_self_energy()
          call perf_time()
@@ -781,14 +764,12 @@ contains
          i = tagpt(k)
          if(i == tagslt) cycle
 
-         pair_real = 0
-         pair_recp = 0
+         pair_real = 0.0
+         pair_recp = 0.0
          if(cltype == EL_PME .or. cltype == EL_PPPM) then
             ! called only when PME or PPPM, non-self interaction
             pair_real = residual_ene(tagslt, i)
-#ifndef ACC
             pair_recp = recpcal_energy(tagslt, i)
-#endif
             pairep = pair_real + pair_recp
          else                      ! Bare coulomb solute-solvent interaction
             pair_real = realcal_bare(tagslt, i)
