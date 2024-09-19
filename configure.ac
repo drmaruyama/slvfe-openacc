@@ -13,14 +13,9 @@ AC_ARG_ENABLE([debug-symbol],
               [enable_debug=yes], [enable_debug=no])
 
 AS_IF([test x$enable_debug = xno],
-      [ac_cv_prog_cc_g=no
-       ac_cv_prog_fc_g=no])
+      [ac_cv_prog_fc_g=no])
 
 # Checks for programs.
-AC_PROG_CPP
-AC_PROG_CC([icc fcc gcc cc])
-AC_PROG_CC_C_O
-AM_PROG_CC_C_O
 AC_PROG_FC([ifx ifort xlf90 xlf f95 f90 frt gfortran g95])
 AC_PROG_LN_S
 
@@ -219,14 +214,6 @@ AC_ARG_ENABLE([defaults],
 AS_IF([test x$enable_defaults != xno],
 CFLAGS="$CFLAGS"
 FCFLAGS="$FCFLAGS")
-
-AC_ARG_ENABLE([perf],
-	AS_HELP_STRING([--enable-perf],
-		[(internal use only)]),
-	AS_IF([test x$enable_perf = xyes],
-		     [FCFLAGS="$FCFLAGS -fno-omit-frame-pointer -DPERF"
-                      CFLAGS="$CFLAGS -fno-omit-frame-pointer"
-                      LDFLAGS="$LDFLAGS -lprofiler"]))
 
 AS_IF([test "x$use_mpi" = "xyes"],
 	    [mpi_result="enabled"
