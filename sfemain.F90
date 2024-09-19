@@ -50,7 +50,7 @@ module sysvars
    integer :: minthres_soln = 0, minthres_refs = 0
    real(kind=8), parameter :: zero = 0.0
 !   real(kind=8) :: error = 1.0e-8, tiny = 1.0e-8
-   real(kind=8) :: error = 1.0e-8, tiny = 1.0e-1
+   real(kind=8) :: error = 1.0e-8, tiny = 1.0e-5
    integer :: ermax_limit = 15000
    integer :: large = 500000, itrmax = 100
 

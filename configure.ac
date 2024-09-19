@@ -3,16 +3,16 @@
 # autoconf <= 2.64 has a bug in AC_OPENMP
 AC_PREREQ([2.69])
 #AC_INIT([ermod],[0.3.%rev%],[Matubayasi Laboratory])
-AC_INIT([ermod],[2.0.0alpha],[Matubayasi Laboratory])
+AC_INIT([slvfe],[experimental],[Matubayasi Laboratory])
 AC_CONFIG_MACRO_DIR(m4)
-AC_CONFIG_SRCDIR([vmdfio.c])
 AM_INIT_AUTOMAKE
 
 AC_ARG_ENABLE([debug-symbol],
-	AS_HELP_STRING([--disable-debug-symbol],
-		[Disable debug symbol]))
+              [AS_HELP_STRING([--enable-debug-symbol],
+                        [Enable debug symbols (-g)])],
+              [enable_debug=yes], [enable_debug=no])
 
-AS_IF([test x$enable_debug_symbol = xno],
+AS_IF([test x$enable_debug = xno],
       [ac_cv_prog_cc_g=no
        ac_cv_prog_fc_g=no])
 
@@ -36,23 +36,16 @@ AS_IF([test x$FC = xifort],
 
 # modified MPI detector (searches mpiifort first)
 AC_LANG(Fortran)
-ACX_MPI_MY
-AC_LANG(Fortran)
-ACX_MPI_MY([use_mpi=yes], [use_mpi=no])
 
-: ${enable_openmp=no}
-AC_ARG_ENABLE([openmp],
-              AS_HELP_STRING([--enable-openmp],
-                             [use OpenMP (default = no)]))
+: ${enable_openmp=yes}
+#AC_ARG_ENABLE([openmp],
+#              AS_HELP_STRING([--enable-openmp],
+#                             [use OpenMP (default = yes)]))
 AC_OPENMP
 
 AS_IF([test "x$FC" = "x"],
       [AC_MSG_ERROR("Failed to find Fortran Compiler (Fortran 90). Set environment variable FC to work around")]
       [])
-
-AC_ARG_ENABLE([vmdplugin],
-	AS_HELP_STRING([--disable-vmdplugin],
-		[disable VMD plugin]))
 
 AC_DEFUN([MY_CHECK_BLAS], [
   AC_MSG_CHECKING([whether $1 is available])
@@ -107,29 +100,6 @@ AS_IF([test "x$with_mkl" != "x"],
          FCFLAGS="-I$mklroot/include $FCFLAGS"
         ])
 ])
-
-AC_ARG_WITH([fftw],
-  AS_HELP_STRING([--with-fftw[[=(fftw root, default to /usr)]]],
-    [Set fftw root directory]))
-
-case x$with_fftw in # (
-  xyes) :
-  with_fftw=/usr
-  ;; # (
-  xno) :
-  with_fftw=
-  ;; # (
-  *) :
-  # do nothing
-  ;;
-esac
-
-# FIXME: AC_SUBST should be used
-AS_IF([test "x$with_fftw" != "x"],
-  [FFTWROOT=$with_fftw
-   CFLAGS="$CFLAGS -I$FFTWROOT/include"
-   FCFLAGS="$FCFLAGS -I$FFTWROOT/include"
-   LDFLAGS="$LDFLAGS -L$FFTWROOT/lib -L$FFTWROOT/lib64"])
 
 ACX_BLAS
 ACX_LAPACK([lapack_exist=yes],
@@ -221,39 +191,6 @@ AM_CONDITIONAL([USE_FLUSH], [test "x$my_check_have_flush" = "xyes"])
 # set to f90 as default
 AC_FC_SRCEXT(f90)
 
-# select FFT library
-AC_ARG_WITH([fft],
-	AS_HELP_STRING([--with-fft=(fftw|mkl)],
-		[specify which FFT library to be used]),
-	[],
-	[with_fft=no]
-)
-
-# Search for fftw3 - libfftw3.a
-FFTWLIBS=
-AC_CHECK_LIB([fftw3], [dfftw_execute], [have_fftw3=yes;FFTWLIBS=-lfftw3], [have_fftw3=no], [-lm])
-have_fftw3_mp=no
-AS_IF([test "$enable_openmp" != no],
-  [AC_CHECK_LIB([fftw3_threads], [dfftw_init_threads], [have_fftw3_mp=yes;fftw3_mp=-lfftw3_threads], [], [-lfftw3 -lm])
-   AC_CHECK_LIB([fftw3_omp], [dfftw_init_threads], [have_fftw3_mp=yes;fftw3_mp=-lfftw3_omp], [], [-lfftw3 -lm $OPENMP_FCFLAGS])]
-   FFTWLIBS="$fftw3_mp $FFTWLIBS")
-AC_SUBST([FFTWLIBS])
-
-AS_IF([test "x$with_fft" == xfftw], 
-            [AS_IF([test "x$have_fftw3" == xno],
-                         [AC_MSG_FAILURE(
-                                 [--with-fft=fftw is specified, but could not find fftw3])])])
-
-AS_IF([test "x$with_fft" == xno],
-	    [AS_IF([test "x$have_fftw3" == xyes],
-	    		 [with_fft=fftw])
-             AS_IF([test "x$with_mkl" != "x"],
-                         [with_fft=mkl])])
-
-AS_IF([test "x$with_fft" != xfftw && test "x$with_fft" != xmkl],
-	    [AC_MSG_FAILURE(
-		[invalid --with-fft=<fft-type> specification, please check with --help])])
-
 # check whether mkl_dfti.f90 is accesible
 # FIXME: This may fail to detect with gfortran 4.4.0-4.4.3
 AS_IF([test "x$with_fft" = xmkl], [dnl
@@ -264,14 +201,6 @@ program main
 end program], [echo yes], [echo no
   AC_MSG_FAILURE([could not find mkl_dfti.f90 in include path])])
   AC_FC_SRCEXT(f90)])
-
-AC_ARG_ENABLE([mpi],
-	AS_HELP_STRING([--disable-mpi],
-		[disable MPI even if exists]),
-	AS_IF([test x$enable_mpi = xno],
-		     [use_mpi=no]),
-	[])
-
 
 # Checks for libraries.
 
@@ -298,8 +227,6 @@ AC_ARG_ENABLE([perf],
 		     [FCFLAGS="$FCFLAGS -fno-omit-frame-pointer -DPERF"
                       CFLAGS="$CFLAGS -fno-omit-frame-pointer"
                       LDFLAGS="$LDFLAGS -lprofiler"]))
-
-AM_CONDITIONAL(USE_MPI, [test "x$use_mpi" = "xyes"])
 
 AS_IF([test "x$use_mpi" = "xyes"],
 	    [mpi_result="enabled"
@@ -362,9 +289,9 @@ AS_IF([test "$enable_openmp" != "no"],
       AC_MSG_ERROR([OpenMP must be >= 3.0])])])
 
 # AM_CONDITIONAL([MPI], [test x$use_mpi = xyes])
-AM_CONDITIONAL([USE_FFTW], [test x$with_fft = xfftw])
+#AM_CONDITIONAL([USE_FFTW], [test x$with_fft = xfftw])
 AM_CONDITIONAL([USE_MKL], [test x$with_fft = xmkl])
-AM_CONDITIONAL([USE_VMDPLUGIN], [test x$enable_vmdplugin = xyes || test x$enable_vmdplugin = x])
+#AM_CONDITIONAL([USE_VMDPLUGIN], [test x$enable_vmdplugin = xyes || test x$enable_vmdplugin = x])
 
 AS_IF([test "x$lapack_exist" != xyes],
 	    [AC_MSG_ERROR(
@@ -378,12 +305,6 @@ AC_CONFIG_FILES([Makefile])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
 
-AS_IF([test "$enable_openmp" != "no" && test "$with_fft" = "fftw" && test "$have_fftw3_mp" != "yes"],
-  [AC_MSG_WARN([dnl
-OpenMP is enabled, but your FFTW does not support multithreading.
-This results in lower FFTW performance.
-It is recommended to recompile FFTW library with --enable-omp or --enable-threads; see the FFTW manual for details.])])
-  
 case "x/$mklroot" in
   */2020.?.?/*|*/2021.?.?/*|*/2022.[01].?/*)
     AS_IF([test "x$enable_openmp" = "xyes" -a "x$with_fft" = "xmkl"],
@@ -393,11 +314,8 @@ esac
 
 AC_MSG_RESULT([dnl
 LAPACK: $lapack_result
-FFT: $with_fft
-MPI: $mpi_result
 OpenMP: $enable_openmp
-FC(for erdst)=$FC
-FC_CANONICAL(for slvfe)=$FC_CANONICAL
+FC=$FC_CANONICAL
 FCFLAGS=$FCFLAGS
 LDFLAGS=$LDFLAGS
 LIBS=$LIBS
