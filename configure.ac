@@ -52,6 +52,17 @@ AC_DEFUN([MY_CHECK_BLAS], [
   AC_MSG_RESULT([$blas_ok])
 ])
 
+AC_ARG_WITH([openblas],
+  AS_HELP_STRING([--with-openblas[=DIR]],
+                 [Use OpenBLAS at DIR (default is to try system-wide)]),
+  [if test "x$with_openblas" = "xno"; then
+     with_openblas=yes
+  fi])
+
+# Check for OpenBLAS libraries (prioritize OpenBLAS)
+AS_IF([test "x$with_openblas" != "xno"],
+  [LIBS="$LIBS -lopenblas"])
+
 AC_ARG_WITH([mkl],
   AS_HELP_STRING([--with-mkl[[=(MKL version)]]],
     [Automatically set environmental variables for MKL; for a specific version, use this option like --with-mkl=10.2.3]))
