@@ -1378,7 +1378,7 @@ contains
             errtmp = maxval( abs(correc(:) - 1.0), mask = (edhst(:) > zero) )
             itrcnt = itrcnt + 1
             if(itrcnt >= itrmax) then
-               write(6, *) ' The optimzation of the correlation matrix'
+               write(6, *) ' The optimization of the correlation matrix'
                write(6, *) '  did not converge with an error of ', errtmp
                stop
             endif
