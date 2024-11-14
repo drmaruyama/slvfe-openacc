@@ -447,7 +447,7 @@ end module sysread
 
 
 module sfecalc
-   use sysvars, only: zerosft, wgtfnform, slncor, &
+   use sysvars, only: invmtrx, zerosft, wgtfnform, slncor, &
       numslv, ermax, nummol, kT, itrmax, zero, error, tiny, &
       rduvmax, rduvcore, &
       rdcrd, rddst, rddns, rdslc, rdcor, rdspec
@@ -597,6 +597,81 @@ contains
       deallocate(iwork)
       deallocate(work)
    end subroutine gesvd_wrap
+
+   subroutine gesdd_wrap(n, mat, sv, info)
+      implicit none
+      integer, intent(in) :: n
+      real(kind=8), intent(inout) :: mat(n, n)
+      real(kind=8), intent(out) :: sv(n)
+      integer, intent(out) :: info
+      real(kind=8), allocatable :: u(:, :), vt(:, :), svi(:,:)
+      real(kind=8), allocatable :: work(:)
+      real(kind=8) :: worksize
+      integer :: lwork, liwork
+      integer, allocatable :: iwork(:)
+      integer, allocatable :: isuppz(:)
+      real(kind=8) :: dummyr, abstol
+      integer :: dummyi
+      integer :: i, j, k
+      real(8) :: tolerance
+
+      allocate(isuppz(2 * n))
+      allocate(u(n, n))
+      allocate(vt(n, n))
+      allocate(svi(n, n))
+
+      abstol = 0.0
+      lwork = -1
+      liwork = 8 * n
+      allocate(iwork(liwork))
+      select case(kind(mat))
+      case(8)
+         call DGESDD('A', n, n, mat, n, sv, u, n, vt, n, &
+              worksize, lwork, iwork, info)
+      case(4)
+         call SGESDD('A', n, n, mat, n, sv, u, n, vt, n, &
+              worksize, lwork, iwork, info)
+      case default
+         stop "The libraries are used only at real or double precision"
+      end select
+      if (info /= 0) then
+         deallocate(isuppz)
+         deallocate(u)
+         deallocate(vt)
+         deallocate(iwork)
+         return
+      endif
+
+      lwork = worksize
+      allocate(work(lwork))
+      select case(kind(mat))
+      case(8)
+         call DGESDD('A', n, n, mat, n, sv, u, n, vt, n, &
+              work(1), lwork, iwork, info)
+      case(4)
+         call SGESDD('A', n, n, mat, n, sv, u, n, vt, n, &
+              work(1), lwork, iwork, info)
+      end select
+
+      tolerance = 1.0d-10
+      svi = 0.0d0
+      do i = 1, n
+         if (sv(i) > tolerance) then
+            svi(i, i) = 1.0d0 / sv(i)
+         else
+            svi(i, i) = 0.0d0
+         end if
+      end do
+
+      mat = matmul(transpose(vt), matmul(svi, transpose(u)))
+
+      deallocate(isuppz)
+      deallocate(u)
+      deallocate(vt)
+      deallocate(svi)
+      deallocate(iwork)
+      deallocate(work)
+   end subroutine gesdd_wrap
 
    subroutine chmpot(prmcnt, cntrun)
       use sysvars, only: uvread, slfslt, ljlrc, normalize, showdst, wrtzrsft, &
@@ -1031,8 +1106,12 @@ contains
 !               if (lcref < zero) lcref = zero
                if((factor <= zero) .or. (ampl <= zero)) then
                   if(iduv == iduvp) then
-!                     lcref = 1.0
-                     lcref = 0.0
+                     select case(invmtrx)
+                      case('orig')
+                        lcref = 1.0
+                      case('svd', 'sdd')
+                        lcref = 0.0
+                     end select
                   else
                      lcref = 0.0
                   endif
@@ -1041,14 +1120,46 @@ contains
             end do
          end do
 
-!         call syevr_wrap(gemax, edmcr, egnvl, k)
-         call gesvd_wrap(gemax, edmcr, egnvl, k)
+         select case(invmtrx)
+          case('orig')
+            call syevr_wrap(gemax, edmcr, egnvl, k)
 
-         do iduv = 1, gemax
-            work(iduv) = -kT * (edist(iduv) - edens(iduv))
-         end do
-         if(cnt == 1) sdrcv = matmul(edmcr, work)
-         if(cnt == 2) inscv = matmul(edmcr, work)
+            pti = numslv + 1
+            do iduv = pti, gemax
+               factor = 0.0
+               do iduvp = 1, gemax
+                  if(cnt == 1) ampl = edist(iduvp)
+                  if(cnt == 2) ampl = edens(iduvp)
+                  if(ampl > zero) factor = factor &
+                       + (edist(iduvp) - edens(iduvp)) * edmcr(iduvp, iduv)
+               end do
+               work(iduv) = factor / egnvl(iduv)
+            end do
+            do iduv = 1, gemax
+               factor = 0.0
+               do iduvp = pti, gemax
+                  factor = factor + edmcr(iduv, iduvp) * work(iduvp)
+               end do
+               if(cnt == 1) sdrcv(iduv) = - kT * factor
+               if(cnt == 2) inscv(iduv) = - kT * factor
+            end do
+          case('svd')
+            call gesvd_wrap(gemax, edmcr, egnvl, k)
+
+            do iduv = 1, gemax
+               work(iduv) = -kT * (edist(iduv) - edens(iduv))
+            end do
+            if(cnt == 1) sdrcv = matmul(edmcr, work)
+            if(cnt == 2) inscv = matmul(edmcr, work)
+          case('sdd')
+            call gesdd_wrap(gemax, edmcr, egnvl, k)
+
+            do iduv = 1, gemax
+               work(iduv) = -kT * (edist(iduv) - edens(iduv))
+            end do
+            if(cnt == 1) sdrcv = matmul(edmcr, work)
+            if(cnt == 2) inscv = matmul(edmcr, work)
+         end select
          deallocate( work, egnvl, edmcr )
          !
          allocate( zerouv(numslv) )
@@ -1083,7 +1194,6 @@ contains
             select case(zerosft)
              case('orig')
                factor = - zerouv(pti)
-!               factor = 0.0
              case('mxco')
                lcref = - zerouv(pti)
                lcsln = cvfcen(pti, cnt, 'inscv', wgtfnform, 'not')

@@ -24,6 +24,7 @@ module sysvars
    character(len=3) :: uvread = 'yes',    slfslt = 'yes',   ljlrc = 'not'
    character(len=3) :: infchk = 'not',    meshread = 'not', cumuint = 'not'
    character(len=3) :: write_mesherror = 'cnd'
+   character(len=4) :: invmtrx = 'orig'
    character(len=4) :: zerosft = 'orig',  wgtfnform = 'harm'
    character(len=3) :: refmerge = 'yes',  extsln = 'lin'
    character(len=3) :: wgtf2smpl = 'yes', slncor = 'not'
@@ -38,13 +39,13 @@ module sysvars
    integer :: maxsln, maxref, numrun, prmmax
    integer :: numslv, ermax
 
-   real(kind=8) :: inptemp = 300.0        ! temperature in Kelvin, initialized
+   real(kind=8) :: inptemp = 300.0      ! temperature in Kelvin, initialized
    real(kind=8) :: temp, kT, slfeng
-   real(kind=8) :: avevolume = 0.0        ! average volume of system, initialized
+   real(kind=8) :: avevolume = 0.0      ! average volume of system, initialized
 
    integer :: pickgr = 3
    integer :: msemin = 1, msemax = 5
-   real(kind=8) :: mesherr = 0.1          ! allowed mesh error in kcal/mol
+   real(kind=8) :: mesherr = 0.1        ! allowed mesh error in kcal/mol
 
    integer :: extthres_soln = 1, extthres_refs = 1
    integer :: minthres_soln = 0, minthres_refs = 0
@@ -81,7 +82,7 @@ module sysvars
    logical :: force_calculation = .false., strict_ewald_parameters = .false.
 
    namelist /fevars/ clcond, numprm, numsln, numref, numdiv, &
-      uvread, slfslt, infchk, meshread, zerosft, wgtfnform, &
+      uvread, slfslt, infchk, meshread, invmtrx, zerosft, wgtfnform, &
       refmerge, extsln, extthres_soln, extthres_refs, &
       minthres_soln, minthres_refs, &
       wgtf2smpl, slncor, normalize, showdst, wrtzrsft, readwgtfl, &
