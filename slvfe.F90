@@ -462,6 +462,8 @@ module sfecalc
 contains
    ! TODO: write the cases for (kind(real) /= 8).
    subroutine syevr_wrap(n, mat, eigval, info)
+      use cuBlas_v2
+      use cuSolverDn
       implicit none
       integer, intent(in) :: n
       real(kind=8), intent(inout) :: mat(n, n)
@@ -483,18 +485,15 @@ contains
       lwork = -1
       liwork = 10 * n
       allocate(iwork(liwork))
-      select case(kind(mat))
-       case(8)
-         call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-            dummyi, dummyi, abstol, dummyi, eigval, &
-            z, n, isuppz, worksize, lwork, iwork, liwork, info)
-       case(4)
-         call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-            dummyi, dummyi, abstol, dummyi, eigval, &
-            z, n, isuppz, worksize, lwork, iwork, liwork, info)
-       case default
-         stop "The libraries are used only at real or double precision"
-      end select
+#ifdef DP
+      call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
+           dummyi, dummyi, abstol, dummyi, eigval, &
+           z, n, isuppz, worksize, lwork, iwork, liwork, info)
+#else
+      call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
+           dummyi, dummyi, abstol, dummyi, eigval, &
+           z, n, isuppz, worksize, lwork, iwork, liwork, info)
+#endif
       if (info /= 0) then
          deallocate(isuppz)
          deallocate(z)
@@ -504,16 +503,15 @@ contains
 
       lwork = worksize
       allocate(work(lwork))
-      select case(kind(mat))
-       case(8)
-         call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-            dummyi, dummyi, abstol, dummyi, eigval, &
-            z, n, isuppz, work(1), lwork, iwork, liwork, info)
-       case(4)
-         call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-            dummyi, dummyi, abstol, dummyi, eigval, &
-            z, n, isuppz, work(1), lwork, iwork, liwork, info)
-      end select
+#ifdef DP
+      call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
+           dummyi, dummyi, abstol, dummyi, eigval, &
+           z, n, isuppz, work(1), lwork, iwork, liwork, info)
+#else
+      call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
+           dummyi, dummyi, abstol, dummyi, eigval, &
+           z, n, isuppz, work(1), lwork, iwork, liwork, info)
+#endif
 
       mat(:, :) = z(:, :)
 
@@ -524,59 +522,58 @@ contains
    end subroutine syevr_wrap
 
    subroutine gesvd_wrap(n, mat, sv, info)
+      use cuBlas_v2
+      use cuSolverDn
       implicit none
       integer, intent(in) :: n
       real(kind=8), intent(inout) :: mat(n, n)
       real(kind=8), intent(out) :: sv(n)
       integer, intent(out) :: info
+      type(cuSolverDnHandle) :: h, g
+      integer :: istat
+      integer, allocatable :: devIpiv(:)
       real(kind=8), allocatable :: u(:, :), vt(:, :), svi(:,:)
-      real(kind=8), allocatable :: work(:)
-      real(kind=8) :: worksize
-      integer :: lwork, liwork
-      integer, allocatable :: iwork(:)
-      integer, allocatable :: isuppz(:)
+      real(kind=8), allocatable :: work(:), rwork(:)
+      integer :: lwork
       real(kind=8) :: dummyr, abstol
       integer :: dummyi
       integer :: i, j, k
       real(8) :: tolerance
 
-      allocate(isuppz(2 * n))
+      istat = cuSolverDnCreate(h)
+
       allocate(u(n, n))
       allocate(vt(n, n))
       allocate(svi(n, n))
+      allocate(rwork(n - 1))
+      !$acc enter data create(rwork)
 
-      abstol = 0.0
-      lwork = -1
-      liwork = 10 * n
-      allocate(iwork(liwork))
-      select case(kind(mat))
-      case(8)
-         call DGESVD('A', 'A', n, n, mat, n, sv, u, n, vt, n, &
-              worksize, lwork, info)
-      case(4)
-         call SGESVD('A', 'A', n, n, mat, n, sv, u, n, vt, n, &
-              worksize, lwork, info)
-      case default
-         stop "The libraries are used only at real or double precision"
-      end select
-      if (info /= 0) then
-         deallocate(isuppz)
+#ifdef DP
+         istat = cuSolverDnDgesvd_bufferSize(h, n, n, lwork)
+#else
+         istat = cuSolverDnSgesvd_bufferSize(h, n, n, lwork)
+#endif
+      if (istat /= 0) then
          deallocate(u)
          deallocate(vt)
-         deallocate(iwork)
+         deallocate(svi)
+         deallocate(rwork)
          return
       endif
 
-      lwork = worksize
       allocate(work(lwork))
-      select case(kind(mat))
-      case(8)
-         call DGESVD('A', 'A', n, n, mat, n, sv, u, n, vt, n, &
-              work(1), lwork, info)
-      case(4)
-         call SGESVD('A', 'A', n, n, mat, n, sv, u, n, vt, n, &
-              work(1), lwork, info)
-      end select
+      !$acc enter data create(work)
+      !$acc data copy(mat) copyout(sv, u, vt, info)
+      !$acc host_data use_device(mat, sv, u, vt, work, rwork, info)
+#ifdef DP
+      istat = cusolverDnDgesvd(h, 'A', 'A', n, n, mat, n, sv, u, n, vt, n, &
+           work, lwork, rwork, info)
+#else
+      istat = cusolverDnSgesvd(h, 'A', 'A', n, n, mat, n, sv, u, n, vt, n, &
+           work, lwork, rwork, info)
+#endif
+      !$acc end host_data
+      !$acc end data
 
       tolerance = 1.0d-10
       svi = 0.0d0
@@ -590,88 +587,16 @@ contains
 
       mat = matmul(transpose(vt), matmul(svi, transpose(u)))
 
-      deallocate(isuppz)
+      istat = cuSolverDnDestroy(h)
+
+      !$acc exit data delete(work)
+      !$acc exit data delete(rwork)
       deallocate(u)
       deallocate(vt)
       deallocate(svi)
-      deallocate(iwork)
       deallocate(work)
+      deallocate(rwork)
    end subroutine gesvd_wrap
-
-   subroutine gesdd_wrap(n, mat, sv, info)
-      implicit none
-      integer, intent(in) :: n
-      real(kind=8), intent(inout) :: mat(n, n)
-      real(kind=8), intent(out) :: sv(n)
-      integer, intent(out) :: info
-      real(kind=8), allocatable :: u(:, :), vt(:, :), svi(:,:)
-      real(kind=8), allocatable :: work(:)
-      real(kind=8) :: worksize
-      integer :: lwork, liwork
-      integer, allocatable :: iwork(:)
-      integer, allocatable :: isuppz(:)
-      real(kind=8) :: dummyr, abstol
-      integer :: dummyi
-      integer :: i, j, k
-      real(8) :: tolerance
-
-      allocate(isuppz(2 * n))
-      allocate(u(n, n))
-      allocate(vt(n, n))
-      allocate(svi(n, n))
-
-      abstol = 0.0
-      lwork = -1
-      liwork = 8 * n
-      allocate(iwork(liwork))
-      select case(kind(mat))
-      case(8)
-         call DGESDD('A', n, n, mat, n, sv, u, n, vt, n, &
-              worksize, lwork, iwork, info)
-      case(4)
-         call SGESDD('A', n, n, mat, n, sv, u, n, vt, n, &
-              worksize, lwork, iwork, info)
-      case default
-         stop "The libraries are used only at real or double precision"
-      end select
-      if (info /= 0) then
-         deallocate(isuppz)
-         deallocate(u)
-         deallocate(vt)
-         deallocate(iwork)
-         return
-      endif
-
-      lwork = worksize
-      allocate(work(lwork))
-      select case(kind(mat))
-      case(8)
-         call DGESDD('A', n, n, mat, n, sv, u, n, vt, n, &
-              work(1), lwork, iwork, info)
-      case(4)
-         call SGESDD('A', n, n, mat, n, sv, u, n, vt, n, &
-              work(1), lwork, iwork, info)
-      end select
-
-      tolerance = 1.0d-10
-      svi = 0.0d0
-      do i = 1, n
-         if (sv(i) > tolerance) then
-            svi(i, i) = 1.0d0 / sv(i)
-         else
-            svi(i, i) = 0.0d0
-         end if
-      end do
-
-      mat = matmul(transpose(vt), matmul(svi, transpose(u)))
-
-      deallocate(isuppz)
-      deallocate(u)
-      deallocate(vt)
-      deallocate(svi)
-      deallocate(iwork)
-      deallocate(work)
-   end subroutine gesdd_wrap
 
    subroutine chmpot(prmcnt, cntrun)
       use sysvars, only: uvread, slfslt, ljlrc, normalize, showdst, wrtzrsft, &
@@ -1109,7 +1034,7 @@ contains
                      select case(invmtrx)
                       case('orig')
                         lcref = 1.0
-                      case('svd', 'sdd')
+                      case('svd')
                         lcref = 0.0
                      end select
                   else
@@ -1145,14 +1070,6 @@ contains
             end do
           case('svd')
             call gesvd_wrap(gemax, edmcr, egnvl, k)
-
-            do iduv = 1, gemax
-               work(iduv) = -kT * (edist(iduv) - edens(iduv))
-            end do
-            if(cnt == 1) sdrcv = matmul(edmcr, work)
-            if(cnt == 2) inscv = matmul(edmcr, work)
-          case('sdd')
-            call gesdd_wrap(gemax, edmcr, egnvl, k)
 
             do iduv = 1, gemax
                work(iduv) = -kT * (edist(iduv) - edens(iduv))

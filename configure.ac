@@ -147,6 +147,7 @@ AC_LANG_POP(Fortran)
 ])])
 
 MY_FC_REAL_DOUBLE
+FCFLAGS="$FCFLAGS -DDP"
 
 ################################
 
@@ -228,6 +229,7 @@ AS_IF([test "x$use_mpi" = "xyes"],
 AC_SUBST([FC_CANONICAL])
 
 # optimization flags
+FCFLAGS="$FCFLAGS -fast -Minfo=accel -acc -cudalib=cublas,cusolver"
 AC_DEFUN([MY_FC_OPT_ACCEPT_NATIVE],[
 AC_CACHE_CHECK([fortran compiler accepts -march=native],
 my_fc_opt_accept_native_cv_flag,
@@ -253,14 +255,7 @@ AS_IF([test x$enable_opt = xyes || test x$enable_opt = x],
          MY_FC_OPT_ACCEPT_NATIVE
          AS_IF([test x$my_fc_opt_accept_native = xyes],
                 optflag="$optflag -march=native")],
-        [case x$FC in #(
-           xmpiifort|xifort|xmpiifx|xifx)
-             optflag="-O3 -no-prec-div -xHost"
-             ;; #(
-           *)
-             optflag="-O"
-             ;;
-         esac])
+   )
    FCFLAGS="$FCFLAGS $optflag"])
 
 # Check OpenMP
