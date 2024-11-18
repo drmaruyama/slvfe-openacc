@@ -469,55 +469,47 @@ contains
       real(kind=8), intent(inout) :: mat(n, n)
       real(kind=8), intent(out) :: eigval(n)
       integer, intent(out) :: info
-      real(kind=8), allocatable :: z(:, :)
+      type(cuSolverDnHandle) :: h
+      integer :: istat
       real(kind=8), allocatable :: work(:)
-      real(kind=8) :: worksize
-      integer :: lwork, liwork
-      integer, allocatable :: iwork(:)
-      integer, allocatable :: isuppz(:)
-      real(kind=8) :: dummyr, abstol
-      integer :: dummyi
-
-      allocate(isuppz(2 * n))
-      allocate(z(n, n))
-
-      abstol = 0.0
+      integer :: lwork
+      
+      istat = cuSolverDnCreate(h)
+      
       lwork = -1
-      liwork = 10 * n
-      allocate(iwork(liwork))
+      !$acc data copyin(mat, eigval)
+      !$acc host_data use_device(mat, eigval)
 #ifdef DP
-      call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-           dummyi, dummyi, abstol, dummyi, eigval, &
-           z, n, isuppz, worksize, lwork, iwork, liwork, info)
+      istat = cusolverDnDsyevd_bufferSize(h, CUSOLVER_EIG_MODE_VECTOR, &
+           CUBLAS_FILL_MODE_UPPER, n, mat, n, eigval, lwork)
 #else
-      call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-           dummyi, dummyi, abstol, dummyi, eigval, &
-           z, n, isuppz, worksize, lwork, iwork, liwork, info)
+      istat = cusolverDnSsyevd_bufferSize(h, CUSOLVER_EIG_MODE_VECTOR, &
+           CUBLAS_FILL_MODE_UPPER, n, mat, n, eigval, lwork)
 #endif
-      if (info /= 0) then
-         deallocate(isuppz)
-         deallocate(z)
-         deallocate(iwork)
+      !$acc end host_data
+      !$acc end data
+
+      if (istat /= 0) then
          return
       endif
 
-      lwork = worksize
       allocate(work(lwork))
+      !$acc enter data create(work)
+      !$acc data copy(mat) copyout(eigval, info)
+      !$acc host_data use_device(mat, eigval, work, info)
 #ifdef DP
-      call DSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-           dummyi, dummyi, abstol, dummyi, eigval, &
-           z, n, isuppz, work(1), lwork, iwork, liwork, info)
+      istat = cusolverDnDsyevd(h, CUSOLVER_EIG_MODE_VECTOR, &
+           CUBLAS_FILL_MODE_UPPER, n, mat, n, &
+           eigval, work, lwork, info)
 #else
-      call SSYEVR('V', 'A', 'U', n, mat, n, dummyr, dummyr, &
-           dummyi, dummyi, abstol, dummyi, eigval, &
-           z, n, isuppz, work(1), lwork, iwork, liwork, info)
+      istat = cusolverDnSsyevd(h, CUSOLVER_EIG_MODE_VECTOR, &
+           CUBLAS_FILL_MODE_UPPER, n, mat, n, &
+           eigval, work, lwork, info)
 #endif
+      !$acc end host_data
+      !$acc end data
 
-      mat(:, :) = z(:, :)
-
-      deallocate(isuppz)
-      deallocate(z)
-      deallocate(iwork)
+      !$acc exit data delete(work)
       deallocate(work)
    end subroutine syevr_wrap
 
@@ -529,15 +521,12 @@ contains
       real(kind=8), intent(inout) :: mat(n, n)
       real(kind=8), intent(out) :: sv(n)
       integer, intent(out) :: info
-      type(cuSolverDnHandle) :: h, g
+      type(cuSolverDnHandle) :: h
       integer :: istat
-      integer, allocatable :: devIpiv(:)
       real(kind=8), allocatable :: u(:, :), vt(:, :), svi(:,:)
       real(kind=8), allocatable :: work(:), rwork(:)
       integer :: lwork
-      real(kind=8) :: dummyr, abstol
-      integer :: dummyi
-      integer :: i, j, k
+      integer :: i
       real(8) :: tolerance
 
       istat = cuSolverDnCreate(h)
