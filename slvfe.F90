@@ -301,7 +301,7 @@ contains
       real :: factor, ampl, leftbin
       real, allocatable :: bin_consistency_check(:)
       logical :: num_different, suffix_is_tt
-      real(kind=4), allocatable :: cormat_temp(:, :)
+      real(kind=8), allocatable :: cormat_temp(:, :)
       character(len=1024) :: opnfile
       character(len=3) :: suffnum
 

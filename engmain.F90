@@ -338,7 +338,7 @@ module engmain
    integer, dimension(:), allocatable :: uvmax, uvsoft, uvspec
    real(kind=8), dimension(:),    allocatable :: uvcrd
    real, dimension(:),    allocatable :: edens   
-   real(kind=4), dimension(:,:),  allocatable :: ecorr
+   real(kind=8), dimension(:,:),  allocatable :: ecorr
    real(kind=8), dimension(:),    allocatable :: escrd
    real, dimension(:),    allocatable :: eself   
    real, dimension(:,:),  allocatable :: aveuv
